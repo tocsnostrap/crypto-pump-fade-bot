@@ -62,5 +62,33 @@
   "time_decay_minutes": 120,
 
   "enable_trade_logging": true,
-  "min_fade_signals": 2
+  "min_fade_signals": 2,
+
+  "___LIVE_TRADING_SAFETY___": "=== Settings below are for live trading safety ===",
+  "emergency_stop": false,
+  "min_balance_usd": 100.0,
+  "max_drawdown_pct": 0.20,
+  "weekly_loss_limit_pct": 0.10,
+  
+  "symbol_cooldown_sec": 3600,
+  "loss_cooldown_sec": 300,
+  "consecutive_loss_cooldown_sec": 7200,
+  
+  "order_verify_retries": 3,
+  "order_verify_delay_sec": 2,
+  
+  "api_retry_attempts": 3,
+  "api_retry_delay_sec": 5,
+  
+  "___CONFIDENCE_TIERS___": "=== Dynamic position sizing based on signal quality ===",
+  "enable_confidence_tiers": true,
+  "high_confidence_rsi": 80,
+  "high_confidence_bb_pct": 5,
+  "high_confidence_risk_mult": 1.5,
+  "low_confidence_risk_mult": 0.5,
+  
+  "___TIME_DECAY_TRAILING___": "=== Tighten trailing stop over time ===",
+  "enable_time_decay_trailing": true,
+  "trailing_stop_24h_pct": 0.03,
+  "trailing_stop_36h_pct": 0.02
 }

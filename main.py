@@ -77,7 +77,38 @@ DEFAULT_CONFIG = {
     
     # === LEARNING & LOGGING ===
     'enable_trade_logging': True,       # Log detailed feature vectors
-    'min_fade_signals': 2               # Reduced: enter earlier with strict RSI/BB filters
+    'min_fade_signals': 2,              # Reduced: enter earlier with strict RSI/BB filters
+    
+    # === LIVE TRADING SAFETY FEATURES ===
+    'emergency_stop': False,            # Kill switch - stops all new trades immediately
+    'min_balance_usd': 100.0,           # Stop trading if balance drops below this
+    'max_drawdown_pct': 0.20,           # Stop trading if drawdown exceeds 20%
+    'weekly_loss_limit_pct': 0.10,      # Stop for week if weekly loss exceeds 10%
+    
+    # Symbol and trade cooldowns
+    'symbol_cooldown_sec': 3600,        # Don't re-enter same symbol for 1 hour
+    'loss_cooldown_sec': 300,           # Wait 5 minutes after a loss before new entry
+    'consecutive_loss_cooldown_sec': 7200,  # Wait 2 hours after 2 consecutive losses
+    
+    # Order verification (live trading)
+    'order_verify_retries': 3,          # Retries for order verification
+    'order_verify_delay_sec': 2,        # Delay between verification attempts
+    
+    # Network resilience
+    'api_retry_attempts': 3,            # Number of API retry attempts
+    'api_retry_delay_sec': 5,           # Delay between retries
+    
+    # Confidence tiers for dynamic position sizing
+    'enable_confidence_tiers': True,    # Use confidence-based position sizing
+    'high_confidence_rsi': 80,          # RSI threshold for high confidence
+    'high_confidence_bb_pct': 5,        # BB extension for high confidence
+    'high_confidence_risk_mult': 1.5,   # Risk multiplier for high confidence (1.5x)
+    'low_confidence_risk_mult': 0.5,    # Risk multiplier for lower confidence (0.5x)
+    
+    # Time-decay trailing stop
+    'enable_time_decay_trailing': True, # Tighten trailing stop over time
+    'trailing_stop_24h_pct': 0.03,      # Trailing stop after 24h (3%)
+    'trailing_stop_36h_pct': 0.02,      # Trailing stop after 36h (2%)
 }
 
 # State files
@@ -88,9 +119,300 @@ CONFIG_FILE = 'bot_config.json'
 SIGNALS_FILE = 'signals.json'
 CLOSED_TRADES_FILE = 'closed_trades.json'
 TRADE_FEATURES_FILE = 'trade_features.json'  # For learning feature vectors
+SAFETY_STATE_FILE = 'safety_state.json'  # Safety tracking state
 
 # Cross-exchange pump cache for confirmation
 cross_exchange_pumps = {}  # {symbol: {'gate': pct, 'bitget': pct, 'ts': timestamp}}
+
+# Safety state tracking (in-memory, persisted to safety_state.json)
+safety_state = {
+    'symbol_cooldowns': {},       # {symbol: last_entry_timestamp}
+    'last_loss_ts': 0,            # Timestamp of last loss
+    'consecutive_losses': 0,      # Count of consecutive losses
+    'weekly_loss': 0.0,           # Weekly loss accumulator
+    'week_start_ts': 0,           # Week start timestamp
+    'peak_balance': 0.0,          # Peak balance for drawdown calculation
+    'current_drawdown_pct': 0.0,  # Current drawdown percentage
+}
+
+def load_safety_state():
+    """Load safety state from file"""
+    global safety_state
+    if os.path.exists(SAFETY_STATE_FILE):
+        try:
+            with open(SAFETY_STATE_FILE, 'r') as f:
+                saved_state = json.load(f)
+                safety_state.update(saved_state)
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"[{datetime.now()}] Error loading safety state: {e}")
+
+def save_safety_state():
+    """Save safety state to file"""
+    try:
+        atomic_write_json(SAFETY_STATE_FILE, safety_state)
+    except Exception as e:
+        print(f"[{datetime.now()}] Error saving safety state: {e}")
+
+def check_emergency_stop(config):
+    """Check if emergency stop is activated"""
+    if config.get('emergency_stop', False):
+        print(f"[{datetime.now()}] ⛔ EMERGENCY STOP is activated. No new trades allowed.")
+        return True
+    return False
+
+def check_min_balance(current_balance, config):
+    """Check if balance is above minimum threshold"""
+    min_balance = config.get('min_balance_usd', 100.0)
+    if current_balance < min_balance:
+        print(f"[{datetime.now()}] ⚠️ Balance ${current_balance:.2f} below minimum ${min_balance:.2f}. Trading paused.")
+        save_signal('system', 'SYSTEM', 'safety_stop', current_balance,
+                   f"Balance below minimum (${current_balance:.2f} < ${min_balance:.2f})")
+        return False
+    return True
+
+def check_max_drawdown(current_balance, config):
+    """Check if drawdown exceeds maximum allowed"""
+    global safety_state
+    
+    # Update peak balance
+    if current_balance > safety_state.get('peak_balance', current_balance):
+        safety_state['peak_balance'] = current_balance
+    
+    peak = safety_state.get('peak_balance', current_balance)
+    if peak > 0:
+        drawdown_pct = (peak - current_balance) / peak
+        safety_state['current_drawdown_pct'] = drawdown_pct
+        
+        max_drawdown = config.get('max_drawdown_pct', 0.20)
+        if drawdown_pct >= max_drawdown:
+            print(f"[{datetime.now()}] ⚠️ Max drawdown reached: {drawdown_pct*100:.1f}% >= {max_drawdown*100:.1f}%")
+            save_signal('system', 'SYSTEM', 'safety_stop', current_balance,
+                       f"Max drawdown reached ({drawdown_pct*100:.1f}%)")
+            return False
+    return True
+
+def check_weekly_loss(config):
+    """Check if weekly loss limit is exceeded"""
+    global safety_state
+    
+    # Reset weekly loss counter if new week
+    now = time.time()
+    week_start = safety_state.get('week_start_ts', 0)
+    if now - week_start > 604800:  # 7 days
+        safety_state['weekly_loss'] = 0
+        safety_state['week_start_ts'] = now
+    
+    weekly_loss_pct = safety_state.get('weekly_loss', 0) / config.get('starting_capital', 5000)
+    max_weekly = config.get('weekly_loss_limit_pct', 0.10)
+    
+    if weekly_loss_pct >= max_weekly:
+        print(f"[{datetime.now()}] ⚠️ Weekly loss limit reached: {weekly_loss_pct*100:.1f}%")
+        return False
+    return True
+
+def check_symbol_cooldown(symbol, config):
+    """Check if symbol is in cooldown period"""
+    global safety_state
+    
+    cooldown_sec = config.get('symbol_cooldown_sec', 3600)
+    last_entry = safety_state.get('symbol_cooldowns', {}).get(symbol, 0)
+    
+    if time.time() - last_entry < cooldown_sec:
+        remaining = cooldown_sec - (time.time() - last_entry)
+        print(f"[{datetime.now()}] Symbol {symbol} in cooldown for {remaining:.0f}s more")
+        return False
+    return True
+
+def check_loss_cooldown(config):
+    """Check if we're in cooldown after losses"""
+    global safety_state
+    
+    consecutive_losses = safety_state.get('consecutive_losses', 0)
+    last_loss_ts = safety_state.get('last_loss_ts', 0)
+    
+    # Check consecutive loss cooldown (2+ losses)
+    if consecutive_losses >= 2:
+        cooldown = config.get('consecutive_loss_cooldown_sec', 7200)
+        if time.time() - last_loss_ts < cooldown:
+            remaining = cooldown - (time.time() - last_loss_ts)
+            print(f"[{datetime.now()}] ⚠️ Consecutive loss cooldown: {remaining/60:.0f}min remaining")
+            return False
+    # Check single loss cooldown
+    elif consecutive_losses >= 1:
+        cooldown = config.get('loss_cooldown_sec', 300)
+        if time.time() - last_loss_ts < cooldown:
+            remaining = cooldown - (time.time() - last_loss_ts)
+            print(f"[{datetime.now()}] Loss cooldown: {remaining:.0f}s remaining")
+            return False
+    
+    return True
+
+def record_symbol_entry(symbol):
+    """Record that we entered a position on this symbol"""
+    global safety_state
+    if 'symbol_cooldowns' not in safety_state:
+        safety_state['symbol_cooldowns'] = {}
+    safety_state['symbol_cooldowns'][symbol] = time.time()
+    save_safety_state()
+
+def record_trade_result(profit):
+    """Record trade result for safety tracking"""
+    global safety_state
+    
+    if profit < 0:
+        safety_state['consecutive_losses'] = safety_state.get('consecutive_losses', 0) + 1
+        safety_state['last_loss_ts'] = time.time()
+        safety_state['weekly_loss'] = safety_state.get('weekly_loss', 0) + abs(profit)
+    else:
+        safety_state['consecutive_losses'] = 0  # Reset on win
+    
+    save_safety_state()
+
+def calculate_confidence_tier(rsi, bb_extension_pct, lower_high_count, config):
+    """
+    Calculate confidence tier for dynamic position sizing.
+    
+    Returns: (tier, risk_multiplier)
+    - Tier 1 (High): RSI >= 80 AND BB extension >= 5% -> 1.5x risk
+    - Tier 2 (Standard): RSI >= 70 AND above BB -> 1.0x risk
+    - Tier 3 (Conservative): Other cases -> 0.5x risk
+    """
+    if not config.get('enable_confidence_tiers', True):
+        return 2, 1.0  # Default to standard tier
+    
+    high_rsi = config.get('high_confidence_rsi', 80)
+    high_bb = config.get('high_confidence_bb_pct', 5)
+    
+    # Tier 1: High confidence
+    if rsi >= high_rsi and bb_extension_pct >= high_bb:
+        return 1, config.get('high_confidence_risk_mult', 1.5)
+    
+    # Tier 2: Standard confidence
+    if rsi >= 70 and bb_extension_pct >= 0:
+        return 2, 1.0
+    
+    # Tier 3: Conservative
+    return 3, config.get('low_confidence_risk_mult', 0.5)
+
+def api_call_with_retry(func, *args, config=None, **kwargs):
+    """Execute API call with retry logic for network resilience"""
+    if config is None:
+        config = {}
+    
+    max_retries = config.get('api_retry_attempts', 3)
+    retry_delay = config.get('api_retry_delay_sec', 5)
+    
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            last_error = e
+            error_str = str(e).lower()
+            
+            # Don't retry on certain errors
+            if 'insufficient' in error_str or 'invalid' in error_str:
+                raise e
+            
+            if attempt < max_retries - 1:
+                delay = retry_delay * (2 ** attempt)  # Exponential backoff
+                print(f"[{datetime.now()}] API call failed (attempt {attempt+1}/{max_retries}): {e}")
+                print(f"  Retrying in {delay}s...")
+                time.sleep(delay)
+    
+    raise last_error
+
+def verify_order_executed(ex, order_id, symbol, expected_side, config):
+    """Verify that an order was executed correctly (for live trading)"""
+    if config.get('paper_mode', True):
+        return True  # Skip verification in paper mode
+    
+    max_retries = config.get('order_verify_retries', 3)
+    delay = config.get('order_verify_delay_sec', 2)
+    
+    for attempt in range(max_retries):
+        try:
+            order = ex.fetch_order(order_id, symbol)
+            if order['status'] == 'closed':
+                print(f"[{datetime.now()}] ✓ Order {order_id} verified: filled at {order['average']}")
+                return True
+            elif order['status'] == 'canceled':
+                print(f"[{datetime.now()}] ✗ Order {order_id} was canceled")
+                return False
+        except Exception as e:
+            print(f"[{datetime.now()}] Order verification attempt {attempt+1} failed: {e}")
+        
+        time.sleep(delay)
+    
+    print(f"[{datetime.now()}] ⚠️ Could not verify order {order_id} after {max_retries} attempts")
+    return False
+
+def sync_positions_with_exchange(ex, ex_name, open_trades, config):
+    """Synchronize local open trades with actual exchange positions on startup"""
+    if config.get('paper_mode', True):
+        return open_trades  # Skip sync in paper mode
+    
+    print(f"[{datetime.now()}] Syncing positions with {ex_name}...")
+    
+    try:
+        # Fetch actual positions from exchange
+        positions = api_call_with_retry(ex.fetch_positions, config=config)
+        
+        exchange_positions = {}
+        for pos in positions:
+            if pos['contracts'] and pos['contracts'] != 0:
+                exchange_positions[pos['symbol']] = {
+                    'side': pos['side'],
+                    'contracts': pos['contracts'],
+                    'entry_price': pos['entryPrice'],
+                    'unrealized_pnl': pos['unrealizedPnl']
+                }
+        
+        # Reconcile with local state
+        local_symbols = {t['sym'] for t in open_trades if t.get('ex') == ex_name}
+        exchange_symbols = set(exchange_positions.keys())
+        
+        # Warn about discrepancies
+        orphaned_local = local_symbols - exchange_symbols
+        orphaned_exchange = exchange_symbols - local_symbols
+        
+        if orphaned_local:
+            print(f"[{datetime.now()}] ⚠️ Local trades not found on exchange: {orphaned_local}")
+            # Remove orphaned local trades
+            open_trades = [t for t in open_trades if not (t.get('ex') == ex_name and t['sym'] in orphaned_local)]
+        
+        if orphaned_exchange:
+            print(f"[{datetime.now()}] ⚠️ Exchange positions not in local state: {orphaned_exchange}")
+            # Could add these to local state or alert user
+        
+        print(f"[{datetime.now()}] Position sync complete. {len(exchange_positions)} positions on {ex_name}")
+        
+    except Exception as e:
+        print(f"[{datetime.now()}] ⚠️ Position sync failed for {ex_name}: {e}")
+    
+    return open_trades
+
+def check_all_safety_conditions(symbol, current_balance, config):
+    """Run all safety checks before entering a trade"""
+    if check_emergency_stop(config):
+        return False, "emergency_stop"
+    
+    if not check_min_balance(current_balance, config):
+        return False, "min_balance"
+    
+    if not check_max_drawdown(current_balance, config):
+        return False, "max_drawdown"
+    
+    if not check_weekly_loss(config):
+        return False, "weekly_loss"
+    
+    if not check_symbol_cooldown(symbol, config):
+        return False, "symbol_cooldown"
+    
+    if not check_loss_cooldown(config):
+        return False, "loss_cooldown"
+    
+    return True, None
 
 def load_config():
     """Load config from JSON file, falling back to defaults"""
@@ -1056,15 +1378,22 @@ def calculate_swing_high_sl(ex, symbol, entry_price, config):
     fallback_pct = config.get('sl_pct_above_entry', 0.12)
     return entry_price * (1 + fallback_pct), fallback_pct, entry_price
 
-def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent_low, open_trades, config):
+def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent_low, open_trades, config, confidence_tier=2, risk_multiplier=1.0):
     """Enter a short position (paper or live) with swing high stop loss
     
     Args:
         recent_low: The low price before the pump (for fibonacci retracement calculation)
+        confidence_tier: 1=High, 2=Standard, 3=Conservative
+        risk_multiplier: Multiplier for position size based on confidence
     """
     paper_mode = config['paper_mode']
     leverage = config['leverage_default']
     use_swing_high = config.get('use_swing_high_sl', True)
+    
+    # Apply confidence-based risk adjustment
+    adjusted_risk = risk_amount * risk_multiplier
+    tier_names = {1: "HIGH", 2: "STANDARD", 3: "CONSERVATIVE"}
+    print(f"  Confidence: Tier {confidence_tier} ({tier_names.get(confidence_tier, 'UNKNOWN')}) - Risk: {risk_multiplier:.1f}x")
     
     # Calculate stop loss - prefer swing high if enabled
     if use_swing_high:
@@ -1085,13 +1414,13 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
         else:
             sl_price = simulated_entry * (1 + sl_pct)
         
-        # Calculate position size based on risk
+        # Calculate position size based on risk (adjusted for confidence)
         # For shorts: risk = |entry - sl|, so size = risk / |entry - sl|
         sl_distance = abs(sl_price - simulated_entry)
         if sl_distance > 0:
-            position_size = risk_amount / sl_distance
+            position_size = adjusted_risk / sl_distance
         else:
-            position_size = risk_amount / (simulated_entry * 0.12)  # Fallback
+            position_size = adjusted_risk / (simulated_entry * 0.12)  # Fallback
         
         # Fee is on notional value (price * size), NOT leveraged
         notional_value = simulated_entry * position_size
@@ -1139,10 +1468,15 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
         contract_size = market.get('contractSize', 1)
         sl_distance = abs(sl_price - entry_price)
         if sl_distance > 0:
-            amount = (risk_amount * leverage) / (sl_distance * contract_size)
+            amount = (adjusted_risk * leverage) / (sl_distance * contract_size)
         else:
-            amount = (risk_amount * leverage) / (entry_price * 0.12 * contract_size)
-        order = ex.create_market_sell_order(symbol, amount, params={'reduce_only': False})
+            amount = (adjusted_risk * leverage) / (entry_price * 0.12 * contract_size)
+        
+        # Use retry logic for live order execution
+        order = api_call_with_retry(
+            ex.create_market_sell_order, symbol, amount, 
+            params={'reduce_only': False}, config=config
+        )
         
         # Calculate TP prices for live trades using actual pump range
         staged_exit_levels = config.get('staged_exit_levels', [
@@ -1218,13 +1552,20 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
         save_signal(ex_name, sym, 'exit_signal', simulated_exit,
                    f"PAPER exit: {reason}, Net P&L ${net_profit:.2f} (fees ${total_fees:.2f})")
         
+        # Record trade result for safety tracking
+        record_trade_result(net_profit)
+        
         current_balance += net_profit * compound_pct
         daily_loss += min(net_profit, 0)
         return net_profit, current_balance, daily_loss
 
     try:
         amount = trade_data.get('amount', 0)
-        order = ex.create_market_buy_order(sym, amount, params={'reduce_only': True})
+        # Use retry logic for live order execution
+        order = api_call_with_retry(
+            ex.create_market_buy_order, sym, amount, 
+            params={'reduce_only': True}, config=config
+        )
         entry = trade_data.get('entry', current_price)
         leverage = trade_data.get('leverage', leverage_default)
         profit = amount * leverage * (entry - current_price)
@@ -1232,6 +1573,10 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
         save_closed_trade(ex_name, sym, entry, current_price, profit, reason)
         save_signal(ex_name, sym, 'exit_signal', current_price,
                    f"LIVE exit: {reason}, P&L ${profit:.2f}")
+        
+        # Record trade result for safety tracking
+        record_trade_result(profit)
+        
         current_balance += profit * compound_pct
         daily_loss += min(profit, 0)
         return profit, current_balance, daily_loss
@@ -1436,10 +1781,27 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
                             open_trades[i]['trade']['sl'] = new_sl
                             print(f"[{datetime.now()}] Trailing stop updated for {trade['sym']}: {new_sl:.4f}")
 
-            # Time exit (48h max)
+            # Time exit (48h max) with time-decay trailing stop
             if i not in to_close:
                 entry_ts = trade_data.get('entry_ts', time.time())
-                if time.time() - entry_ts > 172800:
+                hours_held = (time.time() - entry_ts) / 3600
+                
+                # Time-decay trailing stop - tighten trailing stop over time
+                if config.get('enable_time_decay_trailing', True) and hours_held >= 24:
+                    if hours_held >= 36:
+                        decay_trailing = config.get('trailing_stop_36h_pct', 0.02)
+                    else:
+                        decay_trailing = config.get('trailing_stop_24h_pct', 0.03)
+                    
+                    profit_pct = (entry - current_price) / entry if entry > 0 else 0
+                    if profit_pct > decay_trailing:
+                        new_sl = current_price * (1 + decay_trailing)
+                        if new_sl < sl:
+                            open_trades[i]['trade']['sl'] = new_sl
+                            print(f"[{datetime.now()}] Time-decay trailing stop for {trade['sym']}: ${new_sl:.4f} (held {hours_held:.1f}h)")
+                
+                # Final time exit after 48h
+                if hours_held >= 48:
                     _, current_balance, daily_loss = close_trade(ex, trade, 'Time exit (48h)', current_price, current_balance, daily_loss, config)
                     to_close.append(i)
 
@@ -1457,7 +1819,7 @@ def main():
     
     print("=" * 60)
     print(f"[{datetime.now()}] Crypto Pump Fade Trading Bot Starting...")
-    print(f"Mode: {'PAPER' if config['paper_mode'] else 'LIVE'}")
+    print(f"Mode: {'PAPER' if config['paper_mode'] else '⚠️  LIVE TRADING ⚠️'}")
     print(f"Starting Capital: ${config['starting_capital']:,.2f}")
     print(f"Risk per Trade: {config['risk_pct_per_trade'] * 100}%")
     print(f"Leverage: {config['leverage_default']}x")
@@ -1466,11 +1828,37 @@ def main():
     print(f"Stop Loss: {'Swing High + ' + str(config.get('sl_swing_buffer_pct', 0.02)*100) + '%' if config.get('use_swing_high_sl', True) else str(config['sl_pct_above_entry'] * 100) + '% fixed'}")
     print(f"Exits: {'Staged (50%/30%/20% at fib levels)' if config.get('use_staged_exits', True) else 'Single TP'}")
     print(f"Compound Rate: {config['compound_pct'] * 100}%")
+    print(f"Confidence Tiers: {'Enabled' if config.get('enable_confidence_tiers', True) else 'Disabled'}")
+    print(f"Time-Decay Trailing: {'Enabled' if config.get('enable_time_decay_trailing', True) else 'Disabled'}")
+    
+    # Safety features summary
+    if not config['paper_mode']:
+        print("-" * 60)
+        print("LIVE TRADING SAFETY FEATURES:")
+        print(f"  Emergency Stop: {'ACTIVE' if config.get('emergency_stop') else 'Ready'}")
+        print(f"  Min Balance: ${config.get('min_balance_usd', 100):.2f}")
+        print(f"  Max Drawdown: {config.get('max_drawdown_pct', 0.20)*100:.0f}%")
+        print(f"  Symbol Cooldown: {config.get('symbol_cooldown_sec', 3600)/60:.0f} min")
+        print(f"  Loss Cooldown: {config.get('loss_cooldown_sec', 300)/60:.0f} min")
     print("=" * 60)
 
     exchanges = init_exchanges()
     symbols = load_symbols(exchanges)
     prev_data, open_trades, current_balance = load_state(config)
+    
+    # Load safety state
+    load_safety_state()
+    
+    # Initialize peak balance for drawdown tracking
+    global safety_state
+    if current_balance > safety_state.get('peak_balance', 0):
+        safety_state['peak_balance'] = current_balance
+    
+    # Sync positions with exchange on startup (live mode only)
+    if not config['paper_mode']:
+        for ex_name, ex in exchanges.items():
+            open_trades = sync_positions_with_exchange(ex, ex_name, open_trades, config)
+    
     daily_loss = 0.0
     btc_prev = {'price': None, 'ts': time.time()}
     last_daily_reset = datetime.now().date()
@@ -1680,6 +2068,16 @@ def main():
                                 )
                                 
                                 if should_enter and len(open_trades) < config['max_open_trades']:
+                                    # Run all safety checks before entering
+                                    safety_ok, safety_reason = check_all_safety_conditions(
+                                        symbol, current_balance, config
+                                    )
+                                    if not safety_ok:
+                                        print(f"  Safety check failed: {safety_reason}")
+                                        save_signal(ex_name, symbol, 'safety_block', current_price,
+                                                   f"Entry blocked by safety: {safety_reason}")
+                                        break
+                                    
                                     # Fetch fresh price for entry
                                     try:
                                         fresh_ticker = ex.fetch_ticker(symbol)
@@ -1696,12 +2094,27 @@ def main():
                                     recent_low = df['low'].iloc[-24:].min() if len(df) >= 24 else df['low'].min()
                                     print(f"  Pump range: High ${current_price:.4f} -> Low ${recent_low:.4f}")
                                     
+                                    # Calculate confidence tier for dynamic position sizing
+                                    bb_details = entry_details.get('bollinger_bands', {})
+                                    bb_extension = bb_details.get('extension_pct', 0) if not bb_details.get('error') else 0
+                                    lh_details = entry_details.get('lower_highs', {})
+                                    lower_high_count = lh_details.get('lower_high_count', 0) if not lh_details.get('error') else 0
+                                    
+                                    confidence_tier, risk_multiplier = calculate_confidence_tier(
+                                        rsi, bb_extension, lower_high_count, config
+                                    )
+                                    
                                     risk = current_balance * config['risk_pct_per_trade']
-                                    trade_info = enter_short(ex, ex_name, symbol, entry_price, risk, current_price, recent_low, open_trades, config)
+                                    trade_info = enter_short(
+                                        ex, ex_name, symbol, entry_price, risk, current_price, recent_low, 
+                                        open_trades, config, confidence_tier, risk_multiplier
+                                    )
                                     
                                     if trade_info:
                                         trade_info['entry_ts'] = time.time()
                                         trade_info['entry_quality'] = entry_quality
+                                        trade_info['confidence_tier'] = confidence_tier
+                                        trade_info['risk_multiplier'] = risk_multiplier
                                         trade_info['validation_details'] = validation_details
                                         
                                         open_trades.append({
@@ -1709,6 +2122,10 @@ def main():
                                             'sym': symbol,
                                             'trade': trade_info
                                         })
+                                        
+                                        # Record entry for cooldown tracking
+                                        record_symbol_entry(symbol)
+                                        
                                         save_state(prev_data, open_trades, current_balance)
                                         
                                         # Log for learning
@@ -1718,7 +2135,9 @@ def main():
                                                 'entry_timing': entry_details,
                                                 'entry_quality': entry_quality,
                                                 'entry_price': entry_price,
-                                                'pump_high': current_price
+                                                'pump_high': current_price,
+                                                'confidence_tier': confidence_tier,
+                                                'risk_multiplier': risk_multiplier
                                             }
                                             log_trade_features(symbol, ex_name, 'entry', combined_features)
                                         
