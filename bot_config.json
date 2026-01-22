@@ -1,0 +1,66 @@
+{
+  "paper_mode": true,
+  "min_pump_pct": 60,
+  "max_pump_pct": 200,
+  "poll_interval_sec": 300,
+  "min_volume_usdt": 1000000,
+  "funding_min": 0.0001,
+  "rsi_overbought": 70,
+  "leverage_default": 3,
+  "risk_pct_per_trade": 0.01,
+  "sl_pct_above_entry": 0.12,
+  "use_swing_high_sl": true,
+  "sl_swing_buffer_pct": 0.02,
+  
+  "use_staged_exits": true,
+  "staged_exit_levels": [
+    {"fib": 0.382, "pct": 0.50},
+    {"fib": 0.50, "pct": 0.30},
+    {"fib": 0.618, "pct": 0.20}
+  ],
+  "tp_fib_levels": [0.382, 0.5, 0.618],
+  
+  "max_open_trades": 4,
+  "starting_capital": 5000,
+  "compound_pct": 0.6,
+  "trailing_stop_pct": 0.05,
+  
+  "paper_slippage_pct": 0.001,
+  "paper_spread_pct": 0.0005,
+  "paper_fee_pct": 0.0005,
+  "paper_funding_interval_hrs": 8,
+  "paper_realistic_mode": true,
+
+  "enable_volume_profile": true,
+  "volume_sustained_candles": 3,
+  "volume_spike_threshold": 2.0,
+
+  "enable_multi_timeframe": true,
+  "mtf_rsi_threshold": 70,
+
+  "enable_bollinger_check": true,
+  "min_bb_extension_pct": 0,
+
+  "enable_cross_exchange": false,
+  "cross_exchange_min_pct": 40,
+
+  "enable_spread_check": true,
+  "max_spread_pct": 0.5,
+
+  "enable_structure_break": true,
+  "structure_break_candles": 3,
+  "min_lower_highs": 1,
+
+  "enable_blowoff_detection": true,
+  "blowoff_wick_ratio": 2.5,
+
+  "enable_volume_decline_check": true,
+
+  "enable_scale_in": false,
+  "scale_in_levels": [0.5, 0.3, 0.2],
+
+  "time_decay_minutes": 120,
+
+  "enable_trade_logging": true,
+  "min_fade_signals": 2
+}
