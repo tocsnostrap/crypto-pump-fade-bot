@@ -161,6 +161,8 @@ The `start.sh` script:
 - `BITGET_PASSPHRASE` - Bitget API passphrase (optional)
 
 ## Safety Features
+
+### Basic Safety
 - Paper mode for testing (default)
 - Pump validation filters (reject fake pumps)
 - Mega-pump filter (skip >200% pumps)
@@ -169,3 +171,44 @@ The `start.sh` script:
 - State persistence for crash recovery
 - Maximum 4 concurrent trades
 - Atomic file writes to prevent data corruption
+
+### Live Trading Safety (NEW)
+| Feature | Default | Description |
+|---------|---------|-------------|
+| `emergency_stop` | false | Kill switch - stops all new trades immediately |
+| `min_balance_usd` | $100 | Stop trading if balance drops below this |
+| `max_drawdown_pct` | 20% | Stop trading if drawdown exceeds limit |
+| `weekly_loss_limit_pct` | 10% | Stop for week if weekly loss exceeds |
+| `symbol_cooldown_sec` | 3600 | Don't re-enter same symbol for 1 hour |
+| `loss_cooldown_sec` | 300 | Wait 5 minutes after a loss |
+| `consecutive_loss_cooldown_sec` | 7200 | Wait 2 hours after 2+ consecutive losses |
+
+### Network Resilience
+- API retry with exponential backoff (3 attempts)
+- Order verification loop for live trades
+- Position sync with exchange on startup
+
+## Advanced Features (NEW)
+
+### Confidence Tier System
+Dynamic position sizing based on signal quality:
+- **Tier 1 (High Confidence)**: RSI ≥ 80 AND BB extension ≥ 5% → 1.5x risk
+- **Tier 2 (Standard)**: RSI ≥ 70 AND above BB → 1.0x risk
+- **Tier 3 (Conservative)**: Other cases → 0.5x risk
+
+### Time-Decay Trailing Stop
+Tightens trailing stop as trade ages:
+- 0-24h: Normal trailing stop (5%)
+- 24-36h: Tighten to 3%
+- 36-48h: Tighten to 2%
+
+## API Endpoints
+
+### Monitoring
+- `GET /api/health` - Health check endpoint (returns 200 if healthy, 503 if not)
+- `GET /api/safety` - Get current safety state (cooldowns, drawdown, etc.)
+- `GET /api/status` - Get bot running status
+
+### Control (requires BOT_CONTROL_TOKEN if set)
+- `POST /api/emergency-stop` - Activate/deactivate emergency stop
+- `POST /api/config/mode` - Toggle paper/live mode

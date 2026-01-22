@@ -418,6 +418,168 @@ export async function registerRoutes(
     }
   });
 
+  // Health check endpoint for monitoring
+  app.get("/api/health", (_req, res) => {
+    try {
+      const pumpState = getPumpState();
+      const status = getBotStatus(pumpState);
+      const balanceData = getBalance();
+      const config = getConfig();
+      
+      // Check if bot is healthy
+      const isHealthy = status.running;
+      const statusCode = isHealthy ? 200 : 503;
+      
+      res.status(statusCode).json({
+        status: isHealthy ? "healthy" : "unhealthy",
+        timestamp: new Date().toISOString(),
+        bot: {
+          running: status.running,
+          last_poll: status.last_poll,
+          mode: config.paper_mode ? "paper" : "live",
+        },
+        balance: {
+          current: balanceData.balance,
+          starting: config.starting_capital,
+          return_pct: ((balanceData.balance - config.starting_capital) / config.starting_capital * 100).toFixed(2),
+        },
+        safety: {
+          emergency_stop: config.emergency_stop || false,
+          min_balance: config.min_balance_usd || 100,
+          max_drawdown: config.max_drawdown_pct || 0.20,
+        },
+        uptime: process.uptime(),
+      });
+    } catch (err) {
+      res.status(500).json({ 
+        status: "error",
+        error: "Health check failed",
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Emergency stop endpoint (requires auth)
+  app.post("/api/emergency-stop", requireControlAuth, (req, res) => {
+    try {
+      const { activate } = req.body;
+      
+      if (typeof activate !== "boolean") {
+        return res.status(400).json({ error: "activate must be a boolean" });
+      }
+      
+      const config = getConfig();
+      (config as any).emergency_stop = activate;
+      writeJsonFile(CONFIG_FILE, config);
+      
+      const action = activate ? "ACTIVATED" : "DEACTIVATED";
+      console.log(`[${new Date().toISOString()}] ⛔ EMERGENCY STOP ${action}`);
+      
+      res.json({ 
+        success: true, 
+        emergency_stop: activate,
+        message: `Emergency stop ${action.toLowerCase()}`
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to toggle emergency stop" });
+    }
+  });
+
+  // Test notifications endpoint
+  app.post("/api/notifications/test", requireControlAuth, async (req, res) => {
+    try {
+      const { spawn } = await import('child_process');
+      
+      // Run Python script to test notifications
+      const python = spawn('python3', ['-c', `
+from notifications import test_notifications, is_any_notification_configured
+import json
+
+if is_any_notification_configured():
+    results = test_notifications()
+    print(json.dumps(results))
+else:
+    print(json.dumps({"error": "No notification channels configured"}))
+`]);
+      
+      let output = '';
+      python.stdout.on('data', (data: Buffer) => {
+        output += data.toString();
+      });
+      
+      python.stderr.on('data', (data: Buffer) => {
+        console.error('Notification test error:', data.toString());
+      });
+      
+      python.on('close', (code: number) => {
+        if (code === 0) {
+          try {
+            const results = JSON.parse(output.trim());
+            res.json({ success: true, results });
+          } catch {
+            res.json({ success: false, error: 'Failed to parse results', output });
+          }
+        } else {
+          res.status(500).json({ success: false, error: 'Test script failed' });
+        }
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to test notifications" });
+    }
+  });
+
+  // Get notification status
+  app.get("/api/notifications/status", (_req, res) => {
+    try {
+      const telegramConfigured = !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID);
+      const discordConfigured = !!process.env.DISCORD_WEBHOOK_URL;
+      
+      res.json({
+        telegram: {
+          configured: telegramConfigured,
+          bot_token: !!process.env.TELEGRAM_BOT_TOKEN,
+          chat_id: !!process.env.TELEGRAM_CHAT_ID,
+        },
+        discord: {
+          configured: discordConfigured,
+          webhook_url: !!process.env.DISCORD_WEBHOOK_URL,
+        },
+        any_configured: telegramConfigured || discordConfigured,
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to check notification status" });
+    }
+  });
+
+  // Get safety state
+  app.get("/api/safety", (_req, res) => {
+    try {
+      const safetyStatePath = path.join(process.cwd(), "safety_state.json");
+      const safetyState = readJsonFile(safetyStatePath, {
+        symbol_cooldowns: {},
+        last_loss_ts: 0,
+        consecutive_losses: 0,
+        weekly_loss: 0,
+        peak_balance: 0,
+        current_drawdown_pct: 0,
+      });
+      
+      const config = getConfig();
+      
+      res.json({
+        ...safetyState,
+        limits: {
+          max_drawdown_pct: config.max_drawdown_pct || 0.20,
+          weekly_loss_limit_pct: config.weekly_loss_limit_pct || 0.10,
+          symbol_cooldown_sec: config.symbol_cooldown_sec || 3600,
+          loss_cooldown_sec: config.loss_cooldown_sec || 300,
+        }
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to get safety state" });
+    }
+  });
+
   // Add a new signal (called by the Python bot, requires auth if token configured)
   app.post("/api/signals", requireControlAuth, (req, res) => {
     try {
