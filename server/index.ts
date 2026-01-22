@@ -17,14 +17,18 @@ function startPythonBot() {
   // Skip if bot is managed externally (e.g., by start.sh or separate workflow)
   if (process.env.BOT_MANAGED === "1") {
     console.log(`[python-bot] Bot managed externally (BOT_MANAGED=1), skipping spawn`);
+    console.log(`[python-bot] To run the bot from Express, unset BOT_MANAGED or use 'npm run dev'`);
     return;
   }
   
   const mainPyPath = path.join(process.cwd(), "main.py");
   
-  console.log(`[python-bot] Starting Python trading bot...`);
+  // Try python3 first (common on Linux/Replit), fallback to python
+  const pythonCmd = process.platform === "win32" ? "python" : "python3";
   
-  pythonProcess = spawn("python", [mainPyPath], {
+  console.log(`[python-bot] Starting Python trading bot with ${pythonCmd}...`);
+  
+  pythonProcess = spawn(pythonCmd, [mainPyPath], {
     cwd: process.cwd(),
     env: process.env,
     stdio: ["ignore", "pipe", "pipe"],
@@ -55,7 +59,27 @@ function startPythonBot() {
   });
 
   pythonProcess.on("error", (err) => {
-    console.error(`[python-bot] Failed to start: ${err.message}`);
+    console.error(`[python-bot] Failed to start with ${pythonCmd}: ${err.message}`);
+    
+    // Try fallback to 'python' if 'python3' failed
+    if (pythonCmd === "python3") {
+      console.log(`[python-bot] Trying fallback to 'python'...`);
+      pythonProcess = spawn("python", [mainPyPath], {
+        cwd: process.cwd(),
+        env: process.env,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      
+      pythonProcess.stdout?.on("data", (data) => {
+        const lines = data.toString().split("\n").filter((l: string) => l.trim());
+        lines.forEach((line: string) => console.log(`[python-bot] ${line}`));
+      });
+
+      pythonProcess.stderr?.on("data", (data) => {
+        const lines = data.toString().split("\n").filter((l: string) => l.trim());
+        lines.forEach((line: string) => console.error(`[python-bot] ERROR: ${line}`));
+      });
+    }
   });
 
   // Reset restart count after successful run of 5 minutes
