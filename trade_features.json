@@ -1,0 +1,2301 @@
+[
+  {
+    "timestamp": "2026-01-17T21:59:57.645650",
+    "symbol": "STO/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "STO/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 62.66,
+      "timestamp": "2026-01-17T21:59:57.476752",
+      "volume_profile": {
+        "avg_volume": 278562.375,
+        "total_volume": 2228499.0,
+        "max_volume": 396618.0,
+        "volume_dominance": 0.1779753995851019,
+        "elevated_candles": 0,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-17T22:04:59.759925",
+    "symbol": "STO/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "STO/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 68.99,
+      "timestamp": "2026-01-17T22:04:59.592463",
+      "volume_profile": {
+        "avg_volume": 252044.875,
+        "total_volume": 2016359.0,
+        "max_volume": 396618.0,
+        "volume_dominance": 0.19670009160075166,
+        "elevated_candles": 1,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-17T22:05:00.242035",
+    "symbol": "STO/USDT:USDT",
+    "exchange": "bitget",
+    "action": "skip",
+    "features": {
+      "symbol": "STO/USDT:USDT",
+      "exchange": "bitget",
+      "pct_change": 65.261,
+      "timestamp": "2026-01-17T22:05:00.045504",
+      "volume_profile": {
+        "avg_volume": 11409473.25,
+        "total_volume": 91275786.0,
+        "max_volume": 18694130.0,
+        "volume_dominance": 0.20480930177911588,
+        "elevated_candles": 1,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-17T22:08:39.112271",
+    "symbol": "STO/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "STO/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 62.62,
+      "timestamp": "2026-01-17T22:08:38.945732",
+      "volume_profile": {
+        "avg_volume": 262985.5,
+        "total_volume": 2103884.0,
+        "max_volume": 396618.0,
+        "volume_dominance": 0.18851704751782894,
+        "elevated_candles": 1,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-17T22:13:41.320414",
+    "symbol": "STO/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "STO/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 60.41,
+      "timestamp": "2026-01-17T22:13:41.155473",
+      "volume_profile": {
+        "avg_volume": 275196.25,
+        "total_volume": 2201570.0,
+        "max_volume": 396618.0,
+        "volume_dominance": 0.1801523458259333,
+        "elevated_candles": 0,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-17T22:18:43.885520",
+    "symbol": "STO/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "STO/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 63.97,
+      "timestamp": "2026-01-17T22:18:43.716906",
+      "volume_profile": {
+        "avg_volume": 232197.625,
+        "total_volume": 1857581.0,
+        "max_volume": 327727.0,
+        "volume_dominance": 0.1764267614709668,
+        "elevated_candles": 0,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-17T22:29:17.309852",
+    "symbol": "STO/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "STO/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 66.57,
+      "timestamp": "2026-01-17T22:29:17.127011",
+      "volume_profile": {
+        "avg_volume": 243732.5,
+        "total_volume": 1949860.0,
+        "max_volume": 327727.0,
+        "volume_dominance": 0.16807719528581538,
+        "elevated_candles": 0,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-17T22:29:17.790501",
+    "symbol": "STO/USDT:USDT",
+    "exchange": "bitget",
+    "action": "skip",
+    "features": {
+      "symbol": "STO/USDT:USDT",
+      "exchange": "bitget",
+      "pct_change": 62.186,
+      "timestamp": "2026-01-17T22:29:17.567866",
+      "volume_profile": {
+        "avg_volume": 10581751.0,
+        "total_volume": 84654008.0,
+        "max_volume": 15039425.0,
+        "volume_dominance": 0.17765756584141887,
+        "elevated_candles": 0,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-17T22:34:19.535101",
+    "symbol": "STO/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "STO/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 67.33,
+      "timestamp": "2026-01-17T22:34:19.371010",
+      "volume_profile": {
+        "avg_volume": 222441.375,
+        "total_volume": 1779531.0,
+        "max_volume": 327727.0,
+        "volume_dominance": 0.1841648164600673,
+        "elevated_candles": 0,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-17T22:34:19.991211",
+    "symbol": "STO/USDT:USDT",
+    "exchange": "bitget",
+    "action": "skip",
+    "features": {
+      "symbol": "STO/USDT:USDT",
+      "exchange": "bitget",
+      "pct_change": 63.329,
+      "timestamp": "2026-01-17T22:34:19.796758",
+      "volume_profile": {
+        "avg_volume": 9483861.5,
+        "total_volume": 75870892.0,
+        "max_volume": 15039425.0,
+        "volume_dominance": 0.19822391174734047,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-17T22:39:21.674532",
+    "symbol": "STO/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "STO/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 69.22,
+      "timestamp": "2026-01-17T22:39:21.509254",
+      "volume_profile": {
+        "avg_volume": 229840.375,
+        "total_volume": 1838723.0,
+        "max_volume": 327727.0,
+        "volume_dominance": 0.17823619979735936,
+        "elevated_candles": 0,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-17T22:39:22.240630",
+    "symbol": "STO/USDT:USDT",
+    "exchange": "bitget",
+    "action": "skip",
+    "features": {
+      "symbol": "STO/USDT:USDT",
+      "exchange": "bitget",
+      "pct_change": 64.664,
+      "timestamp": "2026-01-17T22:39:21.928350",
+      "volume_profile": {
+        "avg_volume": 9754457.5,
+        "total_volume": 78035660.0,
+        "max_volume": 15039425.0,
+        "volume_dominance": 0.19272503109475847,
+        "elevated_candles": 1,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-17T22:44:24.159900",
+    "symbol": "STO/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "STO/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 66.92,
+      "timestamp": "2026-01-17T22:44:23.994332",
+      "volume_profile": {
+        "avg_volume": 234190.75,
+        "total_volume": 1873526.0,
+        "max_volume": 327727.0,
+        "volume_dominance": 0.17492524790155034,
+        "elevated_candles": 0,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-17T22:44:24.615166",
+    "symbol": "STO/USDT:USDT",
+    "exchange": "bitget",
+    "action": "skip",
+    "features": {
+      "symbol": "STO/USDT:USDT",
+      "exchange": "bitget",
+      "pct_change": 62.336,
+      "timestamp": "2026-01-17T22:44:24.415771",
+      "volume_profile": {
+        "avg_volume": 10088870.5,
+        "total_volume": 80710964.0,
+        "max_volume": 15039425.0,
+        "volume_dominance": 0.18633682779454847,
+        "elevated_candles": 0,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-19T09:24:51.721883",
+    "symbol": "DUSK/USDT:USDT",
+    "exchange": "gate",
+    "action": "entry",
+    "features": {
+      "symbol": "DUSK/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 75.54,
+      "timestamp": "2026-01-19T09:24:50.576984",
+      "volume_profile": {
+        "avg_volume": 149968.75,
+        "total_volume": 3599250.0,
+        "max_volume": 349472.0,
+        "volume_dominance": 0.09709578384385636,
+        "elevated_candles": 3,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 81.14659221967109,
+        "rsi_4h": 88.12682203135991,
+        "threshold": 70
+      },
+      "cross_exchange": {
+        "skipped": true
+      },
+      "spread_check": {
+        "bid": 0.27813,
+        "ask": 0.27825,
+        "spread_pct": 0.04313753684664929,
+        "max_allowed": 0.5
+      },
+      "entry_timing": {
+        "bollinger_bands": {
+          "upper_band": 0.30904473077992,
+          "last_high": 0.27849,
+          "last_close": 0.27774,
+          "above_upper": false,
+          "extension_pct": -9.886831172565413
+        },
+        "volume_decline": {
+          "peak_volume": 884852.0,
+          "last_volume": 239308.0,
+          "decline_ratio": 0.27044974752840023,
+          "is_declining": true
+        },
+        "lower_highs": {
+          "lower_high_count": 6,
+          "min_required": 1,
+          "has_enough": true
+        },
+        "structure_break": {
+          "has_lower_low": false,
+          "has_declining_lows": false,
+          "has_lower_high": false,
+          "bearish_closes": 2,
+          "n_candles": 3
+        },
+        "blowoff_pattern": {
+          "blowoff_candles": 0,
+          "volume_declining": false,
+          "high_volatility": false,
+          "signals": [
+            {
+              "wick_ratio": 1.897727272727176,
+              "has_long_wick": false,
+              "is_bearish": true
+            },
+            {
+              "wick_ratio": 0.6267123287671155,
+              "has_long_wick": false,
+              "is_bearish": true
+            },
+            {
+              "wick_ratio": 0.07211538461538759,
+              "has_long_wick": false,
+              "is_bearish": false
+            }
+          ]
+        },
+        "fade_signals": {
+          "valid": false,
+          "rsi": 72.01449998888661
+        },
+        "pattern_count": 2,
+        "entry_quality": 60,
+        "should_enter": true
+      },
+      "entry_quality": 60,
+      "entry_price": 0.27774,
+      "pump_high": 0.27818
+    },
+    "outcome": null
+  },
+  {
+    "timestamp": "2026-01-19T09:49:57.669141",
+    "symbol": "DUSK/USDT:USDT",
+    "exchange": "gate",
+    "action": "entry",
+    "features": {
+      "symbol": "DUSK/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 78.89,
+      "timestamp": "2026-01-19T09:29:53.656242",
+      "volume_profile": {
+        "avg_volume": 150685.83333333334,
+        "total_volume": 3616460.0,
+        "max_volume": 349472.0,
+        "volume_dominance": 0.09663372469210223,
+        "elevated_candles": 3,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 81.91405584192336,
+        "rsi_4h": 88.41940290487224,
+        "threshold": 70
+      },
+      "cross_exchange": {
+        "skipped": true
+      },
+      "spread_check": {
+        "bid": 0.28349,
+        "ask": 0.28364,
+        "spread_pct": 0.05291378580498924,
+        "max_allowed": 0.5
+      },
+      "entry_timing": {
+        "bollinger_bands": {
+          "upper_band": 0.3062414322256174,
+          "last_high": 0.28062,
+          "last_close": 0.27833,
+          "above_upper": false,
+          "extension_pct": -8.366416013474403
+        },
+        "volume_decline": {
+          "peak_volume": 758848.0,
+          "last_volume": 75131.0,
+          "decline_ratio": 0.09900665218858058,
+          "is_declining": true
+        },
+        "lower_highs": {
+          "lower_high_count": 1,
+          "min_required": 1,
+          "has_enough": true
+        },
+        "structure_break": {
+          "has_lower_low": false,
+          "has_declining_lows": true,
+          "has_lower_high": false,
+          "bearish_closes": 1,
+          "n_candles": 3
+        },
+        "blowoff_pattern": {
+          "blowoff_candles": 1,
+          "volume_declining": true,
+          "high_volatility": false,
+          "signals": [
+            {
+              "wick_ratio": 0.23529411764705802,
+              "has_long_wick": false,
+              "is_bearish": false
+            },
+            {
+              "wick_ratio": 4.303225806451583,
+              "has_long_wick": true,
+              "is_bearish": true
+            },
+            {
+              "wick_ratio": 2.2019230769229505,
+              "has_long_wick": false,
+              "is_bearish": false
+            }
+          ]
+        },
+        "fade_signals": {
+          "valid": false,
+          "rsi": 70.63890591736971
+        },
+        "pattern_count": 4,
+        "entry_quality": 85,
+        "should_enter": true
+      },
+      "entry_quality": 85,
+      "entry_price": 0.27833,
+      "pump_high": 0.28348
+    },
+    "outcome": null
+  },
+  {
+    "timestamp": "2026-01-19T09:55:01.248081",
+    "symbol": "DUSK/USDT:USDT",
+    "exchange": "gate",
+    "action": "entry",
+    "features": {
+      "symbol": "DUSK/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 75.06,
+      "timestamp": "2026-01-19T09:55:00.064033",
+      "volume_profile": {
+        "avg_volume": 145829.58333333334,
+        "total_volume": 3499910.0,
+        "max_volume": 429334.0,
+        "volume_dominance": 0.1226700115145818,
+        "elevated_candles": 3,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 81.10048495892272,
+        "rsi_4h": 88.10731812288465,
+        "threshold": 70
+      },
+      "cross_exchange": {
+        "skipped": true
+      },
+      "spread_check": {
+        "bid": 0.2773,
+        "ask": 0.27747,
+        "spread_pct": 0.06128113622436231,
+        "max_allowed": 0.5
+      },
+      "entry_timing": {
+        "bollinger_bands": {
+          "upper_band": 0.3061358097814529,
+          "last_high": 0.28062,
+          "last_close": 0.2774,
+          "above_upper": false,
+          "extension_pct": -8.334800753844632
+        },
+        "volume_decline": {
+          "peak_volume": 758848.0,
+          "last_volume": 168685.0,
+          "decline_ratio": 0.22229089356498272,
+          "is_declining": true
+        },
+        "lower_highs": {
+          "lower_high_count": 1,
+          "min_required": 1,
+          "has_enough": true
+        },
+        "structure_break": {
+          "has_lower_low": false,
+          "has_declining_lows": true,
+          "has_lower_high": false,
+          "bearish_closes": 1,
+          "n_candles": 3
+        },
+        "blowoff_pattern": {
+          "blowoff_candles": 2,
+          "volume_declining": true,
+          "high_volatility": false,
+          "signals": [
+            {
+              "wick_ratio": 0.23529411764705802,
+              "has_long_wick": false,
+              "is_bearish": false
+            },
+            {
+              "wick_ratio": 4.303225806451583,
+              "has_long_wick": true,
+              "is_bearish": true
+            },
+            {
+              "wick_ratio": 29.272727272727547,
+              "has_long_wick": true,
+              "is_bearish": false
+            }
+          ]
+        },
+        "fade_signals": {
+          "valid": false,
+          "rsi": 70.41437229088707
+        },
+        "pattern_count": 4,
+        "entry_quality": 85,
+        "should_enter": true
+      },
+      "entry_quality": 85,
+      "entry_price": 0.27737,
+      "pump_high": 0.27741
+    },
+    "outcome": null
+  },
+  {
+    "timestamp": "2026-01-19T16:15:51.143285",
+    "symbol": "ARPA/USDT:USDT",
+    "exchange": "gate",
+    "action": "entry",
+    "features": {
+      "symbol": "ARPA/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 64.14,
+      "timestamp": "2026-01-19T16:15:49.969699",
+      "volume_profile": {
+        "avg_volume": 426104.3333333333,
+        "total_volume": 10226504.0,
+        "max_volume": 1329477.0,
+        "volume_dominance": 0.13000307827582133,
+        "elevated_candles": 3,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 75.52132010916736,
+        "rsi_4h": 88.29501338747681,
+        "threshold": 70
+      },
+      "cross_exchange": {
+        "skipped": true
+      },
+      "spread_check": {
+        "bid": 0.02079,
+        "ask": 0.02082,
+        "spread_pct": 0.1440230436870007,
+        "max_allowed": 0.5
+      },
+      "entry_timing": {
+        "bollinger_bands": {
+          "upper_band": 0.023049736490678742,
+          "last_high": 0.02085,
+          "last_close": 0.02083,
+          "above_upper": false,
+          "extension_pct": -9.543434440425424
+        },
+        "volume_decline": {
+          "peak_volume": 1994349.0,
+          "last_volume": 26008.0,
+          "decline_ratio": 0.013040846912952547,
+          "is_declining": true
+        },
+        "lower_highs": {
+          "lower_high_count": 5,
+          "min_required": 1,
+          "has_enough": true
+        },
+        "structure_break": {
+          "has_lower_low": false,
+          "has_declining_lows": false,
+          "has_lower_high": false,
+          "bearish_closes": 1,
+          "n_candles": 3
+        },
+        "blowoff_pattern": {
+          "blowoff_candles": 1,
+          "volume_declining": true,
+          "high_volatility": false,
+          "signals": [
+            {
+              "wick_ratio": 18.666666666667478,
+              "has_long_wick": true,
+              "is_bearish": true
+            },
+            {
+              "wick_ratio": 0.6999999999999986,
+              "has_long_wick": false,
+              "is_bearish": false
+            },
+            {
+              "wick_ratio": 0.16666666666665703,
+              "has_long_wick": false,
+              "is_bearish": false
+            }
+          ]
+        },
+        "fade_signals": {
+          "valid": false,
+          "rsi": 72.24000416938274
+        },
+        "pattern_count": 3,
+        "entry_quality": 70,
+        "should_enter": true
+      },
+      "entry_quality": 70,
+      "entry_price": 0.02083,
+      "pump_high": 0.02083
+    },
+    "outcome": null
+  },
+  {
+    "timestamp": "2026-01-19T16:18:08.641466",
+    "symbol": "DUSK/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "DUSK/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 60.08,
+      "timestamp": "2026-01-19T16:18:08.141944",
+      "volume_profile": {
+        "avg_volume": 121677.66666666667,
+        "total_volume": 2920264.0,
+        "max_volume": 255908.0,
+        "volume_dominance": 0.08763180315204379,
+        "elevated_candles": 4,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 66.62078223575045,
+        "rsi_4h": 78.51554736840995,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-19T16:33:51.965745",
+    "symbol": "ARPA/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "ARPA/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 63.12,
+      "timestamp": "2026-01-19T16:33:51.795228",
+      "volume_profile": {
+        "avg_volume": 389218.6666666667,
+        "total_volume": 9341248.0,
+        "max_volume": 1297120.0,
+        "volume_dominance": 0.13885939009434287,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T16:42:28.389869",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 129.42,
+      "timestamp": "2026-01-22T16:42:28.211720",
+      "volume_profile": {
+        "avg_volume": 100181.54166666667,
+        "total_volume": 2404357.0,
+        "max_volume": 197296.0,
+        "volume_dominance": 0.0820576977545348,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T16:42:57.873163",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 128.61,
+      "timestamp": "2026-01-22T16:42:57.703483",
+      "volume_profile": {
+        "avg_volume": 100375.125,
+        "total_volume": 2409003.0,
+        "max_volume": 197296.0,
+        "volume_dominance": 0.08189944138716307,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T16:47:59.961765",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 124.14,
+      "timestamp": "2026-01-22T16:47:59.793350",
+      "volume_profile": {
+        "avg_volume": 100313.70833333333,
+        "total_volume": 2407529.0,
+        "max_volume": 197296.0,
+        "volume_dominance": 0.08194958399255003,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T16:53:02.211337",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 126.06,
+      "timestamp": "2026-01-22T16:53:02.047227",
+      "volume_profile": {
+        "avg_volume": 99400.91666666667,
+        "total_volume": 2385622.0,
+        "max_volume": 197296.0,
+        "volume_dominance": 0.08270212129163798,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T16:57:44.412109",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 116.79,
+      "timestamp": "2026-01-22T16:57:44.246225",
+      "volume_profile": {
+        "avg_volume": 97761.04166666667,
+        "total_volume": 2346265.0,
+        "max_volume": 197296.0,
+        "volume_dominance": 0.0840893931418659,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T17:02:46.533926",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 118.61,
+      "timestamp": "2026-01-22T17:02:46.368811",
+      "volume_profile": {
+        "avg_volume": 95472.875,
+        "total_volume": 2291349.0,
+        "max_volume": 197296.0,
+        "volume_dominance": 0.08610473568190616,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T17:07:48.665097",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 117.12,
+      "timestamp": "2026-01-22T17:07:48.499022",
+      "volume_profile": {
+        "avg_volume": 94662.125,
+        "total_volume": 2271891.0,
+        "max_volume": 197296.0,
+        "volume_dominance": 0.08684219445387124,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T17:12:51.360095",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 122.87,
+      "timestamp": "2026-01-22T17:12:51.193714",
+      "volume_profile": {
+        "avg_volume": 95163.625,
+        "total_volume": 2283927.0,
+        "max_volume": 197296.0,
+        "volume_dominance": 0.08638454731696767,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T17:17:54.371129",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 120.54,
+      "timestamp": "2026-01-22T17:17:53.876606",
+      "volume_profile": {
+        "avg_volume": 91845.58333333333,
+        "total_volume": 2204294.0,
+        "max_volume": 197296.0,
+        "volume_dominance": 0.08950530192433495,
+        "elevated_candles": 3,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 67.04364593213889,
+        "rsi_4h": NaN,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T17:30:14.789569",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 121.68,
+      "timestamp": "2026-01-22T17:30:14.281432",
+      "volume_profile": {
+        "avg_volume": 80545.54166666667,
+        "total_volume": 1933093.0,
+        "max_volume": 197296.0,
+        "volume_dominance": 0.1020623425774135,
+        "elevated_candles": 3,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 67.15567937036452,
+        "rsi_4h": NaN,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T17:30:16.138044",
+    "symbol": "SENT/USDT:USDT",
+    "exchange": "gate",
+    "action": "entry",
+    "features": {
+      "symbol": "SENT/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 67.0,
+      "timestamp": "2026-01-22T17:30:14.959532",
+      "volume_profile": {
+        "avg_volume": 60038.666666666664,
+        "total_volume": 1440928.0,
+        "max_volume": 251137.0,
+        "volume_dominance": 0.1742883752692709,
+        "elevated_candles": 4,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 78.33238184906538,
+        "rsi_4h": 80.07368198196328,
+        "threshold": 70
+      },
+      "cross_exchange": {
+        "skipped": true
+      },
+      "spread_check": {
+        "bid": 0.03195,
+        "ask": 0.03197,
+        "spread_pct": 0.06253908692932829,
+        "max_allowed": 0.5
+      },
+      "entry_timing": {
+        "bollinger_bands": {
+          "upper_band": 0.031087619400501917,
+          "last_high": 0.03205,
+          "last_close": 0.03194,
+          "above_upper": true,
+          "extension_pct": 3.095703749778111
+        },
+        "volume_decline": {
+          "peak_volume": 559523.0,
+          "last_volume": 8699.0,
+          "decline_ratio": 0.015547171429950154,
+          "is_declining": true
+        },
+        "lower_highs": {
+          "lower_high_count": 2,
+          "min_required": 1,
+          "has_enough": true
+        },
+        "structure_break": {
+          "has_lower_low": false,
+          "has_declining_lows": false,
+          "has_lower_high": true,
+          "bearish_closes": 0,
+          "n_candles": 3
+        },
+        "blowoff_pattern": {
+          "blowoff_candles": 0,
+          "volume_declining": true,
+          "high_volatility": false,
+          "signals": [
+            {
+              "wick_ratio": 1.1119133574007238,
+              "has_long_wick": false,
+              "is_bearish": false
+            },
+            {
+              "wick_ratio": 0.2458100558659239,
+              "has_long_wick": false,
+              "is_bearish": false
+            },
+            {
+              "wick_ratio": 2.1999999999999167,
+              "has_long_wick": false,
+              "is_bearish": false
+            }
+          ]
+        },
+        "fade_signals": {
+          "valid": false,
+          "rsi": 71.34194595681905
+        },
+        "pattern_count": 3,
+        "entry_quality": 75,
+        "should_enter": true
+      },
+      "entry_quality": 75,
+      "entry_price": 0.03194,
+      "pump_high": 0.03198
+    },
+    "outcome": null
+  },
+  {
+    "timestamp": "2026-01-22T17:35:18.771649",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 116.17,
+      "timestamp": "2026-01-22T17:35:18.275975",
+      "volume_profile": {
+        "avg_volume": 78084.04166666667,
+        "total_volume": 1874017.0,
+        "max_volume": 197296.0,
+        "volume_dominance": 0.10527972798539181,
+        "elevated_candles": 3,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 66.5056397440707,
+        "rsi_4h": NaN,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T17:40:22.154229",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 110.93,
+      "timestamp": "2026-01-22T17:40:21.646263",
+      "volume_profile": {
+        "avg_volume": 77691.5,
+        "total_volume": 1864596.0,
+        "max_volume": 197296.0,
+        "volume_dominance": 0.10581166107832474,
+        "elevated_candles": 3,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 65.45878038113557,
+        "rsi_4h": NaN,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T17:45:24.958962",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 108.28,
+      "timestamp": "2026-01-22T17:45:24.788849",
+      "volume_profile": {
+        "avg_volume": 72302.83333333333,
+        "total_volume": 1735268.0,
+        "max_volume": 139004.0,
+        "volume_dominance": 0.08010520565123082,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T17:50:28.418594",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 110.45,
+      "timestamp": "2026-01-22T17:50:27.922821",
+      "volume_profile": {
+        "avg_volume": 70839.125,
+        "total_volume": 1700139.0,
+        "max_volume": 139004.0,
+        "volume_dominance": 0.08176037371062013,
+        "elevated_candles": 3,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 65.39167297382238,
+        "rsi_4h": NaN,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T18:32:15.959032",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 114.49,
+      "timestamp": "2026-01-22T18:32:15.786222",
+      "volume_profile": {
+        "avg_volume": 53505.625,
+        "total_volume": 1284135.0,
+        "max_volume": 81006.0,
+        "volume_dominance": 0.06308215257741592,
+        "elevated_candles": 1,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T18:32:17.112523",
+    "symbol": "SENT/USDT:USDT",
+    "exchange": "gate",
+    "action": "entry",
+    "features": {
+      "symbol": "SENT/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 60.31,
+      "timestamp": "2026-01-22T18:32:15.969399",
+      "volume_profile": {
+        "avg_volume": 65562.125,
+        "total_volume": 1573491.0,
+        "max_volume": 251137.0,
+        "volume_dominance": 0.15960498026363035,
+        "elevated_candles": 5,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 75.22654674807859,
+        "rsi_4h": 78.53064717342617,
+        "threshold": 70
+      },
+      "cross_exchange": {
+        "skipped": true
+      },
+      "spread_check": {
+        "bid": 0.03061,
+        "ask": 0.03063,
+        "spread_pct": 0.06514657980456891,
+        "max_allowed": 0.5
+      },
+      "entry_timing": {
+        "bollinger_bands": {
+          "upper_band": 0.03320097870307906,
+          "last_high": 0.0307,
+          "last_close": 0.0307,
+          "above_upper": false,
+          "extension_pct": -7.532846321928205
+        },
+        "volume_decline": {
+          "peak_volume": 294217.0,
+          "last_volume": 7744.0,
+          "decline_ratio": 0.026320708864545555,
+          "is_declining": true
+        },
+        "lower_highs": {
+          "lower_high_count": 2,
+          "min_required": 1,
+          "has_enough": true
+        },
+        "structure_break": {
+          "has_lower_low": false,
+          "has_declining_lows": false,
+          "has_lower_high": true,
+          "bearish_closes": 2,
+          "n_candles": 3
+        },
+        "blowoff_pattern": {
+          "blowoff_candles": 1,
+          "volume_declining": true,
+          "high_volatility": false,
+          "signals": [
+            {
+              "wick_ratio": 4.458333333333321,
+              "has_long_wick": true,
+              "is_bearish": true
+            },
+            {
+              "wick_ratio": 0.13043478260869829,
+              "has_long_wick": false,
+              "is_bearish": true
+            },
+            {
+              "wick_ratio": 0.0,
+              "has_long_wick": false,
+              "is_bearish": false
+            }
+          ]
+        },
+        "fade_signals": {
+          "valid": false,
+          "rsi": 78.1718562396195
+        },
+        "pattern_count": 4,
+        "entry_quality": 85,
+        "should_enter": true
+      },
+      "entry_quality": 85,
+      "entry_price": 0.0307,
+      "pump_high": 0.0307
+    },
+    "outcome": null
+  },
+  {
+    "timestamp": "2026-01-22T18:36:13.806521",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 113.31,
+      "timestamp": "2026-01-22T18:36:13.301402",
+      "volume_profile": {
+        "avg_volume": 51313.0,
+        "total_volume": 1231512.0,
+        "max_volume": 81006.0,
+        "volume_dominance": 0.06577767817122367,
+        "elevated_candles": 3,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 64.81666963485777,
+        "rsi_4h": NaN,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T18:36:14.988168",
+    "symbol": "SENT/USDT:USDT",
+    "exchange": "gate",
+    "action": "entry",
+    "features": {
+      "symbol": "SENT/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 61.46,
+      "timestamp": "2026-01-22T18:36:13.815747",
+      "volume_profile": {
+        "avg_volume": 65062.125,
+        "total_volume": 1561491.0,
+        "max_volume": 251137.0,
+        "volume_dominance": 0.16083153857434976,
+        "elevated_candles": 5,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 76.1773445752814,
+        "rsi_4h": 78.83225395715998,
+        "threshold": 70
+      },
+      "cross_exchange": {
+        "skipped": true
+      },
+      "spread_check": {
+        "bid": 0.03092,
+        "ask": 0.03095,
+        "spread_pct": 0.09702457956015129,
+        "max_allowed": 0.5
+      },
+      "entry_timing": {
+        "bollinger_bands": {
+          "upper_band": 0.03324092870381426,
+          "last_high": 0.031,
+          "last_close": 0.03093,
+          "above_upper": false,
+          "extension_pct": -6.741474414814176
+        },
+        "volume_decline": {
+          "peak_volume": 294217.0,
+          "last_volume": 19341.0,
+          "decline_ratio": 0.06573719397587495,
+          "is_declining": true
+        },
+        "lower_highs": {
+          "lower_high_count": 1,
+          "min_required": 1,
+          "has_enough": true
+        },
+        "structure_break": {
+          "has_lower_low": false,
+          "has_declining_lows": false,
+          "has_lower_high": false,
+          "bearish_closes": 2,
+          "n_candles": 3
+        },
+        "blowoff_pattern": {
+          "blowoff_candles": 1,
+          "volume_declining": true,
+          "high_volatility": false,
+          "signals": [
+            {
+              "wick_ratio": 4.458333333333321,
+              "has_long_wick": true,
+              "is_bearish": true
+            },
+            {
+              "wick_ratio": 0.13043478260869829,
+              "has_long_wick": false,
+              "is_bearish": true
+            },
+            {
+              "wick_ratio": 0.09859154929577568,
+              "has_long_wick": false,
+              "is_bearish": false
+            }
+          ]
+        },
+        "fade_signals": {
+          "valid": false,
+          "rsi": 78.66452762285743
+        },
+        "pattern_count": 3,
+        "entry_quality": 70,
+        "should_enter": true
+      },
+      "entry_quality": 70,
+      "entry_price": 0.03093,
+      "pump_high": 0.03092,
+      "confidence_tier": 3,
+      "risk_multiplier": 0.5
+    },
+    "outcome": null
+  },
+  {
+    "timestamp": "2026-01-22T18:36:30.773866",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 113.39,
+      "timestamp": "2026-01-22T18:36:30.278863",
+      "volume_profile": {
+        "avg_volume": 51391.0,
+        "total_volume": 1233384.0,
+        "max_volume": 81006.0,
+        "volume_dominance": 0.0656778424237707,
+        "elevated_candles": 3,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 64.85566313720483,
+        "rsi_4h": NaN,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T18:41:34.402471",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 106.15,
+      "timestamp": "2026-01-22T18:41:34.234432",
+      "volume_profile": {
+        "avg_volume": 50538.25,
+        "total_volume": 1212918.0,
+        "max_volume": 81006.0,
+        "volume_dominance": 0.0667860481912215,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T18:42:19.745860",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 104.07,
+      "timestamp": "2026-01-22T18:42:19.583065",
+      "volume_profile": {
+        "avg_volume": 50975.625,
+        "total_volume": 1223415.0,
+        "max_volume": 81006.0,
+        "volume_dominance": 0.06621301847696816,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T18:47:22.311978",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 99.26,
+      "timestamp": "2026-01-22T18:47:22.140605",
+      "volume_profile": {
+        "avg_volume": 51075.708333333336,
+        "total_volume": 1225817.0,
+        "max_volume": 81006.0,
+        "volume_dominance": 0.06608327344130487,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T18:52:24.933765",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 101.08,
+      "timestamp": "2026-01-22T18:52:24.764208",
+      "volume_profile": {
+        "avg_volume": 49454.958333333336,
+        "total_volume": 1186919.0,
+        "max_volume": 81006.0,
+        "volume_dominance": 0.0682489706542738,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T19:36:59.195172",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 113.51,
+      "timestamp": "2026-01-22T19:36:58.686083",
+      "volume_profile": {
+        "avg_volume": 40739.125,
+        "total_volume": 977739.0,
+        "max_volume": 79542.0,
+        "volume_dominance": 0.08135299911326029,
+        "elevated_candles": 4,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 61.5557693438855,
+        "rsi_4h": NaN,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T19:42:01.984925",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 110.09,
+      "timestamp": "2026-01-22T19:42:01.491068",
+      "volume_profile": {
+        "avg_volume": 39250.375,
+        "total_volume": 942009.0,
+        "max_volume": 79542.0,
+        "volume_dominance": 0.08443868370684357,
+        "elevated_candles": 4,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 61.059372155210156,
+        "rsi_4h": NaN,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T19:47:05.285071",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 109.31,
+      "timestamp": "2026-01-22T19:47:04.784766",
+      "volume_profile": {
+        "avg_volume": 38038.208333333336,
+        "total_volume": 912917.0,
+        "max_volume": 79542.0,
+        "volume_dominance": 0.08712949808142471,
+        "elevated_candles": 4,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 60.818062882649215,
+        "rsi_4h": NaN,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T19:52:08.158254",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 113.86,
+      "timestamp": "2026-01-22T19:52:07.660137",
+      "volume_profile": {
+        "avg_volume": 38323.208333333336,
+        "total_volume": 919757.0,
+        "max_volume": 79542.0,
+        "volume_dominance": 0.08648153805842196,
+        "elevated_candles": 4,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 61.60885353953746,
+        "rsi_4h": NaN,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T19:57:10.909086",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 115.54,
+      "timestamp": "2026-01-22T19:57:10.416198",
+      "volume_profile": {
+        "avg_volume": 36437.291666666664,
+        "total_volume": 874495.0,
+        "max_volume": 79542.0,
+        "volume_dominance": 0.09095763840845288,
+        "elevated_candles": 4,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 61.86062713466908,
+        "rsi_4h": NaN,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T20:02:14.367529",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 113.48,
+      "timestamp": "2026-01-22T20:02:13.872390",
+      "volume_profile": {
+        "avg_volume": 34633.041666666664,
+        "total_volume": 831193.0,
+        "max_volume": 79542.0,
+        "volume_dominance": 0.09569618608433901,
+        "elevated_candles": 3,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 61.48553117648059,
+        "rsi_4h": 73.93032346074136,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T20:07:16.884544",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 106.46,
+      "timestamp": "2026-01-22T20:07:16.719083",
+      "volume_profile": {
+        "avg_volume": 34099.916666666664,
+        "total_volume": 818398.0,
+        "max_volume": 79542.0,
+        "volume_dominance": 0.0971923196293246,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T20:10:51.072030",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 105.0,
+      "timestamp": "2026-01-22T20:10:50.903710",
+      "volume_profile": {
+        "avg_volume": 33366.666666666664,
+        "total_volume": 800800.0,
+        "max_volume": 79542.0,
+        "volume_dominance": 0.09932817182817183,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T20:10:51.935730",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "bitget",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "bitget",
+      "pct_change": 199.522,
+      "timestamp": "2026-01-22T20:10:51.343137",
+      "volume_profile": {
+        "avg_volume": 5640512.458333333,
+        "total_volume": 135372299.0,
+        "max_volume": 11608573.0,
+        "volume_dominance": 0.08575294270506553,
+        "elevated_candles": 5,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 59.281250975304665,
+        "rsi_4h": null,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T20:12:19.453511",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 104.98,
+      "timestamp": "2026-01-22T20:12:19.286704",
+      "volume_profile": {
+        "avg_volume": 33971.958333333336,
+        "total_volume": 815327.0,
+        "max_volume": 79542.0,
+        "volume_dominance": 0.09755840294752903,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T20:15:54.109095",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 103.07,
+      "timestamp": "2026-01-22T20:15:53.939433",
+      "volume_profile": {
+        "avg_volume": 34011.416666666664,
+        "total_volume": 816274.0,
+        "max_volume": 79542.0,
+        "volume_dominance": 0.0974452205999456,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T20:17:22.037631",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 100.12,
+      "timestamp": "2026-01-22T20:17:21.842577",
+      "volume_profile": {
+        "avg_volume": 34962.916666666664,
+        "total_volume": 839110.0,
+        "max_volume": 79542.0,
+        "volume_dominance": 0.09479329289366115,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T20:18:30.423939",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 99.94,
+      "timestamp": "2026-01-22T20:18:30.256500",
+      "volume_profile": {
+        "avg_volume": 35429.291666666664,
+        "total_volume": 850303.0,
+        "max_volume": 79542.0,
+        "volume_dominance": 0.09354547731808543,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T20:18:31.757735",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "bitget",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "bitget",
+      "pct_change": 196.723,
+      "timestamp": "2026-01-22T20:18:31.057836",
+      "volume_profile": {
+        "avg_volume": 5652076.0,
+        "total_volume": 135649824.0,
+        "max_volume": 11608573.0,
+        "volume_dominance": 0.08557750137589563,
+        "elevated_candles": 4,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 58.2379215440154,
+        "rsi_4h": null,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T20:20:57.103314",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 102.87,
+      "timestamp": "2026-01-22T20:20:56.596550",
+      "volume_profile": {
+        "avg_volume": 34704.125,
+        "total_volume": 832899.0,
+        "max_volume": 79542.0,
+        "volume_dominance": 0.09550017469104898,
+        "elevated_candles": 3,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 58.97663644581008,
+        "rsi_4h": 71.83202701841586,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T20:20:58.072599",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "bitget",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "bitget",
+      "pct_change": 198.065,
+      "timestamp": "2026-01-22T20:20:57.386412",
+      "volume_profile": {
+        "avg_volume": 5307289.333333333,
+        "total_volume": 127374944.0,
+        "max_volume": 11175461.0,
+        "volume_dominance": 0.08773672944656996,
+        "elevated_candles": 3,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 59.001549921801114,
+        "rsi_4h": null,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T20:23:34.256583",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 98.84,
+      "timestamp": "2026-01-22T20:23:33.761721",
+      "volume_profile": {
+        "avg_volume": 35725.416666666664,
+        "total_volume": 857410.0,
+        "max_volume": 79542.0,
+        "volume_dominance": 0.09277008665632544,
+        "elevated_candles": 3,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 58.047068757105635,
+        "rsi_4h": 71.04072398190044,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T20:23:35.524498",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "bitget",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "bitget",
+      "pct_change": 186.911,
+      "timestamp": "2026-01-22T20:23:34.866018",
+      "volume_profile": {
+        "avg_volume": 5425258.625,
+        "total_volume": 130206207.0,
+        "max_volume": 11175461.0,
+        "volume_dominance": 0.08582894208722323,
+        "elevated_candles": 3,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 57.96379091934637,
+        "rsi_4h": null,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T20:26:00.802882",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 99.02,
+      "timestamp": "2026-01-22T20:26:00.308540",
+      "volume_profile": {
+        "avg_volume": 35715.333333333336,
+        "total_volume": 857168.0,
+        "max_volume": 79542.0,
+        "volume_dominance": 0.09279627797584604,
+        "elevated_candles": 3,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 58.193993786269886,
+        "rsi_4h": 71.08910891089108,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T20:26:01.579952",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "bitget",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "bitget",
+      "pct_change": 186.721,
+      "timestamp": "2026-01-22T20:26:01.379782",
+      "volume_profile": {
+        "avg_volume": 5169559.125,
+        "total_volume": 124069419.0,
+        "max_volume": 11175461.0,
+        "volume_dominance": 0.09007425915325677,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T20:28:38.499224",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 101.7,
+      "timestamp": "2026-01-22T20:28:37.878725",
+      "volume_profile": {
+        "avg_volume": 36489.083333333336,
+        "total_volume": 875738.0,
+        "max_volume": 79542.0,
+        "volume_dominance": 0.09082853547522204,
+        "elevated_candles": 3,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 58.713069971779795,
+        "rsi_4h": 71.60843603099988,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T20:28:39.326884",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "bitget",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "bitget",
+      "pct_change": 190.852,
+      "timestamp": "2026-01-22T20:28:38.972445",
+      "volume_profile": {
+        "avg_volume": 5266254.625,
+        "total_volume": 126390111.0,
+        "max_volume": 11175461.0,
+        "volume_dominance": 0.0884203749136671,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T20:29:13.139514",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 101.55,
+      "timestamp": "2026-01-22T20:29:12.629165",
+      "volume_profile": {
+        "avg_volume": 36703.75,
+        "total_volume": 880890.0,
+        "max_volume": 79542.0,
+        "volume_dominance": 0.09029731294486258,
+        "elevated_candles": 3,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 58.680958328217095,
+        "rsi_4h": 71.58115316230634,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T20:29:13.670214",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "bitget",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "bitget",
+      "pct_change": 194.168,
+      "timestamp": "2026-01-22T20:29:13.421357",
+      "volume_profile": {
+        "avg_volume": 5304590.875,
+        "total_volume": 127310181.0,
+        "max_volume": 11175461.0,
+        "volume_dominance": 0.08778136133511584,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T20:31:04.158156",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 100.98,
+      "timestamp": "2026-01-22T20:31:03.656718",
+      "volume_profile": {
+        "avg_volume": 37163.041666666664,
+        "total_volume": 891913.0,
+        "max_volume": 79542.0,
+        "volume_dominance": 0.0891813439203151,
+        "elevated_candles": 3,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 58.55499259229847,
+        "rsi_4h": 71.4740419488194,
+        "threshold": 70
+      }
+    },
+    "outcome": {
+      "reason": "no_mtf_confirmation"
+    }
+  },
+  {
+    "timestamp": "2026-01-22T20:31:04.712730",
+    "symbol": "SKR/USDT:USDT",
+    "exchange": "bitget",
+    "action": "skip",
+    "features": {
+      "symbol": "SKR/USDT:USDT",
+      "exchange": "bitget",
+      "pct_change": 189.862,
+      "timestamp": "2026-01-22T20:31:04.518357",
+      "volume_profile": {
+        "avg_volume": 5208543.333333333,
+        "total_volume": 125005040.0,
+        "max_volume": 11175461.0,
+        "volume_dominance": 0.08940008338863777,
+        "elevated_candles": 2,
+        "is_single_spike": false,
+        "is_sustained": false
+      }
+    },
+    "outcome": {
+      "reason": "fake_pump_single_spike"
+    }
+  }
+]

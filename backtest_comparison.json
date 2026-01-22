@@ -1,0 +1,34 @@
+{
+  "analyzed": 100,
+  "validated": 25,
+  "single_tp": {
+    "name": "Single TP (38.2%)",
+    "trades": 25,
+    "winners": 16,
+    "losers": 9,
+    "win_rate": 64.0,
+    "total_pnl": 357.88931330367154,
+    "total_fees": 14.771525651491096,
+    "avg_win": 39.33349642393246,
+    "avg_loss": -30.16073660880532,
+    "ratio": 1.3041291707858749,
+    "return_pct": 7.157786266073431,
+    "max_drawdown": 3.2178371241898844,
+    "final_capital": 5357.889313303672
+  },
+  "staged": {
+    "name": "Staged (50%/30%/20%)",
+    "trades": 25,
+    "winners": 15,
+    "losers": 10,
+    "win_rate": 60.0,
+    "total_pnl": 389.04527193440896,
+    "total_fees": 14.755955457272837,
+    "avg_win": 44.447523458607,
+    "avg_loss": -27.766757994469618,
+    "ratio": 1.6007458799280685,
+    "return_pct": 7.78090543868818,
+    "max_drawdown": 2.8669096975040773,
+    "final_capital": 5389.045271934409
+  }
+}

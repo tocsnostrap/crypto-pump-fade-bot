@@ -1,0 +1,11 @@
+{
+  "symbol_cooldowns": {
+    "SENT/USDT:USDT": 1769106974.976877
+  },
+  "last_loss_ts": 0,
+  "consecutive_losses": 0,
+  "weekly_loss": 0,
+  "week_start_ts": 1769106974.6359336,
+  "peak_balance": 6044.806331974285,
+  "current_drawdown_pct": 0.0
+}

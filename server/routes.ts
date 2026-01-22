@@ -51,10 +51,16 @@ interface TradeInfo {
   id: string;
   entry: number;
   pump_high: number;
+  recent_low?: number;
   sl: number;
   amount: number;
   leverage: number;
+  contract_size?: number;
+  sl_order_id?: string | null;
   entry_ts: number;
+  entry_quality?: number;
+  validation_details?: Record<string, unknown>;
+  exits_taken?: number[];
 }
 
 interface OpenTrade {
@@ -77,7 +83,7 @@ interface Signal {
   id: string;
   exchange: string;
   symbol: string;
-  type: "pump_detected" | "entry_signal" | "exit_signal";
+  type: "pump_detected" | "pump_rejected" | "entry_signal" | "exit_signal" | "time_decay" | "partial_exit" | "fade_watch";
   price: number;
   change_pct?: number;
   funding_rate?: number;
