@@ -1,0 +1,286 @@
+{
+  "run_time": "2026-01-17T20:06:12.369829",
+  "events_analyzed": 20,
+  "patterns_summary": {
+    "rsi": {
+      "avg": 79.75325584310053,
+      "median": 84.09249625543464,
+      "min": 51.30254349193832,
+      "max": 93.47807004764627,
+      "above_70_pct": 77.77777777777779,
+      "above_80_pct": 72.22222222222221
+    },
+    "volume": {
+      "avg_ratio": 50.53706158597066,
+      "median_ratio": 7.331956965508476,
+      "above_2x_pct": 77.77777777777779,
+      "above_3x_pct": 66.66666666666666
+    },
+    "volume_declining_pct": 66.66666666666666,
+    "shooting_star_pct": 22.22222222222222,
+    "upper_wick": {
+      "avg": 20.46946399829063,
+      "above_2x_pct": 55.55555555555556
+    },
+    "doji_pct": 22.22222222222222,
+    "macd_declining_pct": 33.33333333333333,
+    "macd_bearish_cross_pct": 0.0,
+    "above_bb_pct": 88.88888888888889,
+    "timing": {
+      "avg_hours_to_dump": 1.3333333333333333,
+      "median_hours": 1.0
+    },
+    "hours_to_50pct": {
+      "avg": 2.1666666666666665,
+      "median": 1.0
+    },
+    "lower_highs": {
+      "avg": 6.222222222222222,
+      "with_3plus_pct": 100.0
+    }
+  },
+  "top_predictors": [
+    "RSI > 70 at peak (78% of dumps)",
+    "Volume > 2x average (78% of dumps)",
+    "Volume declining after peak (67% of dumps)",
+    "Long upper wick > 2x body (56% of dumps)",
+    "Price above upper Bollinger (89% of dumps)",
+    "3+ lower highs in 10h (100% of dumps)"
+  ],
+  "detailed_events": [
+    {
+      "symbol": "TRUST/USDT:USDT",
+      "pump_pct": 507.103825136612,
+      "retrace_pct": 84.375,
+      "pump_time": "2025-11-22T01:00:00",
+      "rsi_at_peak": 84.83776454817033,
+      "volume_ratio": 1.5384053322014195,
+      "upper_wick_ratio": 3.3534482758620894,
+      "shooting_star": 0,
+      "hours_to_dump": 1,
+      "vol_declining": "False",
+      "lower_highs": 7
+    },
+    {
+      "symbol": "XNY/USDT:USDT",
+      "pump_pct": 383.51219512195127,
+      "retrace_pct": 98.15568557618927,
+      "pump_time": "2025-12-04T18:00:00",
+      "rsi_at_peak": 51.30254349193832,
+      "volume_ratio": 33.04047345045423,
+      "upper_wick_ratio": 1.3199303466835526,
+      "shooting_star": 0,
+      "hours_to_dump": 1,
+      "vol_declining": "True",
+      "lower_highs": 4
+    },
+    {
+      "symbol": "LAB/USDT:USDT",
+      "pump_pct": 339.31778929188255,
+      "retrace_pct": 92.85368895223068,
+      "pump_time": "2025-10-30T22:00:00",
+      "rsi_at_peak": 60.996071648400076,
+      "volume_ratio": 6.267536353392279,
+      "upper_wick_ratio": 1.3414214576731556,
+      "shooting_star": 0,
+      "hours_to_dump": 1,
+      "vol_declining": "True",
+      "lower_highs": 7
+    },
+    {
+      "symbol": "TAC/USDT:USDT",
+      "pump_pct": 307.3634204275534,
+      "retrace_pct": 93.12210200927356,
+      "pump_time": "2025-11-26T14:00:00",
+      "rsi_at_peak": 60.13933242217276,
+      "volume_ratio": 78.89013176649587,
+      "upper_wick_ratio": 1.9405099150141638,
+      "shooting_star": 0,
+      "hours_to_dump": 1,
+      "vol_declining": "True",
+      "lower_highs": 6
+    },
+    {
+      "symbol": "COMMON/USDT:USDT",
+      "pump_pct": 295.43378995433784,
+      "retrace_pct": 96.44513137557959,
+      "pump_time": "2025-12-08T03:00:00",
+      "rsi_at_peak": 83.34722796269894,
+      "volume_ratio": 152.19141918432013,
+      "upper_wick_ratio": 102.63636363636375,
+      "shooting_star": 0,
+      "hours_to_dump": 1,
+      "vol_declining": "True",
+      "lower_highs": 7
+    },
+    {
+      "symbol": "HIPPO/USDT:USDT",
+      "pump_pct": 237.63285024154595,
+      "retrace_pct": 76.2146777800366,
+      "pump_time": "2025-11-06T21:00:00",
+      "rsi_at_peak": 93.47807004764627,
+      "volume_ratio": 9.2451949551138,
+      "upper_wick_ratio": 0.03324880247957172,
+      "shooting_star": 0,
+      "hours_to_dump": 1,
+      "vol_declining": "True",
+      "lower_highs": 6
+    },
+    {
+      "symbol": "JELLYJELLY/USDT:USDT",
+      "pump_pct": 237.22621797399734,
+      "retrace_pct": 121.57155070505785,
+      "pump_time": "2025-11-04T21:00:00",
+      "rsi_at_peak": 86.23146322697704,
+      "volume_ratio": 1.3575551477420749,
+      "upper_wick_ratio": 168.5099557522094,
+      "shooting_star": 1,
+      "hours_to_dump": 1,
+      "vol_declining": "True",
+      "lower_highs": 7
+    },
+    {
+      "symbol": "DYM/USDT:USDT",
+      "pump_pct": 197.82608695652175,
+      "retrace_pct": 83.1043956043956,
+      "pump_time": "2025-11-20T14:00:00",
+      "rsi_at_peak": 74.96656652360817,
+      "volume_ratio": 8.396377577624673,
+      "upper_wick_ratio": 0.47039473684210537,
+      "shooting_star": 0,
+      "hours_to_dump": 1,
+      "vol_declining": "True",
+      "lower_highs": 6
+    },
+    {
+      "symbol": "TRUTH/USDT:USDT",
+      "pump_pct": 175.15063601874584,
+      "retrace_pct": 82.68140408995347,
+      "pump_time": "2025-11-09T01:00:00",
+      "rsi_at_peak": 87.01746464561812,
+      "volume_ratio": 3.0083227982990706,
+      "upper_wick_ratio": 1.959435626102301,
+      "shooting_star": 0,
+      "hours_to_dump": 2,
+      "vol_declining": "False",
+      "lower_highs": 6
+    },
+    {
+      "symbol": "RVV/USDT:USDT",
+      "pump_pct": 173.11276794035416,
+      "retrace_pct": 93.04172274562585,
+      "pump_time": "2025-11-25T13:00:00",
+      "rsi_at_peak": 63.984880068473814,
+      "volume_ratio": 58.960933520371775,
+      "upper_wick_ratio": 10.449477351916379,
+      "shooting_star": 1,
+      "hours_to_dump": 1,
+      "vol_declining": "True",
+      "lower_highs": 6
+    },
+    {
+      "symbol": "KERNEL/USDT:USDT",
+      "pump_pct": 167.81964175416925,
+      "retrace_pct": 109.27493559072508,
+      "pump_time": "2025-10-28T07:00:00",
+      "rsi_at_peak": 85.63628600452134,
+      "volume_ratio": 518.6400321758949,
+      "upper_wick_ratio": 4.545454545454545,
+      "shooting_star": 0,
+      "hours_to_dump": 1,
+      "vol_declining": "True",
+      "lower_highs": 7
+    },
+    {
+      "symbol": "PIEVERSE/USDT:USDT",
+      "pump_pct": 163.03947987510156,
+      "retrace_pct": 79.92234436078391,
+      "pump_time": "2025-11-20T19:00:00",
+      "rsi_at_peak": 83.0879739234069,
+      "volume_ratio": 2.7286531278909085,
+      "upper_wick_ratio": 5.489253393665147,
+      "shooting_star": 1,
+      "hours_to_dump": 1,
+      "vol_declining": "True",
+      "lower_highs": 6
+    },
+    {
+      "symbol": "RVV/USDT:USDT",
+      "pump_pct": 158.86545886545883,
+      "retrace_pct": 70.70480463638063,
+      "pump_time": "2025-12-28T04:00:00",
+      "rsi_at_peak": 90.93953222416249,
+      "volume_ratio": 13.810155835580664,
+      "upper_wick_ratio": 8.574468085106378,
+      "shooting_star": 0,
+      "hours_to_dump": 1,
+      "vol_declining": "True",
+      "lower_highs": 5
+    },
+    {
+      "symbol": "RIVER/USDT:USDT",
+      "pump_pct": 156.61300183411453,
+      "retrace_pct": 72.33571893298634,
+      "pump_time": "2026-01-01T00:00:00",
+      "rsi_at_peak": 81.9870948603457,
+      "volume_ratio": 0.8825640111523708,
+      "upper_wick_ratio": 46.49999999999994,
+      "shooting_star": 0,
+      "hours_to_dump": 1,
+      "vol_declining": "False",
+      "lower_highs": 6
+    },
+    {
+      "symbol": "RIVER/USDT:USDT",
+      "pump_pct": 155.83829263287504,
+      "retrace_pct": 71.55649196734264,
+      "pump_time": "2025-12-31T21:00:00",
+      "rsi_at_peak": 91.51285900633488,
+      "volume_ratio": 1.2084880563417848,
+      "upper_wick_ratio": 0.7738359201773831,
+      "shooting_star": 0,
+      "hours_to_dump": 4,
+      "vol_declining": "False",
+      "lower_highs": 7
+    },
+    {
+      "symbol": "JELLYJELLY/USDT:USDT",
+      "pump_pct": 140.7939303617396,
+      "retrace_pct": 79.03194765204003,
+      "pump_time": "2025-12-11T18:00:00",
+      "rsi_at_peak": 87.01973702751663,
+      "volume_ratio": 2.120108195487332,
+      "upper_wick_ratio": 4.03193916349811,
+      "shooting_star": 1,
+      "hours_to_dump": 1,
+      "vol_declining": "False",
+      "lower_highs": 5
+    },
+    {
+      "symbol": "RIVER/USDT:USDT",
+      "pump_pct": 137.88968824940048,
+      "retrace_pct": 82.82125603864733,
+      "pump_time": "2025-10-21T16:00:00",
+      "rsi_at_peak": 88.01620109007155,
+      "volume_ratio": 13.877231464920865,
+      "upper_wick_ratio": 6.106382978723405,
+      "shooting_star": 0,
+      "hours_to_dump": 1,
+      "vol_declining": "True",
+      "lower_highs": 7
+    },
+    {
+      "symbol": "ZK/USDT:USDT",
+      "pump_pct": 130.28536360846888,
+      "retrace_pct": 70.91380122468206,
+      "pump_time": "2025-11-02T10:00:00",
+      "rsi_at_peak": 81.05753645374631,
+      "volume_ratio": 3.5035255941877135,
+      "upper_wick_ratio": 0.41483198146002254,
+      "shooting_star": 0,
+      "hours_to_dump": 3,
+      "vol_declining": "False",
+      "lower_highs": 7
+    }
+  ]
+}

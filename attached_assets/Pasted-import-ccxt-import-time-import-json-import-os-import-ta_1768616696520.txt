@@ -1,0 +1,272 @@
+import ccxt
+import time
+import json
+import os
+import talib
+import pandas as pd
+import numpy as np
+from datetime import datetime
+
+# === CONFIG (AI-friendly: tweak here) ===
+MIN_PUMP_PCT = 60.0  # 60%+ for bigger moves
+POLL_INTERVAL_SEC = 300  # 5 min
+MIN_VOLUME_USDT = 1000000  # High liquidity
+FUNDING_MIN = 0.0001  # >0.01%
+RSI_OVERBOUGHT = 78  # For pump flag
+LEVERAGE_DEFAULT = 3  # 3-5x; toggle here
+RISK_PCT_PER_TRADE = 0.01  # 1%
+SL_PCT_ABOVE_ENTRY = 0.12  # 12%
+TP_FIB_LEVELS = [0.382, 0.5, 0.618]  # Retrace targets
+MAX_OPEN_TRADES = 4
+DAILY_LOSS_LIMIT_PCT = 0.05
+PAUSE_ON_BTC_DUMP_PCT = -5.0  # If BTC dumps
+COMPOUND_PCT = 0.60  # Reinvest 60% profits
+STARTING_CAPITAL = 5000.0  # USD
+PAPER_MODE = True  # True for sim; False for live
+TRAILING_STOP_PCT = 0.05  # Trail if profit >5%
+
+# Exchanges (add secrets in Replit)
+gate = ccxt.gateio({
+    'apiKey': os.getenv('GATE_API_KEY'),
+    'secret': os.getenv('GATE_SECRET'),
+    'enableRateLimit': True,
+    'options': {'defaultType': 'swap'}
+})
+
+bitget = ccxt.bitget({
+    'apiKey': os.getenv('BITGET_API_KEY'),
+    'secret': os.getenv('BITGET_SECRET'),
+    'password': os.getenv('BITGET_PASSPHRASE'),
+    'enableRateLimit': True,
+    'options': {'defaultType': 'swap'}
+})
+
+exchanges = {'gate': gate, 'bitget': bitget}
+
+# Load symbols
+symbols = {}
+for name, ex in exchanges.items():
+    ex.load_markets()
+    symbols[name] = [s for s, m in ex.markets.items() if m['swap'] and 'USDT' in s and m['active']]
+
+# State files
+STATE_FILE = 'pump_state.json'  # Prev prices
+TRADES_FILE = 'trades_log.json'  # Open/closed trades
+BALANCE_FILE = 'balance.json'  # Compounding
+
+# Load states
+prev_data = {}
+if os.path.exists(STATE_FILE):
+    with open(STATE_FILE, 'r') as f:
+        prev_data = json.load(f)
+
+open_trades = []
+if os.path.exists(TRADES_FILE):
+    with open(TRADES_FILE, 'r') as f:
+        open_trades = json.load(f)
+
+current_balance = STARTING_CAPITAL
+if os.path.exists(BALANCE_FILE):
+    with open(BALANCE_FILE, 'r') as f:
+        current_balance = json.load(f).get('balance', STARTING_CAPITAL)
+
+daily_loss = 0.0  # Track for limit
+
+# Helper: Save state
+def save_state():
+    with open(STATE_FILE, 'w') as f:
+        json.dump(prev_data, f)
+    with open(TRADES_FILE, 'w') as f:
+        json.dump(open_trades, f)
+    with open(BALANCE_FILE, 'w') as f:
+        json.dump({'balance': current_balance}, f)
+
+# Helper: Get OHLCV as DF
+def get_ohlcv(ex, symbol, timeframe='15m', limit=20):
+    ohlcv = ex.fetch_ohlcv(symbol, timeframe, limit=limit)
+    df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+    return df
+
+# Helper: Check reversal signals
+def check_fade_signals(df):
+    closes = np.array(df['close'])
+    highs = np.array(df['high'])
+    rsi = talib.RSI(closes, timeperiod=14)[-1]
+    macd, signal, _ = talib.MACD(closes)
+    last_macd = macd[-1]
+    last_signal = signal[-1]
+
+    # Bearish candle: shooting star (high wick, small body)
+    last_candle = df.iloc[-1]
+    body = abs(last_candle['close'] - last_candle['open'])
+    upper_wick = last_candle['high'] - max(last_candle['open'], last_candle['close'])
+    is_bearish_star = (upper_wick > 2 * body) and (last_candle['close'] < last_candle['open'])
+
+    # RSI divergence: price HH but RSI not
+    price_hh = highs[-1] > highs[-2]
+    rsi_vals = talib.RSI(closes, timeperiod=14)
+    rsi_div = price_hh and (rsi_vals[-1] < rsi_vals[-2])
+
+    # MACD bear cross
+    macd_cross = (macd[-2] > signal[-2]) and (last_macd < last_signal)
+
+    # Volume fade
+    vol_fade = df['volume'].iloc[-1] < df['volume'].max() * 0.7
+
+    confirms = sum([is_bearish_star, rsi_div, macd_cross, vol_fade])
+    return confirms >= 3, rsi
+
+# Helper: Calculate fib retrace levels (from pump high to recent low for downside targets)
+def calc_fib_levels(pump_high, recent_low):
+    diff = pump_high - recent_low
+    levels = [pump_high - (level * diff) for level in TP_FIB_LEVELS]
+    return levels
+
+# Helper: Enter short
+def enter_short(ex, symbol, entry_price, risk_amount, pump_high):
+    if PAPER_MODE:
+        print(f"[PAPER] Entering short {symbol} @ {entry_price} (risk ${risk_amount})")
+        return {'id': f'paper_{len(open_trades)}', 'entry': entry_price, 'pump_high': pump_high, 'sl': entry_price * (1 + SL_PCT_ABOVE_ENTRY), 'amount': risk_amount / (entry_price * SL_PCT_ABOVE_ENTRY), 'leverage': LEVERAGE_DEFAULT}
+
+    ex.set_leverage(LEVERAGE_DEFAULT, symbol)
+    # Get contract size/info
+    market = ex.market(symbol)
+    amount = (risk_amount * LEVERAGE_DEFAULT) / (entry_price * SL_PCT_ABOVE_ENTRY * market['contractSize'])
+    order = ex.create_market_sell_order(symbol, amount, params={'reduce_only': False})  # Open short
+    return {'id': order['id'], 'entry': entry_price, 'pump_high': pump_high, 'sl': entry_price * (1 + SL_PCT_ABOVE_ENTRY), 'amount': amount, 'leverage': LEVERAGE_DEFAULT}
+
+# Helper: Close trade
+def close_trade(ex, trade, reason, current_price):
+    global current_balance, daily_loss
+    if PAPER_MODE:
+        profit = trade['amount'] * trade['leverage'] * (trade['entry'] - current_price)  # Sim P&L
+        print(f"[PAPER] Closing {trade['sym']} {reason}: Profit ${profit}")
+        current_balance += profit * COMPOUND_PCT  # Compound portion
+        daily_loss += min(profit, 0)  # Track losses
+        return profit
+
+    # Real close: buy back to close short
+    order = ex.create_market_buy_order(trade['sym'], trade['amount'], params={'reduce_only': True})
+    # Fetch P&L from exchange (simplified; use fetch_order or positions for real)
+    profit = 0.0  # Placeholder: In production, calculate from entry/exit
+    current_balance += profit * COMPOUND_PCT
+    daily_loss += min(profit, 0)
+    return profit
+
+# Helper: Manage trades
+def manage_trades(ex_name, ex):
+    global open_trades, daily_loss
+    to_close = []
+    for i, trade in enumerate(open_trades):
+        if trade['ex'] != ex_name: continue
+        ticker = ex.fetch_ticker(trade['sym'])
+        current_price = ticker['last']
+        recent_low = ticker['low']  # 24h low for fib
+        fib_levels = calc_fib_levels(trade['pump_high'], recent_low)
+
+        # Check SL
+        if current_price >= trade['sl']:
+            close_trade(ex, trade, 'SL hit', current_price)
+            to_close.append(i)
+            continue
+
+        # Check staged TP
+        for level in fib_levels:
+            if current_price <= level:
+                # Partial close (simplified: close full for now)
+                close_trade(ex, trade, f'TP at fib {level}', current_price)
+                to_close.append(i)
+                break
+
+        # Trailing stop if in profit
+        profit_pct = (trade['entry'] - current_price) / trade['entry']
+        if profit_pct > TRAILING_STOP_PCT:
+            new_sl = current_price * (1 + TRAILING_STOP_PCT)  # Trail above current
+            open_trades[i]['sl'] = min(trade['sl'], new_sl)  # Tighten
+
+        # Time exit (48h max)
+        if time.time() - trade.get('entry_ts', time.time()) > 172800:
+            close_trade(ex, trade, 'Time exit', current_price)
+            to_close.append(i)
+
+    # Remove closed
+    for idx in sorted(to_close, reverse=True):
+        del open_trades[idx]
+
+# Main loop
+btc_prev = {'price': None, 'ts': time.time()}
+while True:
+    try:
+        # Global pauses: BTC dump or daily loss
+        btc_ticker = exchanges['gate'].fetch_ticker('BTC/USDT')
+        btc_price = btc_ticker['last']
+        if btc_prev['price'] is None:
+            btc_prev['price'] = btc_price
+        btc_pct = ((btc_price - btc_prev['price']) / btc_prev['price']) * 100 if btc_prev['price'] else 0
+        if btc_pct <= PAUSE_ON_BTC_DUMP_PCT or abs(daily_loss / current_balance) >= DAILY_LOSS_LIMIT_PCT:
+            print(f"Pausing: BTC {btc_pct}% or daily loss {daily_loss}")
+            time.sleep(3600)  # 1h pause
+            continue
+        btc_prev['price'] = btc_price
+        btc_prev['ts'] = time.time()
+
+        for ex_name, ex in exchanges.items():
+            tickers = ex.fetch_tickers()
+
+            for symbol in symbols[ex_name]:
+                if symbol not in tickers: continue
+                ticker = tickers[symbol]
+                current_price = ticker['last']
+                volume = ticker.get('quoteVolume', 0)
+                if volume < MIN_VOLUME_USDT: continue
+
+                funding = float(ticker['info'].get('funding_rate', '0'))
+                if funding <= FUNDING_MIN: continue
+
+                if ex_name not in prev_data:
+                    prev_data[ex_name] = {}
+                if symbol not in prev_data[ex_name]:
+                    prev_data[ex_name][symbol] = {'price': current_price, 'ts': time.time()}
+                    continue
+
+                prev = prev_data[ex_name][symbol]
+                time_delta_h = (time.time() - prev['ts']) / 3600
+                if time_delta_h > 24:  # Stale reset
+                    prev_data[ex_name][symbol] = {'price': current_price, 'ts': time.time()}
+                    continue
+
+                pct_change = ((current_price - prev['price']) / prev['price']) * 100
+                if pct_change >= MIN_PUMP_PCT:
+                    print(f"[{datetime.now()}] PUMP! {ex_name} {symbol} +{pct_change:.1f}% funding:{funding*100:.3f}%")
+
+                    # Quick RSI check
+                    df = get_ohlcv(ex, symbol)
+                    _, rsi = check_fade_signals(df)
+                    if rsi < RSI_OVERBOUGHT: continue
+
+                    # Monitor for fade (wait up to 120 min, check every 15 min)
+                    start_monitor = time.time()
+                    while time.time() - start_monitor < 7200:
+                        df = get_ohlcv(ex, symbol)
+                        should_enter, _ = check_fade_signals(df)
+                        if should_enter and len(open_trades) < MAX_OPEN_TRADES:
+                            risk = current_balance * RISK_PCT_PER_TRADE
+                            trade = enter_short(ex, symbol, current_price, risk, current_price)  # Pump high = entry approx
+                            trade['entry_ts'] = time.time()
+                            open_trades.append({'ex': ex_name, 'sym': symbol, 'trade': trade})
+                            break
+                        time.sleep(900)  # 15 min
+
+                # Update prev
+                prev_data[ex_name][symbol] = {'price': current_price, 'ts': time.time()}
+
+            # Manage open trades
+            manage_trades(ex_name, ex)
+
+        save_state()
+        time.sleep(POLL_INTERVAL_SEC)
+
+    except Exception as e:
+        print(f"Error: {e}")
+        time.sleep(60)

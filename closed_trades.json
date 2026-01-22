@@ -1,0 +1,38 @@
+[
+  {
+    "ex": "gate",
+    "sym": "DUSK/USDT:USDT",
+    "entry": 0.27757986231069914,
+    "exit": 0.17585415018758707,
+    "profit": 329.1176582915691,
+    "reason": "Time exit (48h)",
+    "closed_at": "2026-01-22T16:42:28.565135"
+  },
+  {
+    "ex": "gate",
+    "sym": "DUSK/USDT:USDT",
+    "entry": 0.2781525067137663,
+    "exit": 0.17581532327818244,
+    "profit": 112.93617911481293,
+    "reason": "Time exit (48h)",
+    "closed_at": "2026-01-22T16:42:28.733650"
+  },
+  {
+    "ex": "gate",
+    "sym": "DUSK/USDT:USDT",
+    "entry": 0.2771773665584428,
+    "exit": 0.17589028835505116,
+    "profit": 108.88622450157334,
+    "reason": "Time exit (48h)",
+    "closed_at": "2026-01-22T16:42:29.042674"
+  },
+  {
+    "ex": "gate",
+    "sym": "ARPA/USDT:USDT",
+    "entry": 0.020824007879578197,
+    "exit": 0.015033480091592642,
+    "profit": 114.11919842192233,
+    "reason": "Time exit (48h)",
+    "closed_at": "2026-01-22T16:42:29.213855"
+  }
+]

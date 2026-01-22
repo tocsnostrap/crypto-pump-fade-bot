@@ -196,6 +196,10 @@ def save_closed_trade(ex_name, symbol, entry, exit_price, profit, reason):
     except Exception as e:
         print(f"[{datetime.now()}] Error saving closed trade: {e}")
 
+def is_symbol_open(open_trades, ex_name, symbol):
+    """Check if a symbol already has an open trade for an exchange."""
+    return any(t for t in open_trades if t.get('ex') == ex_name and t.get('sym') == symbol)
+
 def init_exchanges():
     """Initialize exchange connections with API keys from environment"""
     gate = ccxt.gateio({
@@ -281,6 +285,7 @@ ohlcv_cache = {}
 OHLCV_CACHE_TTL = 3600  # Cache for 1 hour
 OHLCV_MAX_CALLS_PER_CYCLE = 10  # Limit OHLCV calls per cycle to avoid rate limits
 ohlcv_calls_this_cycle = 0
+POSITION_SYNC_INTERVAL_SEC = 300  # Live position reconciliation interval
 
 def get_24h_change_from_ohlcv(ex, ex_name, symbol):
     """Calculate 24h percentage change from OHLCV data as fallback (with caching)"""
@@ -1026,9 +1031,10 @@ def calculate_funding_payment(trade, current_price, funding_rate, config):
     
     trade_data = trade.get('trade', trade)
     amount = trade_data.get('amount', 0)
+    contract_size = trade_data.get('contract_size', 1)
     
     # Position notional value (not multiplied by leverage - funding is on notional)
-    position_notional = amount * current_price
+    position_notional = amount * current_price * contract_size
     
     # For shorts: positive funding = we pay, negative funding = we receive
     # funding_rate is typically a small decimal like 0.0001 (0.01%)
@@ -1055,6 +1061,33 @@ def calculate_swing_high_sl(ex, symbol, entry_price, config):
     # Fallback to fixed percentage
     fallback_pct = config.get('sl_pct_above_entry', 0.12)
     return entry_price * (1 + fallback_pct), fallback_pct, entry_price
+
+def place_exchange_stop_loss(ex, symbol, amount, stop_price):
+    """Place a reduce-only stop-market order on the exchange if supported."""
+    try:
+        # Use unified ccxt stop order helpers when available
+        params = {'reduceOnly': True}
+        if getattr(ex, "create_stop_market_order", None):
+            return ex.create_stop_market_order(symbol, 'buy', amount, stop_price, params)
+        if getattr(ex, "create_stop_limit_order", None):
+            return ex.create_stop_limit_order(symbol, 'buy', amount, stop_price, stop_price, params)
+        if hasattr(ex, "has") and ex.has.get("createStopMarketOrder"):
+            return ex.create_stop_market_order(symbol, 'buy', amount, stop_price, params)
+        if hasattr(ex, "has") and ex.has.get("createStopLimitOrder"):
+            return ex.create_stop_limit_order(symbol, 'buy', amount, stop_price, stop_price, params)
+        print(f"[{datetime.now()}] Exchange does not support stop orders via CCXT: {ex.id}")
+    except Exception as e:
+        print(f"[{datetime.now()}] Failed to place exchange stop loss for {symbol}: {e}")
+    return None
+
+def cancel_exchange_order(ex, symbol, order_id):
+    """Cancel an exchange order safely."""
+    if not order_id:
+        return
+    try:
+        ex.cancel_order(order_id, symbol)
+    except Exception as e:
+        print(f"[{datetime.now()}] Failed to cancel order {order_id} for {symbol}: {e}")
 
 def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent_low, open_trades, config):
     """Enter a short position (paper or live) with swing high stop loss
@@ -1121,11 +1154,13 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
             'entry': simulated_entry,
             'market_price_at_entry': entry_price,
             'pump_high': pump_high,
+            'recent_low': recent_low,
             'swing_high': swing_high,
             'sl': sl_price,
             'tp_prices': tp_prices,
             'amount': position_size,
             'leverage': leverage,
+            'contract_size': 1,
             'entry_fee': entry_fee_cost,
             'total_fees': entry_fee_cost,
             'funding_payments': 0,
@@ -1139,10 +1174,11 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
         contract_size = market.get('contractSize', 1)
         sl_distance = abs(sl_price - entry_price)
         if sl_distance > 0:
-            amount = (risk_amount * leverage) / (sl_distance * contract_size)
+            amount = risk_amount / (sl_distance * contract_size)
         else:
-            amount = (risk_amount * leverage) / (entry_price * 0.12 * contract_size)
+            amount = risk_amount / (entry_price * 0.12 * contract_size)
         order = ex.create_market_sell_order(symbol, amount, params={'reduce_only': False})
+        filled_entry = order.get('average') or order.get('price') or entry_price
         
         # Calculate TP prices for live trades using actual pump range
         staged_exit_levels = config.get('staged_exit_levels', [
@@ -1154,19 +1190,26 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
         diff = pump_high - recent_low
         tp_prices = [pump_high - (level['fib'] * diff) for level in staged_exit_levels]
         
-        print(f"[{datetime.now()}] [LIVE] Entered short {symbol} @ {entry_price:.4f}, SL ${sl_price:.4f}, order ID: {order['id']}")
+        print(f"[{datetime.now()}] [LIVE] Entered short {symbol} @ {filled_entry:.4f}, SL ${sl_price:.4f}, order ID: {order['id']}")
         print(f"  TP levels: ${tp_prices[0]:.4f} (38.2%) | ${tp_prices[1]:.4f} (50%) | ${tp_prices[2]:.4f} (61.8%)")
-        save_signal(ex_name, symbol, 'entry_signal', entry_price,
-                   f"LIVE short entry at ${entry_price:.4f}, SL ${sl_price:.4f}")
+        save_signal(ex_name, symbol, 'entry_signal', filled_entry,
+                   f"LIVE short entry at ${filled_entry:.4f}, SL ${sl_price:.4f}")
+
+        sl_order = place_exchange_stop_loss(ex, symbol, amount, sl_price)
+        if sl_order:
+            print(f"[{datetime.now()}] [LIVE] Stop loss order placed for {symbol} @ {sl_price:.4f} (ID: {sl_order.get('id')})")
         return {
             'id': order['id'],
-            'entry': entry_price,
+            'entry': filled_entry,
             'pump_high': pump_high,
+            'recent_low': recent_low,
             'swing_high': swing_high,
             'sl': sl_price,
             'tp_prices': tp_prices,
             'amount': amount,
             'leverage': leverage,
+            'contract_size': contract_size,
+            'sl_order_id': sl_order.get('id') if sl_order else None,
             'exits_taken': []
         }
     except Exception as e:
@@ -1186,16 +1229,17 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
         entry = trade_data.get('entry', current_price)
         amount = trade_data.get('amount', 0)
         leverage = trade_data.get('leverage', leverage_default)
+        contract_size = trade_data.get('contract_size', 1)
         
         # Apply realistic exit simulation (slippage, spread)
         simulated_exit, _ = simulate_realistic_exit(current_price, config)
         
         # Calculate P&L with realistic exit price
-        # For shorts: profit = (entry - exit) * size * leverage
-        gross_profit = amount * leverage * (entry - simulated_exit)
+        # For shorts: profit = (entry - exit) * size * contract_size
+        gross_profit = amount * contract_size * (entry - simulated_exit)
         
         # Calculate exit fee on notional value (NOT leveraged)
-        exit_notional = simulated_exit * amount
+        exit_notional = simulated_exit * amount * contract_size
         exit_fee_cost = exit_notional * config.get('paper_fee_pct', 0.0005)
         
         # Total fees = entry fee + exit fee
@@ -1227,8 +1271,10 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
         order = ex.create_market_buy_order(sym, amount, params={'reduce_only': True})
         entry = trade_data.get('entry', current_price)
         leverage = trade_data.get('leverage', leverage_default)
-        profit = amount * leverage * (entry - current_price)
+        contract_size = trade_data.get('contract_size', 1)
+        profit = amount * contract_size * (entry - current_price)
         print(f"[{datetime.now()}] [LIVE] Closed {sym} - {reason}: P&L ${profit:.2f}")
+        cancel_exchange_order(ex, sym, trade_data.get('sl_order_id'))
         save_closed_trade(ex_name, sym, entry, current_price, profit, reason)
         save_signal(ex_name, sym, 'exit_signal', current_price,
                    f"LIVE exit: {reason}, P&L ${profit:.2f}")
@@ -1261,10 +1307,10 @@ def close_partial_trade(ex, trade, pct_to_close, reason, current_price, current_
         simulated_exit, _ = simulate_realistic_exit(current_price, config)
         
         # Calculate P&L for closed portion
-        gross_profit = amount_to_close * leverage * (entry - simulated_exit)
+        gross_profit = amount_to_close * contract_size * (entry - simulated_exit)
         
         # Exit fee on notional value
-        exit_notional = simulated_exit * amount_to_close
+        exit_notional = simulated_exit * amount_to_close * contract_size
         exit_fee_cost = exit_notional * config.get('paper_fee_pct', 0.0005)
         
         # Proportional funding (based on closed %)
@@ -1297,7 +1343,8 @@ def close_partial_trade(ex, trade, pct_to_close, reason, current_price, current_
         order = ex.create_market_buy_order(sym, amount_to_close, params={'reduce_only': True})
         entry = trade_data.get('entry', current_price)
         leverage = trade_data.get('leverage', leverage_default)
-        profit = amount_to_close * leverage * (entry - current_price)
+        contract_size = trade_data.get('contract_size', 1)
+        profit = amount_to_close * contract_size * (entry - current_price)
         
         print(f"[{datetime.now()}] [LIVE] Partial close {sym} ({pct_to_close*100:.0f}%) - {reason}: P&L ${profit:.2f}")
         save_signal(ex_name, sym, 'partial_exit', current_price,
@@ -1307,6 +1354,12 @@ def close_partial_trade(ex, trade, pct_to_close, reason, current_price, current_
         daily_loss += min(profit, 0)
         
         trade_data['amount'] = total_amount - amount_to_close
+
+        # Update stop loss order for remaining position
+        if trade_data.get('amount', 0) > 0 and trade_data.get('sl'):
+            cancel_exchange_order(ex, sym, trade_data.get('sl_order_id'))
+            sl_order = place_exchange_stop_loss(ex, sym, trade_data['amount'], trade_data['sl'])
+            trade_data['sl_order_id'] = sl_order.get('id') if sl_order else None
         return profit, current_balance, daily_loss, trade_data, trade_data['amount'] > 0
     except Exception as e:
         print(f"[{datetime.now()}] Error partial close: {e}")
@@ -1333,19 +1386,20 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
         try:
             ticker = ex.fetch_ticker(trade['sym'])
             current_price = ticker['last']
-            recent_low = ticker.get('low', current_price)
             trade_data = trade.get('trade', trade)
+            recent_low = trade_data.get('recent_low') or ticker.get('low', current_price)
             pump_high = trade_data.get('pump_high', current_price)
             entry = trade_data.get('entry', current_price)
             
             # Update current price and unrealized P&L for dashboard
             amount = trade_data.get('amount', 0)
             leverage = trade_data.get('leverage', 1)
+            contract_size = trade_data.get('contract_size', 1)
             total_fees = trade_data.get('total_fees', 0)
             funding_payments = trade_data.get('funding_payments', 0)
             
             # For shorts: profit = (entry - current) * amount
-            unrealized_pnl = (entry - current_price) * amount - total_fees + funding_payments
+            unrealized_pnl = (entry - current_price) * amount * contract_size - total_fees + funding_payments
             pnl_percent = ((entry - current_price) / entry * 100) if entry > 0 else 0
             
             open_trades[i]['trade']['current_price'] = current_price
@@ -1386,14 +1440,19 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
                 continue
 
             # === STAGED EXITS (optimized from backtest) ===
-            if use_staged_exits:
+            skip_staged = trade_data.get('skip_staged_exits', False)
+            if use_staged_exits and not skip_staged:
                 exits_taken = trade_data.get('exits_taken', [])
                 diff = pump_high - recent_low
+                tp_prices = trade_data.get('tp_prices')
                 
-                for level in staged_exit_levels:
+                for idx, level in enumerate(staged_exit_levels):
                     fib = level['fib']
                     exit_pct = level['pct']
-                    tp_price = pump_high - (fib * diff)
+                    if tp_prices and len(tp_prices) == len(staged_exit_levels):
+                        tp_price = tp_prices[idx]
+                    else:
+                        tp_price = pump_high - (fib * diff)
                     
                     if fib not in exits_taken and current_price <= tp_price:
                         # Take partial profit at this level
@@ -1419,6 +1478,10 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
                         new_sl = current_price * (1 + trailing_stop_pct)
                         if new_sl < sl:
                             open_trades[i]['trade']['sl'] = new_sl
+                            if not paper_mode and trade_data.get('amount', 0) > 0:
+                                cancel_exchange_order(ex, trade['sym'], trade_data.get('sl_order_id'))
+                                sl_order = place_exchange_stop_loss(ex, trade['sym'], trade_data['amount'], new_sl)
+                                open_trades[i]['trade']['sl_order_id'] = sl_order.get('id') if sl_order else None
                             print(f"[{datetime.now()}] Trailing stop updated for {trade['sym']}: {new_sl:.4f}")
             else:
                 # Original single TP logic (fallback)
@@ -1434,6 +1497,10 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
                         new_sl = current_price * (1 + trailing_stop_pct)
                         if new_sl < sl:
                             open_trades[i]['trade']['sl'] = new_sl
+                            if not paper_mode and trade_data.get('amount', 0) > 0:
+                                cancel_exchange_order(ex, trade['sym'], trade_data.get('sl_order_id'))
+                                sl_order = place_exchange_stop_loss(ex, trade['sym'], trade_data['amount'], new_sl)
+                                open_trades[i]['trade']['sl_order_id'] = sl_order.get('id') if sl_order else None
                             print(f"[{datetime.now()}] Trailing stop updated for {trade['sym']}: {new_sl:.4f}")
 
             # Time exit (48h max)
@@ -1450,6 +1517,217 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
         del open_trades[idx]
 
     return open_trades, current_balance, daily_loss
+
+def sync_live_positions(ex_name, ex, open_trades, config):
+    """Reconcile stored open trades with live exchange positions."""
+    if config.get('paper_mode', True):
+        return open_trades
+    if not hasattr(ex, "fetch_positions") or (hasattr(ex, "has") and not ex.has.get("fetchPositions", True)):
+        print(f"[{datetime.now()}] Exchange does not support fetch_positions: {ex.id}")
+        return open_trades
+
+    try:
+        positions = ex.fetch_positions()
+    except Exception as e:
+        print(f"[{datetime.now()}] Error fetching positions from {ex_name}: {e}")
+        return open_trades
+
+    positions_by_symbol = {}
+    for pos in positions:
+        symbol = pos.get('symbol')
+        if not symbol:
+            continue
+        info = pos.get('info', {}) if isinstance(pos.get('info', {}), dict) else {}
+        side = (pos.get('side') or info.get('side') or info.get('posSide') or "").lower()
+
+        amount = pos.get('contracts')
+        if amount is None:
+            amount = pos.get('positionAmt') or info.get('positionAmt') or info.get('size')
+        if amount is None:
+            continue
+
+        try:
+            amount = float(amount)
+        except (ValueError, TypeError):
+            continue
+
+        # Only track short positions (or negative amount)
+        if side and side not in ['short', 'sell']:
+            continue
+        if amount == 0:
+            continue
+        if amount < 0:
+            amount = abs(amount)
+
+        entry_price = pos.get('entryPrice') or pos.get('average') or pos.get('avgPrice') or info.get('avgPrice')
+        mark_price = pos.get('markPrice') or pos.get('lastPrice') or info.get('markPrice') or entry_price
+        leverage = pos.get('leverage') or info.get('leverage') or config.get('leverage_default', 1)
+        contract_size = pos.get('contractSize')
+        if not contract_size:
+            try:
+                market = ex.market(symbol)
+                contract_size = market.get('contractSize', 1)
+            except Exception:
+                contract_size = 1
+
+        positions_by_symbol[symbol] = {
+            'amount': amount,
+            'entry_price': float(entry_price) if entry_price else float(mark_price),
+            'mark_price': float(mark_price) if mark_price else None,
+            'leverage': leverage,
+            'contract_size': contract_size,
+            'timestamp': pos.get('timestamp')
+        }
+
+    # Update existing trades and remove missing ones
+    to_remove = []
+    for idx, trade in enumerate(open_trades):
+        if trade.get('ex') != ex_name:
+            continue
+        sym = trade.get('sym')
+        if sym in positions_by_symbol:
+            pos = positions_by_symbol.pop(sym)
+            trade_data = trade.get('trade', trade)
+            trade_data['amount'] = pos['amount']
+            trade_data['entry'] = pos['entry_price']
+            trade_data['leverage'] = pos['leverage']
+            trade_data['contract_size'] = pos['contract_size']
+            if not trade_data.get('entry_ts'):
+                trade_data['entry_ts'] = pos.get('timestamp') or time.time()
+            open_trades[idx]['trade'] = trade_data
+        else:
+            print(f"[{datetime.now()}] Live position missing for {sym} on {ex_name}, removing from tracking")
+            to_remove.append(idx)
+
+    for idx in sorted(to_remove, reverse=True):
+        del open_trades[idx]
+
+    # Add positions not tracked in open_trades
+    for sym, pos in positions_by_symbol.items():
+        print(f"[{datetime.now()}] Reconciling untracked live position: {sym} on {ex_name}")
+        entry_price = pos['entry_price']
+        mark_price = pos.get('mark_price') or entry_price
+
+        # Attempt to estimate pump range from recent candles
+        pump_high = max(entry_price, mark_price)
+        recent_low = min(entry_price, mark_price)
+        df = get_ohlcv(ex, sym, timeframe='5m', limit=24)
+        if df is not None and len(df) >= 6:
+            pump_high = max(pump_high, float(df['high'].max()))
+            recent_low = min(recent_low, float(df['low'].min()))
+
+        diff = pump_high - recent_low
+        staged_exit_levels = config.get('staged_exit_levels', [
+            {'fib': 0.382, 'pct': 0.50},
+            {'fib': 0.50, 'pct': 0.30},
+            {'fib': 0.618, 'pct': 0.20}
+        ])
+        tp_prices = [pump_high - (level['fib'] * diff) for level in staged_exit_levels] if diff > 0 else []
+
+        sl_price = entry_price * (1 + config.get('sl_pct_above_entry', 0.12))
+        sl_order = place_exchange_stop_loss(ex, sym, pos['amount'], sl_price)
+
+        open_trades.append({
+            'ex': ex_name,
+            'sym': sym,
+            'trade': {
+                'id': f"reconciled_{int(time.time())}",
+                'entry': entry_price,
+                'pump_high': pump_high,
+                'recent_low': recent_low,
+                'sl': sl_price,
+                'tp_prices': tp_prices,
+                'amount': pos['amount'],
+                'leverage': pos['leverage'],
+                'contract_size': pos['contract_size'],
+                'entry_ts': pos.get('timestamp') or time.time(),
+                'exits_taken': [],
+                'reconciled': True,
+                'sl_order_id': sl_order.get('id') if sl_order else None
+            }
+        })
+
+    return open_trades
+
+def process_entry_watchlist(ex_name, ex, tickers, entry_watchlist, open_trades, current_balance, config):
+    """Process watchlist entries without blocking the main loop."""
+    if ex_name not in entry_watchlist:
+        return open_trades, current_balance
+
+    time_decay_sec = config.get('time_decay_minutes', 120) * 60
+    for symbol, watch in list(entry_watchlist[ex_name].items()):
+        # Remove if trade already open
+        if is_symbol_open(open_trades, ex_name, symbol):
+            del entry_watchlist[ex_name][symbol]
+            continue
+
+        # Time decay expiry
+        if time.time() - watch['start_ts'] >= time_decay_sec:
+            save_signal(ex_name, symbol, 'time_decay', watch.get('last_price', 0),
+                       f"No reversal within {config.get('time_decay_minutes', 120)} min, skipping")
+            del entry_watchlist[ex_name][symbol]
+            continue
+
+        # Get current price
+        current_price = watch.get('last_price')
+        if tickers and symbol in tickers:
+            current_price = tickers[symbol].get('last', current_price)
+        else:
+            try:
+                current_price = ex.fetch_ticker(symbol)['last']
+            except Exception:
+                continue
+
+        if not current_price:
+            continue
+
+        watch['last_price'] = current_price
+        watch['pump_high'] = max(watch.get('pump_high', current_price), current_price)
+
+        df = get_ohlcv(ex, symbol)
+        if df is None:
+            continue
+
+        should_enter, entry_quality, entry_details = check_entry_timing(ex, symbol, df, config)
+        if not should_enter:
+            continue
+
+        if len(open_trades) >= config['max_open_trades']:
+            continue
+
+        # Calculate recent_low from recent candles for TP calculation
+        recent_low = df['low'].iloc[-24:].min() if len(df) >= 24 else df['low'].min()
+
+        risk = current_balance * config['risk_pct_per_trade']
+        trade_info = enter_short(
+            ex, ex_name, symbol, current_price, risk,
+            watch.get('pump_high', current_price), recent_low, open_trades, config
+        )
+
+        if trade_info:
+            trade_info['entry_ts'] = time.time()
+            trade_info['entry_quality'] = entry_quality
+            trade_info['validation_details'] = watch.get('validation_details')
+
+            open_trades.append({
+                'ex': ex_name,
+                'sym': symbol,
+                'trade': trade_info
+            })
+
+            if config.get('enable_trade_logging', True):
+                combined_features = {
+                    **(watch.get('validation_details') or {}),
+                    'entry_timing': entry_details,
+                    'entry_quality': entry_quality,
+                    'entry_price': current_price,
+                    'pump_high': watch.get('pump_high', current_price)
+                }
+                log_trade_features(symbol, ex_name, 'entry', combined_features)
+
+            del entry_watchlist[ex_name][symbol]
+
+    return open_trades, current_balance
 
 def main():
     """Main trading loop"""
@@ -1474,6 +1752,12 @@ def main():
     daily_loss = 0.0
     btc_prev = {'price': None, 'ts': time.time()}
     last_daily_reset = datetime.now().date()
+    entry_watchlist = {}
+    last_position_sync = 0
+
+    if not config.get('paper_mode', True):
+        for ex_name, ex in exchanges.items():
+            open_trades = sync_live_positions(ex_name, ex, open_trades, config)
 
     print(f"[{datetime.now()}] Current Balance: ${current_balance:,.2f}")
     print(f"[{datetime.now()}] Open Trades: {len(open_trades)}")
@@ -1493,6 +1777,12 @@ def main():
                 daily_loss = 0.0
                 last_daily_reset = current_date
                 print(f"[{datetime.now()}] Daily loss reset for new day")
+
+            # Periodic reconciliation of live positions
+            if not config.get('paper_mode', True) and (time.time() - last_position_sync >= POSITION_SYNC_INTERVAL_SEC):
+                for ex_name, ex in exchanges.items():
+                    open_trades = sync_live_positions(ex_name, ex, open_trades, config)
+                last_position_sync = time.time()
 
             try:
                 btc_ticker = exchanges['gate'].fetch_ticker('BTC/USDT:USDT')
@@ -1521,10 +1811,23 @@ def main():
                 print(f"[{datetime.now()}] Error fetching BTC price: {e}")
 
             for ex_name, ex in exchanges.items():
+                # Manage open trades first to free slots
+                open_trades, current_balance, daily_loss = manage_trades(
+                    ex_name, ex, open_trades, current_balance, daily_loss, config
+                )
+
+                tickers = None
                 try:
                     tickers = ex.fetch_tickers()
                 except Exception as e:
                     print(f"[{datetime.now()}] Error fetching tickers from {ex_name}: {e}")
+
+                # Process any watchlist entries for this exchange
+                open_trades, current_balance = process_entry_watchlist(
+                    ex_name, ex, tickers, entry_watchlist, open_trades, current_balance, config
+                )
+
+                if not tickers:
                     continue
 
                 for symbol in symbols.get(ex_name, []):
@@ -1534,6 +1837,11 @@ def main():
                     ticker = tickers[symbol]
                     current_price = ticker.get('last', 0)
                     if current_price <= 0:
+                        continue
+
+                    if is_symbol_open(open_trades, ex_name, symbol):
+                        continue
+                    if symbol in entry_watchlist.get(ex_name, {}):
                         continue
                         
                     volume = ticker.get('quoteVolume', 0) or 0
@@ -1662,82 +1970,24 @@ def main():
                                            change_pct=pct_change, rsi=rsi)
                                 continue
 
-                            print(f"  RSI {rsi:.1f} >= {config['rsi_overbought']}, monitoring for fade...")
-                            start_monitor = time.time()
-                            time_decay_sec = config.get('time_decay_minutes', 120) * 60
-                            
-                            while time.time() - start_monitor < time_decay_sec:
-                                config = load_config()  # Reload config during monitoring
-                                df = get_ohlcv(ex, symbol)
-                                if df is None:
-                                    time.sleep(300)
-                                    continue
-                                
-                                # === ENTRY TIMING PHASE ===
-                                # Use improved entry timing with structure break detection
-                                should_enter, entry_quality, entry_details = check_entry_timing(
-                                    ex, symbol, df, config
-                                )
-                                
-                                if should_enter and len(open_trades) < config['max_open_trades']:
-                                    # Fetch fresh price for entry
-                                    try:
-                                        fresh_ticker = ex.fetch_ticker(symbol)
-                                        entry_price = fresh_ticker['last']
-                                    except:
-                                        entry_price = current_price
-                                    
-                                    print(f"  Entry signals confirmed! Quality: {entry_quality}/100")
-                                    print(f"  Structure break: {entry_details.get('structure_break', {}).get('has_lower_low', 'N/A')}")
-                                    print(f"  Blow-off pattern: {entry_details.get('blowoff_pattern', {}).get('blowoff_candles', 0)} candles")
-                                    
-                                    # Get recent_low from OHLCV data for proper fibonacci TP calculation
-                                    # Use the low before the pump started (lookback ~24 candles = 2 hours on 5m)
-                                    recent_low = df['low'].iloc[-24:].min() if len(df) >= 24 else df['low'].min()
-                                    print(f"  Pump range: High ${current_price:.4f} -> Low ${recent_low:.4f}")
-                                    
-                                    risk = current_balance * config['risk_pct_per_trade']
-                                    trade_info = enter_short(ex, ex_name, symbol, entry_price, risk, current_price, recent_low, open_trades, config)
-                                    
-                                    if trade_info:
-                                        trade_info['entry_ts'] = time.time()
-                                        trade_info['entry_quality'] = entry_quality
-                                        trade_info['validation_details'] = validation_details
-                                        
-                                        open_trades.append({
-                                            'ex': ex_name,
-                                            'sym': symbol,
-                                            'trade': trade_info
-                                        })
-                                        save_state(prev_data, open_trades, current_balance)
-                                        
-                                        # Log for learning
-                                        if config.get('enable_trade_logging', True):
-                                            combined_features = {
-                                                **validation_details,
-                                                'entry_timing': entry_details,
-                                                'entry_quality': entry_quality,
-                                                'entry_price': entry_price,
-                                                'pump_high': current_price
-                                            }
-                                            log_trade_features(symbol, ex_name, 'entry', combined_features)
-                                        
-                                        print(f"  Trade entered! Open trades: {len(open_trades)}")
-                                    break
-                                
-                                # Check if time decay expired
-                                elapsed = time.time() - start_monitor
-                                if elapsed >= time_decay_sec:
-                                    print(f"  Time decay: No reversal within {config.get('time_decay_minutes', 120)} min, skipping")
-                                    save_signal(ex_name, symbol, 'time_decay', current_price,
-                                               f"No reversal within time window, skipping")
-                                    break
-                                    
-                                time.sleep(300)  # Check every 5 minutes
-
-                open_trades, current_balance, daily_loss = manage_trades(
-                    ex_name, ex, open_trades, current_balance, daily_loss, config
-                )
+                            print(f"  RSI {rsi:.1f} >= {config['rsi_overbought']}, adding to fade watchlist...")
+                            if not is_symbol_open(open_trades, ex_name, symbol):
+                                entry_watchlist.setdefault(ex_name, {})
+                                watch = entry_watchlist[ex_name].get(symbol)
+                                if watch is None:
+                                    entry_watchlist[ex_name][symbol] = {
+                                        'start_ts': time.time(),
+                                        'pump_high': current_price,
+                                        'last_price': current_price,
+                                        'pct_change': pct_change,
+                                        'validation_details': validation_details
+                                    }
+                                    save_signal(ex_name, symbol, 'fade_watch', current_price,
+                                               "Watching for fade confirmation after pump",
+                                               change_pct=pct_change, rsi=rsi)
+                                else:
+                                    watch['pump_high'] = max(watch.get('pump_high', current_price), current_price)
+                                    watch['last_price'] = current_price
 
             save_state(prev_data, open_trades, current_balance)
             

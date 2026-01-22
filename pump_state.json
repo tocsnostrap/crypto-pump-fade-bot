@@ -1,0 +1,2510 @@
+{
+  "gate": {
+    "XMR/USDT:USDT": {
+      "price": 509.8,
+      "ts": 1769100148.3957658
+    },
+    "\u5e01\u5b89\u4eba\u751f/USDT:USDT": {
+      "price": 0.2133,
+      "ts": 1768816804.326119
+    },
+    "TRADOOR/USDT:USDT": {
+      "price": 0.826,
+      "ts": 1768913239.1952922
+    },
+    "CLO/USDT:USDT": {
+      "price": 0.59072,
+      "ts": 1769100148.3986022
+    },
+    "BDXN/USDT:USDT": {
+      "price": 0.01812,
+      "ts": 1769101669.322362
+    },
+    "HANA/USDT:USDT": {
+      "price": 0.02298,
+      "ts": 1769100148.3988318
+    },
+    "RIVER/USDT:USDT": {
+      "price": 51.098,
+      "ts": 1769100148.3956137
+    },
+    "LYN/USDT:USDT": {
+      "price": 0.0998,
+      "ts": 1769100148.3956835
+    },
+    "\u8001\u5b50/USDT:USDT": {
+      "price": 0.001868,
+      "ts": 1769100148.3958266
+    },
+    "AIA/USDT:USDT": {
+      "price": 0.20943,
+      "ts": 1769100148.3986347
+    },
+    "FHE/USDT:USDT": {
+      "price": 0.12136,
+      "ts": 1769100148.3987045
+    },
+    "AIO/USDT:USDT": {
+      "price": 0.15446,
+      "ts": 1768667906.969204
+    },
+    "ZEC/USDT:USDT": {
+      "price": 363.38,
+      "ts": 1769100148.2059264
+    },
+    "GRASS/USDT:USDT": {
+      "price": 0.2782,
+      "ts": 1769100148.2059348
+    },
+    "DUSK/USDT:USDT": {
+      "price": 0.17572,
+      "ts": 1769100148.2059398
+    },
+    "MANA/USDT:USDT": {
+      "price": 0.1619,
+      "ts": 1769100148.2059698
+    },
+    "ENJ/USDT:USDT": {
+      "price": 0.03472,
+      "ts": 1768686802.437963
+    },
+    "INJ/USDT:USDT": {
+      "price": 4.585,
+      "ts": 1769100148.2060518
+    },
+    "CAKE/USDT:USDT": {
+      "price": 1.9123,
+      "ts": 1769100148.2060552
+    },
+    "\u96ea\u7403/USDT:USDT": {
+      "price": 0.06585,
+      "ts": 1768686802.43798
+    },
+    "ETH/USDT:USDT": {
+      "price": 2937.64,
+      "ts": 1769100148.2060618
+    },
+    "MET/USDT:USDT": {
+      "price": 0.2651,
+      "ts": 1769100148.206067
+    },
+    "ACE/USDT:USDT": {
+      "price": 0.2469,
+      "ts": 1769100148.206072
+    },
+    "ANIME/USDT:USDT": {
+      "price": 0.006342,
+      "ts": 1769100148.206076
+    },
+    "FUN/USDT:USDT": {
+      "price": 0.07925,
+      "ts": 1769100148.3959138
+    },
+    "FRAX/USDT:USDT": {
+      "price": 1.1098,
+      "ts": 1769100148.3959546
+    },
+    "OWL/USDT:USDT": {
+      "price": 0.0854,
+      "ts": 1768913239.1978729
+    },
+    "H/USDT:USDT": {
+      "price": 0.16332,
+      "ts": 1769100148.398818
+    },
+    "APE/USDT:USDT": {
+      "price": 0.1988,
+      "ts": 1768814388.3597128
+    },
+    "BNB/USDT:USDT": {
+      "price": 883.5,
+      "ts": 1769100148.206079
+    },
+    "DOT/USDT:USDT": {
+      "price": 1.925,
+      "ts": 1769100148.2060091
+    },
+    "ADA/USDT:USDT": {
+      "price": 0.3602,
+      "ts": 1769100148.3956072
+    },
+    "TRX/USDT:USDT": {
+      "price": 0.30064,
+      "ts": 1769100148.3956192
+    },
+    "SAND/USDT:USDT": {
+      "price": 0.1565,
+      "ts": 1769100148.3956413
+    },
+    "BLUR/USDT:USDT": {
+      "price": 0.03873,
+      "ts": 1768686802.4380438
+    },
+    "WLD/USDT:USDT": {
+      "price": 0.4718,
+      "ts": 1769100148.395665
+    },
+    "KAITO/USDT:USDT": {
+      "price": 0.4157,
+      "ts": 1769100148.3956697
+    },
+    "TRB/USDT:USDT": {
+      "price": 20.09,
+      "ts": 1769100148.3956912
+    },
+    "LPT/USDT:USDT": {
+      "price": 2.827,
+      "ts": 1769100148.3957126
+    },
+    "IP/USDT:USDT": {
+      "price": 2.464,
+      "ts": 1769100148.3957171
+    },
+    "\u8349\u6839\u6587\u5316/USDT:USDT": {
+      "price": 0.0027,
+      "ts": 1768686802.4380825
+    },
+    "SHIB/USDT:USDT": {
+      "price": 7.85e-06,
+      "ts": 1769100148.395723
+    },
+    "JELLYJELLY/USDT:USDT": {
+      "price": 0.063628,
+      "ts": 1768814388.3599167
+    },
+    "ICP/USDT:USDT": {
+      "price": 3.619,
+      "ts": 1769100148.3957448
+    },
+    "BTR/USDT:USDT": {
+      "price": 0.07449,
+      "ts": 1768913239.1950953
+    },
+    "\u4eba\u751fK\u7ebf/USDT:USDT": {
+      "price": 0.007356,
+      "ts": 1768686802.4381206
+    },
+    "HYPE/USDT:USDT": {
+      "price": 21.216,
+      "ts": 1769100148.395788
+    },
+    "XAUT/USDT:USDT": {
+      "price": 4880.1,
+      "ts": 1769100148.3957968
+    },
+    "IMX/USDT:USDT": {
+      "price": 0.247,
+      "ts": 1769100148.395809
+    },
+    "NEAR/USDT:USDT": {
+      "price": 1.512,
+      "ts": 1769100148.3958228
+    },
+    "BCH/USDT:USDT": {
+      "price": 594.63,
+      "ts": 1769100148.3958397
+    },
+    "STRK/USDT:USDT": {
+      "price": 0.07739,
+      "ts": 1769100148.3958554
+    },
+    "CRV/USDT:USDT": {
+      "price": 0.3629,
+      "ts": 1769100148.3958626
+    },
+    "ATOM/USDT:USDT": {
+      "price": 2.344,
+      "ts": 1769100148.3958735
+    },
+    "HBAR/USDT:USDT": {
+      "price": 0.10801,
+      "ts": 1769100148.395879
+    },
+    "PENGU/USDT:USDT": {
+      "price": 0.00984,
+      "ts": 1769100148.3958833
+    },
+    "GALA/USDT:USDT": {
+      "price": 0.00639,
+      "ts": 1769100148.3958938
+    },
+    "PEPE/USDT:USDT": {
+      "price": 4.898e-06,
+      "ts": 1769100148.395905
+    },
+    "FOGO/USDT:USDT": {
+      "price": 0.03362,
+      "ts": 1769100148.3959088
+    },
+    "BTC/USDT:USDT": {
+      "price": 88834.1,
+      "ts": 1769100148.3959324
+    },
+    "GUN/USDT:USDT": {
+      "price": 0.03727,
+      "ts": 1769100148.3959363
+    },
+    "\u6211\u8e0f\u9a6c\u6765\u4e86/USDT:USDT": {
+      "price": 0.029254,
+      "ts": 1769100148.3959413
+    },
+    "BREV/USDT:USDT": {
+      "price": 0.2326,
+      "ts": 1769100148.3959455
+    },
+    "FARTCOIN/USDT:USDT": {
+      "price": 0.3009,
+      "ts": 1769100148.39596
+    },
+    "AVAX/USDT:USDT": {
+      "price": 12.17,
+      "ts": 1769100148.3959646
+    },
+    "XRP/USDT:USDT": {
+      "price": 1.9167,
+      "ts": 1769100148.3959777
+    },
+    "STO/USDT:USDT": {
+      "price": 0.09253,
+      "ts": 1768913239.1952124
+    },
+    "DASH/USDT:USDT": {
+      "price": 64.34,
+      "ts": 1769100148.3983266
+    },
+    "ETC/USDT:USDT": {
+      "price": 11.521,
+      "ts": 1769100148.3983405
+    },
+    "ASTER/USDT:USDT": {
+      "price": 0.6108,
+      "ts": 1769100148.3983479
+    },
+    "ENA/USDT:USDT": {
+      "price": 0.174,
+      "ts": 1769100148.3983572
+    },
+    "QNT/USDT:USDT": {
+      "price": 83.24,
+      "ts": 1768686802.6060002
+    },
+    "FLOW/USDT:USDT": {
+      "price": 0.0813,
+      "ts": 1769100148.3983903
+    },
+    "DOGE/USDT:USDT": {
+      "price": 0.12467,
+      "ts": 1769100148.3983955
+    },
+    "TANSSI/USDT:USDT": {
+      "price": 0.00793,
+      "ts": 1768913239.195239
+    },
+    "ENS/USDT:USDT": {
+      "price": 9.496,
+      "ts": 1768814388.5231168
+    },
+    "PROM/USDT:USDT": {
+      "price": 2.548,
+      "ts": 1768913239.195244
+    },
+    "XTZ/USDT:USDT": {
+      "price": 0.598,
+      "ts": 1768839351.1454895
+    },
+    "AVNT/USDT:USDT": {
+      "price": 0.2668,
+      "ts": 1769100148.3984463
+    },
+    "POL/USDT:USDT": {
+      "price": 0.1305,
+      "ts": 1769100148.3984752
+    },
+    "UNI/USDT:USDT": {
+      "price": 4.821,
+      "ts": 1769100148.3984857
+    },
+    "LTC/USDT:USDT": {
+      "price": 67.92,
+      "ts": 1769100148.398489
+    },
+    "AAVE/USDT:USDT": {
+      "price": 156.68,
+      "ts": 1769100148.3984935
+    },
+    "0G/USDT:USDT": {
+      "price": 0.7975,
+      "ts": 1769100148.3984976
+    },
+    "BIGTIME/USDT:USDT": {
+      "price": 0.02154,
+      "ts": 1769100148.3985043
+    },
+    "B/USDT:USDT": {
+      "price": 0.1991,
+      "ts": 1769100148.3985307
+    },
+    "XAI/USDT:USDT": {
+      "price": 0.01531,
+      "ts": 1769100148.3985386
+    },
+    "SOL/USDT:USDT": {
+      "price": 127.37,
+      "ts": 1769100148.3985424
+    },
+    "AXS/USDT:USDT": {
+      "price": 2.479,
+      "ts": 1769100148.3985453
+    },
+    "BONK/USDT:USDT": {
+      "price": 9.012e-06,
+      "ts": 1769100148.3985565
+    },
+    "PIPPIN/USDT:USDT": {
+      "price": 0.381562,
+      "ts": 1769100148.3985603
+    },
+    "XPL/USDT:USDT": {
+      "price": 0.1248,
+      "ts": 1769100148.3985744
+    },
+    "LINK/USDT:USDT": {
+      "price": 12.24,
+      "ts": 1769100148.3985796
+    },
+    "CFX/USDT:USDT": {
+      "price": 0.0707,
+      "ts": 1769100148.3985827
+    },
+    "DYDX/USDT:USDT": {
+      "price": 0.1744,
+      "ts": 1769100148.3985925
+    },
+    "SQD/USDT:USDT": {
+      "price": 0.0711,
+      "ts": 1768913239.1953378
+    },
+    "XLM/USDT:USDT": {
+      "price": 0.21177,
+      "ts": 1769100148.3986065
+    },
+    "\u9ed1\u9a6c/USDT:USDT": {
+      "price": 0.004433,
+      "ts": 1768686802.6061442
+    },
+    "LIT/USDT:USDT": {
+      "price": 1.805,
+      "ts": 1769100148.3986459
+    },
+    "OP/USDT:USDT": {
+      "price": 0.3065,
+      "ts": 1769100148.398656
+    },
+    "TRUMP/USDT:USDT": {
+      "price": 4.862,
+      "ts": 1769100148.3986642
+    },
+    "SUSHI/USDT:USDT": {
+      "price": 0.3007,
+      "ts": 1769100148.3986762
+    },
+    "ARB/USDT:USDT": {
+      "price": 0.1772,
+      "ts": 1769100148.39868
+    },
+    "FIL/USDT:USDT": {
+      "price": 1.323,
+      "ts": 1769100148.3986988
+    },
+    "MERL/USDT:USDT": {
+      "price": 0.13717,
+      "ts": 1769106974.9925845
+    },
+    "YB/USDT:USDT": {
+      "price": 0.2675,
+      "ts": 1768843211.168839
+    },
+    "WLFI/USDT:USDT": {
+      "price": 0.1736,
+      "ts": 1769100148.3987336
+    },
+    "ONDO/USDT:USDT": {
+      "price": 0.3425,
+      "ts": 1768913239.1978166
+    },
+    "\u5c0f\u80a1\u4e1c/USDT:USDT": {
+      "price": 0.002307,
+      "ts": 1768686802.6062176
+    },
+    "PUMP/USDT:USDT": {
+      "price": 0.002488,
+      "ts": 1769100148.3987553
+    },
+    "BERA/USDT:USDT": {
+      "price": 0.794,
+      "ts": 1769100148.3987634
+    },
+    "TAO/USDT:USDT": {
+      "price": 237.4,
+      "ts": 1769100148.3987727
+    },
+    "A/USDT:USDT": {
+      "price": 0.128,
+      "ts": 1768686802.6062293
+    },
+    "FET/USDT:USDT": {
+      "price": 0.237,
+      "ts": 1769100148.3987854
+    },
+    "ME/USDT:USDT": {
+      "price": 0.2338,
+      "ts": 1769100148.3987978
+    },
+    "STX/USDT:USDT": {
+      "price": 0.3186,
+      "ts": 1769100148.2060215
+    },
+    "BEAT/USDT:USDT": {
+      "price": 0.2586,
+      "ts": 1769100148.2060268
+    },
+    "CHZ/USDT:USDT": {
+      "price": 0.05129,
+      "ts": 1769100148.2060337
+    },
+    "APT/USDT:USDT": {
+      "price": 1.541,
+      "ts": 1769100148.3955827
+    },
+    "SUI/USDT:USDT": {
+      "price": 1.4976,
+      "ts": 1769100148.3988385
+    },
+    "EGLD/USDT:USDT": {
+      "price": 6.66,
+      "ts": 1768686802.6062694
+    },
+    "GMT/USDT:USDT": {
+      "price": 0.01951,
+      "ts": 1768689259.3699453
+    },
+    "PIEVERSE/USDT:USDT": {
+      "price": 0.54296,
+      "ts": 1769100148.206047
+    },
+    "BEAMX/USDT:USDT": {
+      "price": 0.003195,
+      "ts": 1768730290.389669
+    },
+    "MOCA/USDT:USDT": {
+      "price": 0.02364,
+      "ts": 1768913239.1950753
+    },
+    "VIRTUAL/USDT:USDT": {
+      "price": 0.8207,
+      "ts": 1769100148.3958142
+    },
+    "CVX/USDT:USDT": {
+      "price": 2.163,
+      "ts": 1768816804.3261793
+    },
+    "SUPER/USDT:USDT": {
+      "price": 0.2216,
+      "ts": 1768730290.3899503
+    },
+    "SAFE/USDT:USDT": {
+      "price": 0.2026,
+      "ts": 1769100148.3983788
+    },
+    "VINE/USDT:USDT": {
+      "price": 0.02615,
+      "ts": 1769100148.3983867
+    },
+    "STABLE/USDT:USDT": {
+      "price": 0.01862,
+      "ts": 1769100148.3984382
+    },
+    "PI/USDT:USDT": {
+      "price": 0.1838,
+      "ts": 1769100148.398514
+    },
+    "KAS/USDT:USDT": {
+      "price": 0.0403,
+      "ts": 1769100148.3985171
+    },
+    "RARE/USDT:USDT": {
+      "price": 0.02814,
+      "ts": 1768816804.3263886
+    },
+    "WIF/USDT:USDT": {
+      "price": 0.3326,
+      "ts": 1769100148.3987157
+    },
+    "TSLAX/USDT:USDT": {
+      "price": 438.34,
+      "ts": 1769100148.2059777
+    },
+    "PAXG/USDT:USDT": {
+      "price": 4897.0,
+      "ts": 1769100148.2059994
+    },
+    "COAI/USDT:USDT": {
+      "price": 0.4179,
+      "ts": 1768814388.359606
+    },
+    "ZRC/USDT:USDT": {
+      "price": 0.00331,
+      "ts": 1768814388.3596213
+    },
+    "BARD/USDT:USDT": {
+      "price": 0.8024,
+      "ts": 1769100148.395588
+    },
+    "ZKP/USDT:USDT": {
+      "price": 0.11968,
+      "ts": 1769100148.3988223
+    },
+    "COINX/USDT:USDT": {
+      "price": 225.16,
+      "ts": 1769100148.398826
+    },
+    "TUT/USDT:USDT": {
+      "price": 0.01602,
+      "ts": 1769100148.395597
+    },
+    "TON/USDT:USDT": {
+      "price": 1.5529,
+      "ts": 1769100148.206006
+    },
+    "QQQX/USDT:USDT": {
+      "price": 621.17,
+      "ts": 1769100148.2060838
+    },
+    "MSTRX/USDT:USDT": {
+      "price": 161.98,
+      "ts": 1769100148.395602
+    },
+    "FLOKI/USDT:USDT": {
+      "price": 4.42e-05,
+      "ts": 1768814388.3597643
+    },
+    "OPEN/USDT:USDT": {
+      "price": 0.1594,
+      "ts": 1768814388.3597767
+    },
+    "SOMI/USDT:USDT": {
+      "price": 0.1867,
+      "ts": 1769100148.3956356
+    },
+    "DN/USDT:USDT": {
+      "price": 0.1722,
+      "ts": 1768814388.3598151
+    },
+    "TIA/USDT:USDT": {
+      "price": 0.493,
+      "ts": 1768814388.3598187
+    },
+    "ETHFI/USDT:USDT": {
+      "price": 0.6478,
+      "ts": 1768814388.3598359
+    },
+    "XAG/USDT:USDT": {
+      "price": 95.41,
+      "ts": 1769100148.3956957
+    },
+    "NVDAX/USDT:USDT": {
+      "price": 185.79,
+      "ts": 1769100148.3957067
+    },
+    "MUBARAK/USDT:USDT": {
+      "price": 0.02011,
+      "ts": 1769100148.395729
+    },
+    "BSV/USDT:USDT": {
+      "price": 19.04,
+      "ts": 1768814388.3599093
+    },
+    "SEI/USDT:USDT": {
+      "price": 0.1099,
+      "ts": 1768814388.35992
+    },
+    "CC/USDT:USDT": {
+      "price": 0.11156,
+      "ts": 1768814388.3599536
+    },
+    "PENDLE/USDT:USDT": {
+      "price": 2.114,
+      "ts": 1769100148.39577
+    },
+    "NIGHT/USDT:USDT": {
+      "price": 0.0576,
+      "ts": 1769100148.3957756
+    },
+    "TURBO/USDT:USDT": {
+      "price": 0.001601,
+      "ts": 1768814388.3599641
+    },
+    "TURTLE/USDT:USDT": {
+      "price": 0.05305,
+      "ts": 1768814388.3599796
+    },
+    "ACH/USDT:USDT": {
+      "price": 0.01163,
+      "ts": 1768814388.3599896
+    },
+    "AR/USDT:USDT": {
+      "price": 3.536,
+      "ts": 1769100148.3958042
+    },
+    "USUAL/USDT:USDT": {
+      "price": 0.02784,
+      "ts": 1768913239.1951313
+    },
+    "VANRY/USDT:USDT": {
+      "price": 0.00966,
+      "ts": 1768814388.3600218
+    },
+    "LAB/USDT:USDT": {
+      "price": 0.16576,
+      "ts": 1768913239.1951468
+    },
+    "XAU/USDT:USDT": {
+      "price": 4880.51,
+      "ts": 1769100148.3958888
+    },
+    "MYX/USDT:USDT": {
+      "price": 5.5785,
+      "ts": 1769100148.3983526
+    },
+    "JASMY/USDT:USDT": {
+      "price": 0.007586,
+      "ts": 1768814388.360156
+    },
+    "SCRT/USDT:USDT": {
+      "price": 0.1815,
+      "ts": 1769100148.3983748
+    },
+    "4/USDT:USDT": {
+      "price": 0.02281,
+      "ts": 1768814388.52311
+    },
+    "LDO/USDT:USDT": {
+      "price": 0.5215,
+      "ts": 1769100148.3984196
+    },
+    "ARC/USDT:USDT": {
+      "price": 0.06517,
+      "ts": 1769100148.3984246
+    },
+    "HUMA/USDT:USDT": {
+      "price": 0.026,
+      "ts": 1768913239.195252
+    },
+    "MOODENG/USDT:USDT": {
+      "price": 0.0685,
+      "ts": 1768814388.5231605
+    },
+    "RESOLV/USDT:USDT": {
+      "price": 0.1003,
+      "ts": 1769100148.3984597
+    },
+    "ZBT/USDT:USDT": {
+      "price": 0.0974,
+      "ts": 1768913239.195278
+    },
+    "SLVON/USDT:USDT": {
+      "price": 86.23,
+      "ts": 1768913239.1952949
+    },
+    "ORDI/USDT:USDT": {
+      "price": 4.05,
+      "ts": 1769100148.398527
+    },
+    "MOVE/USDT:USDT": {
+      "price": 0.0369,
+      "ts": 1768814388.6875334
+    },
+    "USELESS/USDT:USDT": {
+      "price": 0.0714,
+      "ts": 1769100148.3985689
+    },
+    "SENT/USDT:USDT": {
+      "price": 0.02523,
+      "ts": 1769100148.398694
+    },
+    "LIGHT/USDT:USDT": {
+      "price": 0.4535,
+      "ts": 1768913239.1978087
+    },
+    "RENDER/USDT:USDT": {
+      "price": 2.006,
+      "ts": 1769100148.3987381
+    },
+    "EIGEN/USDT:USDT": {
+      "price": 0.3446,
+      "ts": 1768814388.68776
+    },
+    "BIO/USDT:USDT": {
+      "price": 0.05112,
+      "ts": 1769100148.3987787
+    },
+    "GIGGLE/USDT:USDT": {
+      "price": 54.14,
+      "ts": 1768814388.6877832
+    },
+    "GRIFFAIN/USDT:USDT": {
+      "price": 0.01769,
+      "ts": 1768814388.6877933
+    },
+    "SKL/USDT:USDT": {
+      "price": 0.01015,
+      "ts": 1768814388.6878095
+    },
+    "PTB/USDT:USDT": {
+      "price": 0.00216,
+      "ts": 1768913239.3616
+    },
+    "MON/USDT:USDT": {
+      "price": 0.01798,
+      "ts": 1769100148.3955777
+    },
+    "ROSE/USDT:USDT": {
+      "price": 0.02003,
+      "ts": 1769100148.2060306
+    },
+    "BROCCOLI/USDT:USDT": {
+      "price": 0.01948,
+      "ts": 1768814388.687839
+    },
+    "TNSR/USDT:USDT": {
+      "price": 0.0649,
+      "ts": 1768814388.6878452
+    },
+    "PLAY/USDT:USDT": {
+      "price": 0.08843,
+      "ts": 1768816197.6716053
+    },
+    "AAPLX/USDT:USDT": {
+      "price": 249.64,
+      "ts": 1769100148.398432
+    },
+    "ACT/USDT:USDT": {
+      "price": 0.02371,
+      "ts": 1768816804.325712
+    },
+    "GAIB/USDT:USDT": {
+      "price": 0.0376,
+      "ts": 1769100148.3958364
+    },
+    "TQQQX/USDT:USDT": {
+      "price": 52.79,
+      "ts": 1768839349.9665117
+    },
+    "ARPA/USDT:USDT": {
+      "price": 0.02083,
+      "ts": 1768839349.9666455
+    },
+    "COTI/USDT:USDT": {
+      "price": 0.02122,
+      "ts": 1768839351.145533
+    },
+    "TOSHI/USDT:USDT": {
+      "price": 0.0003153,
+      "ts": 1768839351.1455514
+    },
+    "AT/USDT:USDT": {
+      "price": 0.1736,
+      "ts": 1768839351.1456797
+    },
+    "FOLKS/USDT:USDT": {
+      "price": 2.323,
+      "ts": 1769100148.3986418
+    },
+    "BAN/USDT:USDT": {
+      "price": 0.08117,
+      "ts": 1768839351.145735
+    },
+    "MAV/USDT:USDT": {
+      "price": 0.02643,
+      "ts": 1768839351.1457632
+    },
+    "MELANIA/USDT:USDT": {
+      "price": 0.1521,
+      "ts": 1769100148.3987906
+    },
+    "YALA/USDT:USDT": {
+      "price": 0.015591,
+      "ts": 1768839655.0033188
+    },
+    "W/USDT:USDT": {
+      "price": 0.03332,
+      "ts": 1768843019.1097305
+    },
+    "MEME/USDT:USDT": {
+      "price": 0.001111,
+      "ts": 1769100148.3956456
+    },
+    "BLUAI/USDT:USDT": {
+      "price": 0.00671,
+      "ts": 1768913239.1950898
+    },
+    "XNY/USDT:USDT": {
+      "price": 0.004464,
+      "ts": 1769100148.3957548
+    },
+    "DOLO/USDT:USDT": {
+      "price": 0.05359,
+      "ts": 1769100148.395898
+    },
+    "SKY/USDT:USDT": {
+      "price": 0.0626,
+      "ts": 1768913239.195178
+    },
+    "GPS/USDT:USDT": {
+      "price": 0.00742,
+      "ts": 1768913239.1951866
+    },
+    "VOOI/USDT:USDT": {
+      "price": 0.01534,
+      "ts": 1768913239.1952064
+    },
+    "CRCLX/USDT:USDT": {
+      "price": 75.69,
+      "ts": 1768913239.1952224
+    },
+    "SOON/USDT:USDT": {
+      "price": 0.3268,
+      "ts": 1768913239.1952975
+    },
+    "ZRO/USDT:USDT": {
+      "price": 1.908,
+      "ts": 1769100148.3986208
+    },
+    "IMU/USDT:USDT": {
+      "price": 0.009967,
+      "ts": 1769100148.2059953
+    },
+    "GWEI/USDT:USDT": {
+      "price": 0.020698,
+      "ts": 1769100148.2060125
+    },
+    "1/USDT:USDT": {
+      "price": 0.003395,
+      "ts": 1769100148.2060146
+    },
+    "ACU/USDT:USDT": {
+      "price": 0.11319,
+      "ts": 1769100148.2060173
+    },
+    "ATH/USDT:USDT": {
+      "price": 0.00864,
+      "ts": 1769100148.2060368
+    },
+    "KITE/USDT:USDT": {
+      "price": 0.11011,
+      "ts": 1769100148.2060583
+    },
+    "SKR/USDT:USDT": {
+      "price": 0.04775,
+      "ts": 1769100148.2060869
+    },
+    "ELSA/USDT:USDT": {
+      "price": 0.16021,
+      "ts": 1769100148.395567
+    },
+    "HEI/USDT:USDT": {
+      "price": 0.1317,
+      "ts": 1769100148.3955915
+    },
+    "MINA/USDT:USDT": {
+      "price": 0.0894,
+      "ts": 1769100148.3957586
+    },
+    "NAORIS/USDT:USDT": {
+      "price": 0.03216,
+      "ts": 1769100148.3958497
+    },
+    "PEOPLE/USDT:USDT": {
+      "price": 0.009442,
+      "ts": 1769100148.395866
+    },
+    "GOOGLX/USDT:USDT": {
+      "price": 331.91,
+      "ts": 1769100148.395922
+    },
+    "ALCH/USDT:USDT": {
+      "price": 0.1294,
+      "ts": 1769100148.3983603
+    },
+    "IO/USDT:USDT": {
+      "price": 0.1564,
+      "ts": 1769100148.398407
+    },
+    "PLTRX/USDT:USDT": {
+      "price": 166.46,
+      "ts": 1769100148.398413
+    },
+    "XION/USDT:USDT": {
+      "price": 0.1803,
+      "ts": 1769100148.398466
+    },
+    "TLM/USDT:USDT": {
+      "price": 0.002377,
+      "ts": 1769100148.398522
+    },
+    "KGEN/USDT:USDT": {
+      "price": 0.33129,
+      "ts": 1769100148.3985865
+    },
+    "SXT/USDT:USDT": {
+      "price": 0.0322,
+      "ts": 1769100148.3986516
+    },
+    "ORCLX/USDT:USDT": {
+      "price": 178.23,
+      "ts": 1769100148.398683
+    }
+  },
+  "bitget": {
+    "XMR/USDT:USDT": {
+      "price": 510.26,
+      "ts": 1769100149.4836729
+    },
+    "FLOW/USDT:USDT": {
+      "price": 0.0865,
+      "ts": 1768814389.0725842
+    },
+    "SHELL/USDT:USDT": {
+      "price": 0.05551,
+      "ts": 1768913240.273593
+    },
+    "USELESS/USDT:USDT": {
+      "price": 0.0714,
+      "ts": 1769100149.4841626
+    },
+    "4/USDT:USDT": {
+      "price": 0.02049,
+      "ts": 1769100149.4844558
+    },
+    "BEAT/USDT:USDT": {
+      "price": 0.25896,
+      "ts": 1769100149.484517
+    },
+    "ORDI/USDT:USDT": {
+      "price": 4.051,
+      "ts": 1769100149.4837828
+    },
+    "PI/USDT:USDT": {
+      "price": 0.1837,
+      "ts": 1769100149.484086
+    },
+    "RAVE/USDT:USDT": {
+      "price": 0.343,
+      "ts": 1768814389.0731
+    },
+    "BTC/USDT:USDT": {
+      "price": 88841.6,
+      "ts": 1769100149.4835346
+    },
+    "ETH/USDT:USDT": {
+      "price": 2937.52,
+      "ts": 1769100149.483542
+    },
+    "XRP/USDT:USDT": {
+      "price": 1.9167,
+      "ts": 1769100149.4835463
+    },
+    "BCH/USDT:USDT": {
+      "price": 594.69,
+      "ts": 1769100149.4835494
+    },
+    "LTC/USDT:USDT": {
+      "price": 67.91,
+      "ts": 1769100149.4835527
+    },
+    "ADA/USDT:USDT": {
+      "price": 0.3602,
+      "ts": 1769100149.483556
+    },
+    "ETC/USDT:USDT": {
+      "price": 11.523,
+      "ts": 1769100149.4835591
+    },
+    "LINK/USDT:USDT": {
+      "price": 12.239,
+      "ts": 1769100149.4835622
+    },
+    "TRX/USDT:USDT": {
+      "price": 0.30073,
+      "ts": 1769100149.4835653
+    },
+    "DOT/USDT:USDT": {
+      "price": 1.926,
+      "ts": 1769100149.4835682
+    },
+    "DOGE/USDT:USDT": {
+      "price": 0.12467,
+      "ts": 1769100149.4835706
+    },
+    "SOL/USDT:USDT": {
+      "price": 127.385,
+      "ts": 1769100149.4835737
+    },
+    "BNB/USDT:USDT": {
+      "price": 883.63,
+      "ts": 1769100149.483577
+    },
+    "UNI/USDT:USDT": {
+      "price": 4.822,
+      "ts": 1769100149.48358
+    },
+    "ICP/USDT:USDT": {
+      "price": 3.619,
+      "ts": 1769100149.483583
+    },
+    "AAVE/USDT:USDT": {
+      "price": 156.64,
+      "ts": 1769100149.4835868
+    },
+    "FIL/USDT:USDT": {
+      "price": 1.322,
+      "ts": 1769100149.4835901
+    },
+    "XLM/USDT:USDT": {
+      "price": 0.21163,
+      "ts": 1769100149.4835935
+    },
+    "ATOM/USDT:USDT": {
+      "price": 2.3436,
+      "ts": 1769100149.4835963
+    },
+    "AXS/USDT:USDT": {
+      "price": 2.456,
+      "ts": 1769100149.4836009
+    },
+    "THETA/USDT:USDT": {
+      "price": 0.3014,
+      "ts": 1769100149.4836037
+    },
+    "AVAX/USDT:USDT": {
+      "price": 12.171,
+      "ts": 1769100149.483607
+    },
+    "DASH/USDT:USDT": {
+      "price": 64.24,
+      "ts": 1769100149.4836104
+    },
+    "SHIB/USDT:USDT": {
+      "price": 7.85e-06,
+      "ts": 1769100149.4836133
+    },
+    "MANA/USDT:USDT": {
+      "price": 0.1617,
+      "ts": 1769100149.4836166
+    },
+    "GALA/USDT:USDT": {
+      "price": 0.006392,
+      "ts": 1769100149.4836197
+    },
+    "SAND/USDT:USDT": {
+      "price": 0.15671,
+      "ts": 1769100149.483623
+    },
+    "DYDX/USDT:USDT": {
+      "price": 0.1744,
+      "ts": 1769100149.483638
+    },
+    "CRV/USDT:USDT": {
+      "price": 0.3631,
+      "ts": 1769100149.4836411
+    },
+    "NEAR/USDT:USDT": {
+      "price": 1.5132,
+      "ts": 1769100149.4836442
+    },
+    "EGLD/USDT:USDT": {
+      "price": 6.146,
+      "ts": 1768814389.0725396
+    },
+    "AR/USDT:USDT": {
+      "price": 3.54,
+      "ts": 1769100149.4836485
+    },
+    "ALICE/USDT:USDT": {
+      "price": 0.1898,
+      "ts": 1768686802.8624315
+    },
+    "ALGO/USDT:USDT": {
+      "price": 0.1172,
+      "ts": 1769100149.4836545
+    },
+    "ENJ/USDT:USDT": {
+      "price": 0.03464,
+      "ts": 1768686802.8624406
+    },
+    "GMT/USDT:USDT": {
+      "price": 0.01709,
+      "ts": 1768913240.2733147
+    },
+    "APE/USDT:USDT": {
+      "price": 0.1901,
+      "ts": 1769100149.4836597
+    },
+    "APT/USDT:USDT": {
+      "price": 1.5405,
+      "ts": 1769100149.4836674
+    },
+    "CHZ/USDT:USDT": {
+      "price": 0.05126,
+      "ts": 1769100149.48367
+    },
+    "ROSE/USDT:USDT": {
+      "price": 0.02005,
+      "ts": 1769100149.483676
+    },
+    "ENS/USDT:USDT": {
+      "price": 8.899,
+      "ts": 1769100149.4836802
+    },
+    "OP/USDT:USDT": {
+      "price": 0.3064,
+      "ts": 1769100149.483684
+    },
+    "IMX/USDT:USDT": {
+      "price": 0.247,
+      "ts": 1769100149.4836898
+    },
+    "JASMY/USDT:USDT": {
+      "price": 0.007225,
+      "ts": 1769100149.483699
+    },
+    "BAT/USDT:USDT": {
+      "price": 0.1869,
+      "ts": 1769100149.4837022
+    },
+    "LDO/USDT:USDT": {
+      "price": 0.5213,
+      "ts": 1769100149.4837067
+    },
+    "CELO/USDT:USDT": {
+      "price": 0.1148,
+      "ts": 1769100149.4837089
+    },
+    "BLUR/USDT:USDT": {
+      "price": 0.03412,
+      "ts": 1768814389.0726016
+    },
+    "CORE/USDT:USDT": {
+      "price": 0.12067,
+      "ts": 1768814389.0726044
+    },
+    "CFX/USDT:USDT": {
+      "price": 0.07063,
+      "ts": 1769100149.4837172
+    },
+    "ACH/USDT:USDT": {
+      "price": 0.012224,
+      "ts": 1769100149.4837222
+    },
+    "FET/USDT:USDT": {
+      "price": 0.2368,
+      "ts": 1769100149.483725
+    },
+    "LQTY/USDT:USDT": {
+      "price": 0.3733,
+      "ts": 1768814389.072622
+    },
+    "STX/USDT:USDT": {
+      "price": 0.3181,
+      "ts": 1769100149.4837315
+    },
+    "HBAR/USDT:USDT": {
+      "price": 0.108,
+      "ts": 1769100149.4837344
+    },
+    "INJ/USDT:USDT": {
+      "price": 4.588,
+      "ts": 1769100149.4837368
+    },
+    "VET/USDT:USDT": {
+      "price": 0.010268,
+      "ts": 1769100149.4837406
+    },
+    "ARB/USDT:USDT": {
+      "price": 0.1772,
+      "ts": 1769100149.4837432
+    },
+    "ID/USDT:USDT": {
+      "price": 0.06623,
+      "ts": 1769100149.4837468
+    },
+    "ZEC/USDT:USDT": {
+      "price": 363.15,
+      "ts": 1769100149.4837534
+    },
+    "SUI/USDT:USDT": {
+      "price": 1.4977,
+      "ts": 1769100149.483767
+    },
+    "PEPE/USDT:USDT": {
+      "price": 4.8992e-06,
+      "ts": 1769100149.4837697
+    },
+    "TON/USDT:USDT": {
+      "price": 1.5526,
+      "ts": 1769100149.4837751
+    },
+    "ZEN/USDT:USDT": {
+      "price": 9.908,
+      "ts": 1769100149.4837787
+    },
+    "SLP/USDT:USDT": {
+      "price": 0.0010349,
+      "ts": 1769100149.4837852
+    },
+    "1000BONK/USDT:USDT": {
+      "price": 0.009003,
+      "ts": 1769100149.483788
+    },
+    "QNT/USDT:USDT": {
+      "price": 80.86,
+      "ts": 1769100149.4837916
+    },
+    "XVG/USDT:USDT": {
+      "price": 0.007289,
+      "ts": 1769100149.483795
+    },
+    "AGLD/USDT:USDT": {
+      "price": 0.2829,
+      "ts": 1769100149.4837983
+    },
+    "WLD/USDT:USDT": {
+      "price": 0.4716,
+      "ts": 1769100149.483801
+    },
+    "PENDLE/USDT:USDT": {
+      "price": 2.1108,
+      "ts": 1769100149.4838037
+    },
+    "ARKM/USDT:USDT": {
+      "price": 0.1854,
+      "ts": 1768814389.072681
+    },
+    "YGG/USDT:USDT": {
+      "price": 0.06391,
+      "ts": 1769100149.4838083
+    },
+    "SEI/USDT:USDT": {
+      "price": 0.10729,
+      "ts": 1769100149.4838128
+    },
+    "BIGTIME/USDT:USDT": {
+      "price": 0.02156,
+      "ts": 1769100149.4838164
+    },
+    "TIA/USDT:USDT": {
+      "price": 0.4596,
+      "ts": 1769100149.4838204
+    },
+    "ACE/USDT:USDT": {
+      "price": 0.25,
+      "ts": 1768814389.072702
+    },
+    "XAI/USDT:USDT": {
+      "price": 0.01533,
+      "ts": 1769100149.48383
+    },
+    "JUP/USDT:USDT": {
+      "price": 0.1913,
+      "ts": 1769100149.4838367
+    },
+    "STRK/USDT:USDT": {
+      "price": 0.0774,
+      "ts": 1769100149.4838398
+    },
+    "PIXEL/USDT:USDT": {
+      "price": 0.00898,
+      "ts": 1768814389.07271
+    },
+    "WIF/USDT:USDT": {
+      "price": 0.3324,
+      "ts": 1769100149.4838436
+    },
+    "BOME/USDT:USDT": {
+      "price": 0.0006017,
+      "ts": 1768913240.2734556
+    },
+    "METIS/USDT:USDT": {
+      "price": 5.234,
+      "ts": 1768814389.072717
+    },
+    "ETHFI/USDT:USDT": {
+      "price": 0.5989,
+      "ts": 1769100149.4838507
+    },
+    "ONDO/USDT:USDT": {
+      "price": 0.3394,
+      "ts": 1769100149.4838538
+    },
+    "CAKE/USDT:USDT": {
+      "price": 1.9125,
+      "ts": 1769100149.4838567
+    },
+    "KAS/USDT:USDT": {
+      "price": 0.04028,
+      "ts": 1769100149.4838607
+    },
+    "AI/USDT:USDT": {
+      "price": 0.04377,
+      "ts": 1768686802.862628
+    },
+    "ENA/USDT:USDT": {
+      "price": 0.1741,
+      "ts": 1769100149.4838648
+    },
+    "TAO/USDT:USDT": {
+      "price": 237.67,
+      "ts": 1769100149.4838731
+    },
+    "GLM/USDT:USDT": {
+      "price": 0.2409,
+      "ts": 1768814389.0727618
+    },
+    "REZ/USDT:USDT": {
+      "price": 0.004668,
+      "ts": 1768913240.273477
+    },
+    "BB/USDT:USDT": {
+      "price": 0.05597,
+      "ts": 1769100149.4838836
+    },
+    "IO/USDT:USDT": {
+      "price": 0.1555,
+      "ts": 1769100149.4838884
+    },
+    "ZK/USDT:USDT": {
+      "price": 0.0297,
+      "ts": 1769100149.483896
+    },
+    "MEW/USDT:USDT": {
+      "price": 0.000954,
+      "ts": 1768814389.0727785
+    },
+    "BGB/USDT:USDT": {
+      "price": 3.647,
+      "ts": 1769100149.4839084
+    },
+    "RENDER/USDT:USDT": {
+      "price": 2.007,
+      "ts": 1769100149.483914
+    },
+    "RARE/USDT:USDT": {
+      "price": 0.02716,
+      "ts": 1768814389.0727944
+    },
+    "POL/USDT:USDT": {
+      "price": 0.1306,
+      "ts": 1769100149.483925
+    },
+    "VELO/USDT:USDT": {
+      "price": 0.005974,
+      "ts": 1769100149.483935
+    },
+    "EIGEN/USDT:USDT": {
+      "price": 0.3305,
+      "ts": 1769100149.4839416
+    },
+    "SAFE/USDT:USDT": {
+      "price": 0.2025,
+      "ts": 1769100149.4839525
+    },
+    "SPX/USDT:USDT": {
+      "price": 0.4325,
+      "ts": 1769100149.48396
+    },
+    "VIRTUAL/USDT:USDT": {
+      "price": 0.8204,
+      "ts": 1769100149.4839633
+    },
+    "AERO/USDT:USDT": {
+      "price": 0.4761,
+      "ts": 1769100149.483966
+    },
+    "DRIFT/USDT:USDT": {
+      "price": 0.1701,
+      "ts": 1768814389.0728395
+    },
+    "PNUT/USDT:USDT": {
+      "price": 0.07181,
+      "ts": 1769100149.483971
+    },
+    "MERL/USDT:USDT": {
+      "price": 0.1493,
+      "ts": 1769100149.4839766
+    },
+    "SCRT/USDT:USDT": {
+      "price": 0.1814,
+      "ts": 1769100149.484005
+    },
+    "MOVE/USDT:USDT": {
+      "price": 0.03689,
+      "ts": 1768814389.0728583
+    },
+    "HYPE/USDT:USDT": {
+      "price": 21.238,
+      "ts": 1769100149.4840198
+    },
+    "PENGU/USDT:USDT": {
+      "price": 0.009828,
+      "ts": 1769100149.4840224
+    },
+    "USUAL/USDT:USDT": {
+      "price": 0.02787,
+      "ts": 1768913240.2735538
+    },
+    "AIXBT/USDT:USDT": {
+      "price": 0.02989,
+      "ts": 1768814389.0728705
+    },
+    "FARTCOIN/USDT:USDT": {
+      "price": 0.3009,
+      "ts": 1769100149.4840264
+    },
+    "BIO/USDT:USDT": {
+      "price": 0.05111,
+      "ts": 1769100149.4840336
+    },
+    "ALCH/USDT:USDT": {
+      "price": 0.12959,
+      "ts": 1769100149.4840367
+    },
+    "COOKIE/USDT:USDT": {
+      "price": 0.03136,
+      "ts": 1768814389.072881
+    },
+    "S/USDT:USDT": {
+      "price": 0.07214,
+      "ts": 1769100149.4840417
+    },
+    "PROM/USDT:USDT": {
+      "price": 2.2396,
+      "ts": 1769100149.4840443
+    },
+    "ARC/USDT:USDT": {
+      "price": 0.0654,
+      "ts": 1769100149.4840508
+    },
+    "PIPPIN/USDT:USDT": {
+      "price": 0.38243,
+      "ts": 1769100149.4840539
+    },
+    "TRUMP/USDT:USDT": {
+      "price": 4.864,
+      "ts": 1769100149.4840562
+    },
+    "ANIME/USDT:USDT": {
+      "price": 0.006456,
+      "ts": 1768913240.2735815
+    },
+    "BERA/USDT:USDT": {
+      "price": 0.7933,
+      "ts": 1769100149.4840686
+    },
+    "IP/USDT:USDT": {
+      "price": 2.4623,
+      "ts": 1769100149.4840732
+    },
+    "RON/USDT:USDT": {
+      "price": 0.1594,
+      "ts": 1769100149.484076
+    },
+    "BROCCOLI/USDT:USDT": {
+      "price": 0.01918,
+      "ts": 1768913240.2735949
+    },
+    "KAITO/USDT:USDT": {
+      "price": 0.4151,
+      "ts": 1769100149.4840887
+    },
+    "NIL/USDT:USDT": {
+      "price": 0.07086,
+      "ts": 1769100149.4841013
+    },
+    "GUN/USDT:USDT": {
+      "price": 0.0372,
+      "ts": 1769100149.4841065
+    },
+    "STO/USDT:USDT": {
+      "price": 0.08101,
+      "ts": 1769100782.777374
+    },
+    "XAUT/USDT:USDT": {
+      "price": 4878.9,
+      "ts": 1769100149.4841099
+    },
+    "DOLO/USDT:USDT": {
+      "price": 0.05353,
+      "ts": 1769100149.4841182
+    },
+    "ZBCN/USDT:USDT": {
+      "price": 0.0029027,
+      "ts": 1769100149.4841344
+    },
+    "A/USDT:USDT": {
+      "price": 0.10806,
+      "ts": 1769100149.484141
+    },
+    "HOME/USDT:USDT": {
+      "price": 0.02931,
+      "ts": 1768686803.0581949
+    },
+    "H/USDT:USDT": {
+      "price": 0.16295,
+      "ts": 1769100149.4841516
+    },
+    "ICNT/USDT:USDT": {
+      "price": 0.3852,
+      "ts": 1769100149.484155
+    },
+    "PUMP/USDT:USDT": {
+      "price": 0.002493,
+      "ts": 1769100149.4841654
+    },
+    "VELVET/USDT:USDT": {
+      "price": 0.14088,
+      "ts": 1768814389.072984
+    },
+    "ILV/USDT:USDT": {
+      "price": 5.722,
+      "ts": 1769106737.6744275
+    },
+    "WLFI/USDT:USDT": {
+      "price": 0.1737,
+      "ts": 1769100149.4842288
+    },
+    "XPL/USDT:USDT": {
+      "price": 0.1246,
+      "ts": 1769100149.4842448
+    },
+    "MITO/USDT:USDT": {
+      "price": 0.06793,
+      "ts": 1768814389.0730028
+    },
+    "AVNT/USDT:USDT": {
+      "price": 0.26628,
+      "ts": 1769100149.484416
+    },
+    "BARD/USDT:USDT": {
+      "price": 0.8008,
+      "ts": 1769100149.484431
+    },
+    "ASTER/USDT:USDT": {
+      "price": 0.6107,
+      "ts": 1769100149.4844341
+    },
+    "KGEN/USDT:USDT": {
+      "price": 0.33146,
+      "ts": 1769100149.4844496
+    },
+    "LYN/USDT:USDT": {
+      "price": 0.09992,
+      "ts": 1769100149.4844527
+    },
+    "MET/USDT:USDT": {
+      "price": 0.2649,
+      "ts": 1769100149.4844627
+    },
+    "CLO/USDT:USDT": {
+      "price": 0.5876,
+      "ts": 1769100149.4844687
+    },
+    "RIVER/USDT:USDT": {
+      "price": 47.932,
+      "ts": 1769100149.484479
+    },
+    "STABLE/USDT:USDT": {
+      "price": 0.01862,
+      "ts": 1769100149.4845018
+    },
+    "JCT/USDT:USDT": {
+      "price": 0.001653,
+      "ts": 1768913240.2737553
+    },
+    "PIEVERSE/USDT:USDT": {
+      "price": 0.54306,
+      "ts": 1769100149.48452
+    },
+    "IRYS/USDT:USDT": {
+      "price": 0.05109,
+      "ts": 1769106737.674541
+    },
+    "POWER/USDT:USDT": {
+      "price": 0.19606,
+      "ts": 1769100149.4845257
+    },
+    "CYS/USDT:USDT": {
+      "price": 0.42315,
+      "ts": 1769100149.4845362
+    },
+    "LIT/USDT:USDT": {
+      "price": 1.805,
+      "ts": 1769100149.4845455
+    },
+    "BREV/USDT:USDT": {
+      "price": 0.2322,
+      "ts": 1769100149.4845483
+    },
+    "XAG/USDT:USDT": {
+      "price": 95.52,
+      "ts": 1769100149.484551
+    },
+    "FRAX/USDT:USDT": {
+      "price": 1.10971,
+      "ts": 1769100149.4845536
+    },
+    "FOGO/USDT:USDT": {
+      "price": 0.03359,
+      "ts": 1769100149.4845557
+    },
+    "FUN/USDT:USDT": {
+      "price": 0.07955,
+      "ts": 1769100149.484558
+    },
+    "PAXG/USDT:USDT": {
+      "price": 4897.15,
+      "ts": 1769100149.4839044
+    },
+    "XTZ/USDT:USDT": {
+      "price": 0.5803,
+      "ts": 1768913240.2732856
+    },
+    "FLOKI/USDT:USDT": {
+      "price": 4.325e-05,
+      "ts": 1769100149.4837642
+    },
+    "VANRY/USDT:USDT": {
+      "price": 0.009001,
+      "ts": 1768913240.2734585
+    },
+    "NOT/USDT:USDT": {
+      "price": 0.0005441,
+      "ts": 1768913240.2734811
+    },
+    "GRASS/USDT:USDT": {
+      "price": 0.2938,
+      "ts": 1768816805.363329
+    },
+    "COW/USDT:USDT": {
+      "price": 0.2507,
+      "ts": 1768730290.6217356
+    },
+    "BAN/USDT:USDT": {
+      "price": 0.07822,
+      "ts": 1769100149.4839988
+    },
+    "ME/USDT:USDT": {
+      "price": 0.2335,
+      "ts": 1769100149.484014
+    },
+    "RESOLV/USDT:USDT": {
+      "price": 0.1,
+      "ts": 1769100149.484145
+    },
+    "AIO/USDT:USDT": {
+      "price": 0.17336,
+      "ts": 1768913240.2736707
+    },
+    "HOLO/USDT:USDT": {
+      "price": 0.06951,
+      "ts": 1768816805.3636167
+    },
+    "0G/USDT:USDT": {
+      "price": 0.7912,
+      "ts": 1769100149.484428
+    },
+    "LAB/USDT:USDT": {
+      "price": 0.15779,
+      "ts": 1769100149.484476
+    },
+    "ZKP/USDT:USDT": {
+      "price": 0.11969,
+      "ts": 1769100149.484543
+    },
+    "SUSHI/USDT:USDT": {
+      "price": 0.3111,
+      "ts": 1768814389.0725198
+    },
+    "PEOPLE/USDT:USDT": {
+      "price": 0.00957,
+      "ts": 1768814389.0725439
+    },
+    "LRC/USDT:USDT": {
+      "price": 0.04787,
+      "ts": 1768814389.0725448
+    },
+    "NEO/USDT:USDT": {
+      "price": 3.727,
+      "ts": 1768814389.0725467
+    },
+    "IOTA/USDT:USDT": {
+      "price": 0.0861,
+      "ts": 1768814389.0725515
+    },
+    "ZIL/USDT:USDT": {
+      "price": 0.005236,
+      "ts": 1768814389.072555
+    },
+    "RUNE/USDT:USDT": {
+      "price": 0.5882,
+      "ts": 1769100149.4836638
+    },
+    "ZRX/USDT:USDT": {
+      "price": 0.1336,
+      "ts": 1768814389.0725682
+    },
+    "RSR/USDT:USDT": {
+      "price": 0.00238,
+      "ts": 1768814389.0725741
+    },
+    "SNX/USDT:USDT": {
+      "price": 0.4419,
+      "ts": 1768814389.0725756
+    },
+    "STORJ/USDT:USDT": {
+      "price": 0.132,
+      "ts": 1768814389.0725768
+    },
+    "COMP/USDT:USDT": {
+      "price": 25.16,
+      "ts": 1768814389.0725791
+    },
+    "LUNA/USDT:USDT": {
+      "price": 0.07939,
+      "ts": 1768814389.0725825
+    },
+    "TRB/USDT:USDT": {
+      "price": 20.925,
+      "ts": 1768814389.072585
+    },
+    "QTUM/USDT:USDT": {
+      "price": 1.361,
+      "ts": 1768814389.0725865
+    },
+    "API3/USDT:USDT": {
+      "price": 0.4026,
+      "ts": 1768814389.0725884
+    },
+    "GRT/USDT:USDT": {
+      "price": 0.0378,
+      "ts": 1768814389.0725908
+    },
+    "LUNC/USDT:USDT": {
+      "price": 3.86e-05,
+      "ts": 1768814389.0725932
+    },
+    "MAGIC/USDT:USDT": {
+      "price": 0.0943,
+      "ts": 1768814389.0725977
+    },
+    "MINA/USDT:USDT": {
+      "price": 0.0892,
+      "ts": 1769100149.483713
+    },
+    "SSV/USDT:USDT": {
+      "price": 4.238,
+      "ts": 1769100149.4837277
+    },
+    "COTI/USDT:USDT": {
+      "price": 0.02007,
+      "ts": 1768913240.2733717
+    },
+    "KAIA/USDT:USDT": {
+      "price": 0.0555,
+      "ts": 1768814389.0726342
+    },
+    "CKB/USDT:USDT": {
+      "price": 0.002503,
+      "ts": 1768814389.0726354
+    },
+    "ARPA/USDT:USDT": {
+      "price": 0.01498,
+      "ts": 1769100149.4837568
+    },
+    "SKL/USDT:USDT": {
+      "price": 0.01041,
+      "ts": 1769100149.4837599
+    },
+    "TURBO/USDT:USDT": {
+      "price": 0.001599,
+      "ts": 1768814389.072656
+    },
+    "BSV/USDT:USDT": {
+      "price": 18.94,
+      "ts": 1768814389.072657
+    },
+    "USTC/USDT:USDT": {
+      "price": 0.00659,
+      "ts": 1768814389.0726693
+    },
+    "MAV/USDT:USDT": {
+      "price": 0.02494,
+      "ts": 1768913240.2734237
+    },
+    "CVX/USDT:USDT": {
+      "price": 2.015,
+      "ts": 1768913240.27343
+    },
+    "LPT/USDT:USDT": {
+      "price": 2.952,
+      "ts": 1768814389.0726852
+    },
+    "CYBER/USDT:USDT": {
+      "price": 0.7093,
+      "ts": 1768814389.072689
+    },
+    "MEME/USDT:USDT": {
+      "price": 0.001111,
+      "ts": 1769100149.4838235
+    },
+    "PYTH/USDT:USDT": {
+      "price": 0.059,
+      "ts": 1768814389.0726962
+    },
+    "JTO/USDT:USDT": {
+      "price": 0.3582,
+      "ts": 1768814389.0726979
+    },
+    "1000RATS/USDT:USDT": {
+      "price": 0.04822,
+      "ts": 1768814389.0727003
+    },
+    "MANTA/USDT:USDT": {
+      "price": 0.07666,
+      "ts": 1769100149.483833
+    },
+    "ALT/USDT:USDT": {
+      "price": 0.01188,
+      "ts": 1768814389.0727057
+    },
+    "DYM/USDT:USDT": {
+      "price": 0.06301,
+      "ts": 1768814389.0727115
+    },
+    "AXL/USDT:USDT": {
+      "price": 0.0684,
+      "ts": 1768814389.072714
+    },
+    "AEVO/USDT:USDT": {
+      "price": 0.03814,
+      "ts": 1768814389.07272
+    },
+    "OM/USDT:USDT": {
+      "price": 0.06586,
+      "ts": 1769101972.3286357
+    },
+    "W/USDT:USDT": {
+      "price": 0.0291,
+      "ts": 1769100149.4838681
+    },
+    "TNSR/USDT:USDT": {
+      "price": 0.0648,
+      "ts": 1768814389.0727522
+    },
+    "SAGA/USDT:USDT": {
+      "price": 0.0594,
+      "ts": 1768814389.0727544
+    },
+    "RAY/USDT:USDT": {
+      "price": 1.0158,
+      "ts": 1769100149.483876
+    },
+    "SUPER/USDT:USDT": {
+      "price": 0.201,
+      "ts": 1768814389.0727594
+    },
+    "MOVR/USDT:USDT": {
+      "price": 2.392,
+      "ts": 1768814389.072766
+    },
+    "BRETT/USDT:USDT": {
+      "price": 0.01377,
+      "ts": 1769100149.4838922
+    },
+    "ATH/USDT:USDT": {
+      "price": 0.00892,
+      "ts": 1768814389.0727751
+    },
+    "ZRO/USDT:USDT": {
+      "price": 1.9065,
+      "ts": 1769100149.4839003
+    },
+    "MOCA/USDT:USDT": {
+      "price": 0.02271,
+      "ts": 1768814389.0727863
+    },
+    "BANANA/USDT:USDT": {
+      "price": 6.401,
+      "ts": 1768814389.072788
+    },
+    "POPCAT/USDT:USDT": {
+      "price": 0.0812,
+      "ts": 1768814389.0727897
+    },
+    "FLUX/USDT:USDT": {
+      "price": 0.1109,
+      "ts": 1768814389.0727992
+    },
+    "RPL/USDT:USDT": {
+      "price": 2.057,
+      "ts": 1768814389.0728018
+    },
+    "1MBABYDOGE/USDT:USDT": {
+      "price": 0.0006012,
+      "ts": 1769100149.4839299
+    },
+    "FIDA/USDT:USDT": {
+      "price": 0.03231,
+      "ts": 1768814389.0728054
+    },
+    "MOODENG/USDT:USDT": {
+      "price": 0.06815,
+      "ts": 1768913240.2735116
+    },
+    "OG/USDT:USDT": {
+      "price": 3.999,
+      "ts": 1768913240.2735136
+    },
+    "NEIROCTO/USDT:USDT": {
+      "price": 0.0001168,
+      "ts": 1768814389.072816
+    },
+    "CARV/USDT:USDT": {
+      "price": 0.0951,
+      "ts": 1768814389.0728192
+    },
+    "DEEP/USDT:USDT": {
+      "price": 0.04238,
+      "ts": 1768814389.0728211
+    },
+    "LUMIA/USDT:USDT": {
+      "price": 0.1121,
+      "ts": 1768814389.072823
+    },
+    "GOAT/USDT:USDT": {
+      "price": 0.03229,
+      "ts": 1768913240.2735214
+    },
+    "SANTOS/USDT:USDT": {
+      "price": 2.486,
+      "ts": 1769100149.4839566
+    },
+    "CETUS/USDT:USDT": {
+      "price": 0.02463,
+      "ts": 1768814389.072837
+    },
+    "ACT/USDT:USDT": {
+      "price": 0.02339,
+      "ts": 1768814389.0728428
+    },
+    "CRO/USDT:USDT": {
+      "price": 0.09225,
+      "ts": 1768913240.2735348
+    },
+    "OL/USDT:USDT": {
+      "price": 0.01944,
+      "ts": 1768814389.0728498
+    },
+    "VANA/USDT:USDT": {
+      "price": 2.224,
+      "ts": 1768814389.0728638
+    },
+    "PHA/USDT:USDT": {
+      "price": 0.04252,
+      "ts": 1768913240.2735598
+    },
+    "GRIFFAIN/USDT:USDT": {
+      "price": 0.01773,
+      "ts": 1768814389.0728757
+    },
+    "ZEREBRO/USDT:USDT": {
+      "price": 0.01272,
+      "ts": 1768814389.0728772
+    },
+    "MELANIA/USDT:USDT": {
+      "price": 0.1427,
+      "ts": 1768913240.2735772
+    },
+    "PLUME/USDT:USDT": {
+      "price": 0.01509,
+      "ts": 1769100149.4840598
+    },
+    "VINE/USDT:USDT": {
+      "price": 0.02556,
+      "ts": 1768814389.072897
+    },
+    "VVV/USDT:USDT": {
+      "price": 2.726,
+      "ts": 1769100149.4840653
+    },
+    "LAYER/USDT:USDT": {
+      "price": 0.1422,
+      "ts": 1768814389.0729034
+    },
+    "HEI/USDT:USDT": {
+      "price": 0.1321,
+      "ts": 1769100149.4840786
+    },
+    "AUCTION/USDT:USDT": {
+      "price": 5.094,
+      "ts": 1768814389.0729144
+    },
+    "GPS/USDT:USDT": {
+      "price": 0.007142,
+      "ts": 1769100149.484083
+    },
+    "RED/USDT:USDT": {
+      "price": 0.2261,
+      "ts": 1768913240.2736027
+    },
+    "EPIC/USDT:USDT": {
+      "price": 0.5539,
+      "ts": 1768814389.0729232
+    },
+    "MUBARAK/USDT:USDT": {
+      "price": 0.02014,
+      "ts": 1768913240.2736058
+    },
+    "NMR/USDT:USDT": {
+      "price": 9.687,
+      "ts": 1768814389.0729253
+    },
+    "TUT/USDT:USDT": {
+      "price": 0.01609,
+      "ts": 1768814389.0729268
+    },
+    "FORM/USDT:USDT": {
+      "price": 0.3166,
+      "ts": 1769100149.4840949
+    },
+    "BANANAS31/USDT:USDT": {
+      "price": 0.004318,
+      "ts": 1769100149.4840977
+    },
+    "PARTI/USDT:USDT": {
+      "price": 0.10007,
+      "ts": 1768814389.072933
+    },
+    "WCT/USDT:USDT": {
+      "price": 0.0746,
+      "ts": 1768814389.0729423
+    },
+    "BANK/USDT:USDT": {
+      "price": 0.05296,
+      "ts": 1769100149.4841142
+    },
+    "HYPER/USDT:USDT": {
+      "price": 0.1225,
+      "ts": 1768814389.0729454
+    },
+    "ZORA/USDT:USDT": {
+      "price": 0.03268,
+      "ts": 1768814389.0729468
+    },
+    "INIT/USDT:USDT": {
+      "price": 0.0864,
+      "ts": 1768814389.072948
+    },
+    "HAEDAL/USDT:USDT": {
+      "price": 0.04271,
+      "ts": 1768814389.072951
+    },
+    "MYX/USDT:USDT": {
+      "price": 5.5893,
+      "ts": 1769100149.484124
+    },
+    "SKYAI/USDT:USDT": {
+      "price": 0.04512,
+      "ts": 1768913240.2736363
+    },
+    "NXPC/USDT:USDT": {
+      "price": 0.3516,
+      "ts": 1768814389.0729573
+    },
+    "B/USDT:USDT": {
+      "price": 0.2067,
+      "ts": 1768814389.072959
+    },
+    "HUMA/USDT:USDT": {
+      "price": 0.02494,
+      "ts": 1769100149.4841378
+    },
+    "SQD/USDT:USDT": {
+      "price": 0.07124,
+      "ts": 1768913240.2736492
+    },
+    "NEWT/USDT:USDT": {
+      "price": 0.0978,
+      "ts": 1768814389.0729713
+    },
+    "SAHARA/USDT:USDT": {
+      "price": 0.02431,
+      "ts": 1768814389.072975
+    },
+    "M/USDT:USDT": {
+      "price": 1.65619,
+      "ts": 1769100149.4841588
+    },
+    "ERA/USDT:USDT": {
+      "price": 0.2074,
+      "ts": 1768814389.0729861
+    },
+    "TREE/USDT:USDT": {
+      "price": 0.0972,
+      "ts": 1768814389.0729876
+    },
+    "NAORIS/USDT:USDT": {
+      "price": 0.0322,
+      "ts": 1769100149.4841745
+    },
+    "SAPIEN/USDT:USDT": {
+      "price": 0.12369,
+      "ts": 1768913240.2736773
+    },
+    "SOMI/USDT:USDT": {
+      "price": 0.1979,
+      "ts": 1768814389.0729969
+    },
+    "BAS/USDT:USDT": {
+      "price": 0.004442,
+      "ts": 1768814389.0729983
+    },
+    "LINEA/USDT:USDT": {
+      "price": 0.005302,
+      "ts": 1769100149.4842584
+    },
+    "Q/USDT:USDT": {
+      "price": 0.018301,
+      "ts": 1769100782.7774882
+    },
+    "ARIA/USDT:USDT": {
+      "price": 0.09611,
+      "ts": 1768913240.273694
+    },
+    "TAKE/USDT:USDT": {
+      "price": 0.04696,
+      "ts": 1768814389.0730078
+    },
+    "OPEN/USDT:USDT": {
+      "price": 0.1595,
+      "ts": 1768814389.0730097
+    },
+    "XPIN/USDT:USDT": {
+      "price": 0.0023313,
+      "ts": 1768814389.0730164
+    },
+    "BLESS/USDT:USDT": {
+      "price": 0.009412,
+      "ts": 1768814389.0730264
+    },
+    "COAI/USDT:USDT": {
+      "price": 0.3992,
+      "ts": 1768913240.273715
+    },
+    "LIGHT/USDT:USDT": {
+      "price": 0.4537,
+      "ts": 1768913240.2737174
+    },
+    "FF/USDT:USDT": {
+      "price": 0.08757,
+      "ts": 1769100149.484444
+    },
+    "EDEN/USDT:USDT": {
+      "price": 0.05635,
+      "ts": 1768814389.073034
+    },
+    "2Z/USDT:USDT": {
+      "price": 0.12142,
+      "ts": 1768814389.0730355
+    },
+    "MON/USDT:USDT": {
+      "price": 0.01797,
+      "ts": 1769100149.484459
+    },
+    "YB/USDT:USDT": {
+      "price": 0.2713,
+      "ts": 1768814389.073044
+    },
+    "GIGGLE/USDT:USDT": {
+      "price": 52.45,
+      "ts": 1769100149.484472
+    },
+    "ZBT/USDT:USDT": {
+      "price": 0.0972,
+      "ts": 1768913240.2737353
+    },
+    "AT/USDT:USDT": {
+      "price": 0.1622,
+      "ts": 1769100149.4844928
+    },
+    "KITE/USDT:USDT": {
+      "price": 0.11013,
+      "ts": 1769100149.4844959
+    },
+    "MMT/USDT:USDT": {
+      "price": 0.1949,
+      "ts": 1768814389.0730662
+    },
+    "UAI/USDT:USDT": {
+      "price": 0.19299,
+      "ts": 1768913240.273747
+    },
+    "FOLKS/USDT:USDT": {
+      "price": 2.5858,
+      "ts": 1768913240.2737494
+    },
+    "ALLO/USDT:USDT": {
+      "price": 0.0882,
+      "ts": 1768814389.0730743
+    },
+    "WET/USDT:USDT": {
+      "price": 0.10811,
+      "ts": 1769100149.4845288
+    },
+    "NIGHT/USDT:USDT": {
+      "price": 0.05766,
+      "ts": 1769100149.4845319
+    },
+    "US/USDT:USDT": {
+      "price": 0.00639,
+      "ts": 1768814389.0730958
+    },
+    "XAU/USDT:USDT": {
+      "price": 4881.99,
+      "ts": 1769100149.4845397
+    },
+    "IR/USDT:USDT": {
+      "price": 0.06755,
+      "ts": 1768814389.0731032
+    },
+    "MAGMA/USDT:USDT": {
+      "price": 0.10214,
+      "ts": 1768814389.0731087
+    },
+    "1INCH/USDT:USDT": {
+      "price": 0.1454,
+      "ts": 1768816198.4820435
+    },
+    "BEL/USDT:USDT": {
+      "price": 0.1455,
+      "ts": 1768839352.2060566
+    },
+    "ZKJ/USDT:USDT": {
+      "price": 0.03611,
+      "ts": 1768839352.206248
+    },
+    "1000000MOG/USDT:USDT": {
+      "price": 0.2681,
+      "ts": 1768839352.206264
+    },
+    "TOSHI/USDT:USDT": {
+      "price": 0.000315,
+      "ts": 1768839352.2064373
+    },
+    "B2/USDT:USDT": {
+      "price": 0.8418,
+      "ts": 1768839352.206532
+    },
+    "DOOD/USDT:USDT": {
+      "price": 0.005083,
+      "ts": 1768839352.2065501
+    },
+    "SOON/USDT:USDT": {
+      "price": 0.3378,
+      "ts": 1768839352.206561
+    },
+    "TOWNS/USDT:USDT": {
+      "price": 0.006738,
+      "ts": 1768839352.2066135
+    },
+    "EUL/USDT:USDT": {
+      "price": 2.089,
+      "ts": 1768839655.8941786
+    },
+    "PHB/USDT:USDT": {
+      "price": 0.264,
+      "ts": 1768913240.2734065
+    },
+    "CRCL/USDT:USDT": {
+      "price": 72.29,
+      "ts": 1769100149.4842188
+    },
+    "NVDA/USDT:USDT": {
+      "price": 186.1,
+      "ts": 1769100149.484222
+    },
+    "TSLA/USDT:USDT": {
+      "price": 438.73,
+      "ts": 1769100149.4842248
+    },
+    "AAPL/USDT:USDT": {
+      "price": 250.34,
+      "ts": 1769100149.484233
+    },
+    "GOOGL/USDT:USDT": {
+      "price": 332.91,
+      "ts": 1769100149.4842358
+    },
+    "MSTR/USDT:USDT": {
+      "price": 162.3,
+      "ts": 1769100149.4842532
+    },
+    "PLTR/USDT:USDT": {
+      "price": 166.55,
+      "ts": 1769100149.4842741
+    },
+    "SLV/USDT:USDT": {
+      "price": 86.7,
+      "ts": 1769100149.484277
+    },
+    "AGI/USDT:USDT": {
+      "price": 0.01652,
+      "ts": 1769100149.4839382
+    },
+    "BGSC/USDT:USDT": {
+      "price": 0.000639,
+      "ts": 1769100149.484047
+    },
+    "SYRUP/USDT:USDT": {
+      "price": 0.3339,
+      "ts": 1769100149.484126
+    },
+    "SXT/USDT:USDT": {
+      "price": 0.03221,
+      "ts": 1769100149.4841282
+    },
+    "TAC/USDT:USDT": {
+      "price": 0.004871,
+      "ts": 1769100149.484169
+    },
+    "AMZN/USDT:USDT": {
+      "price": 235.15,
+      "ts": 1769100149.484238
+    },
+    "META/USDT:USDT": {
+      "price": 641.11,
+      "ts": 1769100149.4842398
+    },
+    "HOOD/USDT:USDT": {
+      "price": 106.45,
+      "ts": 1769100149.4842472
+    },
+    "COIN/USDT:USDT": {
+      "price": 225.61,
+      "ts": 1769100149.48425
+    },
+    "INTC/USDT:USDT": {
+      "price": 54.29,
+      "ts": 1769100149.4842627
+    },
+    "BABA/USDT:USDT": {
+      "price": 179.99,
+      "ts": 1769100149.4842653
+    },
+    "ASML/USDT:USDT": {
+      "price": 1388.4,
+      "ts": 1769100149.4842677
+    },
+    "ARM/USDT:USDT": {
+      "price": 119.91,
+      "ts": 1769100149.4842706
+    },
+    "ORCL/USDT:USDT": {
+      "price": 179.11,
+      "ts": 1769100149.4842794
+    },
+    "GE/USDT:USDT": {
+      "price": 299.25,
+      "ts": 1769100149.4842815
+    },
+    "SKY/USDT:USDT": {
+      "price": 0.06573,
+      "ts": 1769100149.4844081
+    },
+    "APP/USDT:USDT": {
+      "price": 523.82,
+      "ts": 1769100149.4844115
+    },
+    "GME/USDT:USDT": {
+      "price": 23.5,
+      "ts": 1769100149.4844186
+    },
+    "MRVL/USDT:USDT": {
+      "price": 84.02,
+      "ts": 1769100149.4844217
+    },
+    "MSFT/USDT:USDT": {
+      "price": 450.61,
+      "ts": 1769100149.4844368
+    },
+    "ENSO/USDT:USDT": {
+      "price": 0.6442,
+      "ts": 1769100149.4844658
+    },
+    "CLANKER/USDT:USDT": {
+      "price": 28.42,
+      "ts": 1769100149.4844825
+    },
+    "QQQ/USDT:USDT": {
+      "price": 622.4,
+      "ts": 1769100149.4844847
+    },
+    "RDDT/USDT:USDT": {
+      "price": 211.84,
+      "ts": 1769100149.4844868
+    },
+    "FUTU/USDT:USDT": {
+      "price": 163.97,
+      "ts": 1769100149.4844897
+    },
+    "CSCO/USDT:USDT": {
+      "price": 74.94,
+      "ts": 1769100149.4845045
+    },
+    "ACN/USDT:USDT": {
+      "price": 288.9,
+      "ts": 1769100149.4845073
+    },
+    "MA/USDT:USDT": {
+      "price": 525.8,
+      "ts": 1769100149.4845107
+    },
+    "LLY/USDT:USDT": {
+      "price": 1084.18,
+      "ts": 1769100149.484514
+    },
+    "SKR/USDT:USDT": {
+      "price": 0.047627,
+      "ts": 1769100149.4845607
+    },
+    "ACU/USDT:USDT": {
+      "price": 0.11349,
+      "ts": 1769100149.4934628
+    },
+    "ELSA/USDT:USDT": {
+      "price": 0.15944,
+      "ts": 1769100149.4934688
+    },
+    "SENT/USDT:USDT": {
+      "price": 0.02525,
+      "ts": 1769100149.4934711
+    },
+    "STG/USDT:USDT": {
+      "price": 0.176,
+      "ts": 1769107945.1896315
+    },
+    "AIN/USDT:USDT": {
+      "price": 0.04873,
+      "ts": 1769111225.5654113
+    }
+  }
+}
