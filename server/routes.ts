@@ -479,6 +479,72 @@ export async function registerRoutes(
     }
   });
 
+  // Test notifications endpoint
+  app.post("/api/notifications/test", requireControlAuth, async (req, res) => {
+    try {
+      const { spawn } = await import('child_process');
+      
+      // Run Python script to test notifications
+      const python = spawn('python3', ['-c', `
+from notifications import test_notifications, is_any_notification_configured
+import json
+
+if is_any_notification_configured():
+    results = test_notifications()
+    print(json.dumps(results))
+else:
+    print(json.dumps({"error": "No notification channels configured"}))
+`]);
+      
+      let output = '';
+      python.stdout.on('data', (data: Buffer) => {
+        output += data.toString();
+      });
+      
+      python.stderr.on('data', (data: Buffer) => {
+        console.error('Notification test error:', data.toString());
+      });
+      
+      python.on('close', (code: number) => {
+        if (code === 0) {
+          try {
+            const results = JSON.parse(output.trim());
+            res.json({ success: true, results });
+          } catch {
+            res.json({ success: false, error: 'Failed to parse results', output });
+          }
+        } else {
+          res.status(500).json({ success: false, error: 'Test script failed' });
+        }
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to test notifications" });
+    }
+  });
+
+  // Get notification status
+  app.get("/api/notifications/status", (_req, res) => {
+    try {
+      const telegramConfigured = !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID);
+      const discordConfigured = !!process.env.DISCORD_WEBHOOK_URL;
+      
+      res.json({
+        telegram: {
+          configured: telegramConfigured,
+          bot_token: !!process.env.TELEGRAM_BOT_TOKEN,
+          chat_id: !!process.env.TELEGRAM_CHAT_ID,
+        },
+        discord: {
+          configured: discordConfigured,
+          webhook_url: !!process.env.DISCORD_WEBHOOK_URL,
+        },
+        any_configured: telegramConfigured || discordConfigured,
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to check notification status" });
+    }
+  });
+
   // Get safety state
   app.get("/api/safety", (_req, res) => {
     try {

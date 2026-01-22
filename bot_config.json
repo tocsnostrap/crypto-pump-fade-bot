@@ -90,5 +90,13 @@
   "___TIME_DECAY_TRAILING___": "=== Tighten trailing stop over time ===",
   "enable_time_decay_trailing": true,
   "trailing_stop_24h_pct": 0.03,
-  "trailing_stop_36h_pct": 0.02
+  "trailing_stop_36h_pct": 0.02,
+
+  "___NOTIFICATIONS___": "=== Telegram/Discord notification settings ===",
+  "enable_notifications": true,
+  "notify_on_entry": true,
+  "notify_on_exit": true,
+  "notify_on_pump_detected": false,
+  "notify_on_safety_alert": true,
+  "notify_on_daily_summary": true
 }

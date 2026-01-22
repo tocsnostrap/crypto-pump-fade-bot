@@ -7,6 +7,18 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
+# Import notification system
+try:
+    from notifications import (
+        notify_trade_entry, notify_trade_exit, notify_pump_detected,
+        notify_safety_alert, notify_daily_summary, notify_error,
+        notify_bot_started, is_any_notification_configured
+    )
+    NOTIFICATIONS_AVAILABLE = True
+except ImportError:
+    NOTIFICATIONS_AVAILABLE = False
+    print(f"[{datetime.now()}] Notifications module not available - notifications disabled")
+
 # === DEFAULT CONFIG (can be overridden by bot_config.json) ===
 DEFAULT_CONFIG = {
     'min_pump_pct': 60.0,
@@ -395,15 +407,24 @@ def sync_positions_with_exchange(ex, ex_name, open_trades, config):
 def check_all_safety_conditions(symbol, current_balance, config):
     """Run all safety checks before entering a trade"""
     if check_emergency_stop(config):
+        if NOTIFICATIONS_AVAILABLE and config.get('notify_on_safety_alert', True):
+            notify_safety_alert("Emergency Stop", "Trading halted by emergency stop", current_balance)
         return False, "emergency_stop"
     
     if not check_min_balance(current_balance, config):
+        if NOTIFICATIONS_AVAILABLE and config.get('notify_on_safety_alert', True):
+            notify_safety_alert("Min Balance", f"Balance ${current_balance:.2f} below minimum", current_balance)
         return False, "min_balance"
     
     if not check_max_drawdown(current_balance, config):
+        if NOTIFICATIONS_AVAILABLE and config.get('notify_on_safety_alert', True):
+            dd_pct = safety_state.get('current_drawdown_pct', 0) * 100
+            notify_safety_alert("Max Drawdown", f"Drawdown {dd_pct:.1f}% exceeds limit", current_balance)
         return False, "max_drawdown"
     
     if not check_weekly_loss(config):
+        if NOTIFICATIONS_AVAILABLE and config.get('notify_on_safety_alert', True):
+            notify_safety_alert("Weekly Loss Limit", "Weekly loss limit reached", current_balance)
         return False, "weekly_loss"
     
     if not check_symbol_cooldown(symbol, config):
@@ -1555,6 +1576,23 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
         # Record trade result for safety tracking
         record_trade_result(net_profit)
         
+        # Send trade exit notification
+        if NOTIFICATIONS_AVAILABLE:
+            try:
+                config = load_config()
+                if config.get('enable_notifications', True) and config.get('notify_on_exit', True):
+                    notify_trade_exit(
+                        symbol=sym,
+                        exchange=ex_name,
+                        entry_price=entry,
+                        exit_price=simulated_exit,
+                        profit=net_profit,
+                        reason=reason,
+                        paper_mode=True
+                    )
+            except:
+                pass  # Don't let notification errors affect trading
+        
         current_balance += net_profit * compound_pct
         daily_loss += min(net_profit, 0)
         return net_profit, current_balance, daily_loss
@@ -1576,6 +1614,23 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
         
         # Record trade result for safety tracking
         record_trade_result(profit)
+        
+        # Send trade exit notification
+        if NOTIFICATIONS_AVAILABLE:
+            try:
+                config = load_config()
+                if config.get('enable_notifications', True) and config.get('notify_on_exit', True):
+                    notify_trade_exit(
+                        symbol=sym,
+                        exchange=ex_name,
+                        entry_price=entry,
+                        exit_price=current_price,
+                        profit=profit,
+                        reason=reason,
+                        paper_mode=False
+                    )
+            except:
+                pass  # Don't let notification errors affect trading
         
         current_balance += profit * compound_pct
         daily_loss += min(profit, 0)
@@ -1867,6 +1922,11 @@ def main():
     print(f"[{datetime.now()}] Open Trades: {len(open_trades)}")
     print(f"[{datetime.now()}] Entering main loop (polling every {config['poll_interval_sec']}s)...")
     print("=" * 60)
+    
+    # Send startup notification
+    if NOTIFICATIONS_AVAILABLE and config.get('enable_notifications', True):
+        notify_bot_started(config['paper_mode'], current_balance, len(open_trades))
+        print(f"[{datetime.now()}] Startup notification sent")
 
     while True:
         try:
@@ -2125,6 +2185,20 @@ def main():
                                         
                                         # Record entry for cooldown tracking
                                         record_symbol_entry(symbol)
+                                        
+                                        # Send trade entry notification
+                                        if NOTIFICATIONS_AVAILABLE and config.get('enable_notifications', True) and config.get('notify_on_entry', True):
+                                            notify_trade_entry(
+                                                symbol=symbol,
+                                                exchange=ex_name,
+                                                entry_price=trade_info.get('entry', entry_price),
+                                                position_size=trade_info.get('amount', 0),
+                                                leverage=trade_info.get('leverage', config['leverage_default']),
+                                                stop_loss=trade_info.get('sl', 0),
+                                                confidence_tier=confidence_tier,
+                                                risk_multiplier=risk_multiplier,
+                                                paper_mode=config['paper_mode']
+                                            )
                                         
                                         save_state(prev_data, open_trades, current_balance)
                                         
