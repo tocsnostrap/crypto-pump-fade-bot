@@ -1,0 +1,19 @@
+run = "bash start.sh"
+entrypoint = "start.sh"
+
+[nix]
+channel = "stable-24_05"
+
+[env]
+NODE_ENV = "production"
+PORT = "5000"
+PYTHONPATH = "/home/runner/workspace"
+
+[deployment]
+run = ["bash", "start.sh"]
+deploymentTarget = "gce"
+build = ["sh", "-c", "npm install && pip install ccxt ta-lib && npm run build"]
+
+[[ports]]
+localPort = 5000
+externalPort = 80
