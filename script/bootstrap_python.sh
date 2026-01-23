@@ -19,11 +19,11 @@ PY
 if [ ! -f "$MARKER_FILE" ]; then
   echo "[bootstrap] Installing Python deps..."
   python3 -m pip install --upgrade pip
-  python3 -m pip install ccxt numpy pandas ta-lib || true
+  python3 -m pip install "numpy<2.3" "pandas>=2.3.3" ccxt ta-lib || true
 
   if ! check_talib; then
     echo "[bootstrap] Installing pandas-ta fallback..."
-    python3 -m pip install pandas-ta
+    python3 -m pip install "numpy<2.3" pandas-ta
   fi
 
   touch "$MARKER_FILE"
