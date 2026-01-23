@@ -21,6 +21,7 @@ def load_config():
     except:
         return {
             'min_pump_pct': 60.0,
+            'max_pump_pct': 200.0,
             'min_volume_usdt': 1000000,
             'rsi_overbought': 78,
             'leverage_default': 3,
@@ -38,6 +39,15 @@ def load_config():
             'enable_blowoff_detection': True,
             'blowoff_wick_ratio': 2.5,
             'min_fade_signals': 3,
+            'min_entry_quality': 65,
+            'min_lower_highs': 2,
+            'min_bb_extension_pct': 1.0,
+            'enable_rsi_pullback': True,
+            'rsi_pullback_points': 3,
+            'rsi_pullback_lookback': 6,
+            'enable_atr_filter': True,
+            'min_atr_pct': 0.4,
+            'max_atr_pct': 8.0,
             'paper_slippage_pct': 0.0015,
             'paper_spread_pct': 0.001,
             'paper_fee_pct': 0.0005,
@@ -85,7 +95,7 @@ def calculate_macd(closes):
     macd, signal, hist = talib.MACD(closes_arr)
     return macd[-1], signal[-1], hist[-1]
 
-def find_pump_candidates(ex, config, lookback_days=30):
+def find_pump_candidates(ex, config, lookback_days=30, sort_by='pct'):
     """Find symbols that had 60%+ pumps in the past"""
     print(f"\nScanning for historical pumps (last {lookback_days} days)...")
     
@@ -130,8 +140,11 @@ def find_pump_candidates(ex, config, lookback_days=30):
         except Exception as e:
             continue
     
-    # Sort by pump percentage and take top candidates
-    pump_candidates.sort(key=lambda x: x['pump_pct'], reverse=True)
+    # Sort candidates
+    if sort_by == 'time':
+        pump_candidates.sort(key=lambda x: x['pump_time'])
+    else:
+        pump_candidates.sort(key=lambda x: x['pump_pct'], reverse=True)
     print(f"Found {len(pump_candidates)} potential pump events")
     
     return pump_candidates
@@ -262,8 +275,13 @@ def count_fade_signals(df, pump_idx, config):
     if len(closes) >= 20:
         closes_arr = np.array(closes, dtype=np.float64)
         upper, middle, lower = talib.BBANDS(closes_arr, timeperiod=20)
-        above_bb = df['high'].iloc[pump_idx] > upper[-1]
-        signals['above_upper_bb'] = above_bb
+        last_high = df['high'].iloc[pump_idx]
+        above_bb = last_high > upper[-1]
+        bb_extension = ((last_high - upper[-1]) / upper[-1] * 100) if upper[-1] > 0 else 0
+        min_extension = config.get('min_bb_extension_pct', 0)
+        meets_extension = bb_extension >= min_extension if min_extension else True
+        signals['above_upper_bb'] = above_bb and meets_extension
+        signals['bb_extension_pct'] = bb_extension
     else:
         signals['above_upper_bb'] = False
     
@@ -284,7 +302,8 @@ def count_fade_signals(df, pump_idx, config):
         if highs[i] < highs[i-1]:
             lower_high_count += 1
     signals['lower_high_count'] = lower_high_count
-    signals['has_lower_highs'] = lower_high_count >= 2
+    min_required = config.get('min_lower_highs', 2)
+    signals['has_lower_highs'] = lower_high_count >= min_required
     
     # 5. Long upper wick (56% of dumps)
     candle = df.iloc[pump_idx]
@@ -305,22 +324,84 @@ def count_fade_signals(df, pump_idx, config):
     
     return count, signals
 
-def simulate_trade(df, pump_idx, pump_high, config, capital):
-    """Simulate a short trade after pump detection"""
+def calculate_rsi_series(closes, period=14):
+    if len(closes) < period + 1:
+        return None
+    closes_arr = np.array(closes, dtype=np.float64)
+    rsi = talib.RSI(closes_arr, timeperiod=period)
+    return rsi
+
+def check_rsi_pullback_backtest(df, entry_idx, config):
+    if not config.get('enable_rsi_pullback', True):
+        return True, {'skipped': True}
+    lookback = int(config.get('rsi_pullback_lookback', 6))
+    pullback_pts = float(config.get('rsi_pullback_points', 3))
+    if entry_idx < 14 or lookback < 2:
+        return False, {'error': 'insufficient_data'}
+
+    closes = df['close'].iloc[:entry_idx+1].values
+    rsi_vals = calculate_rsi_series(closes)
+    if rsi_vals is None or len(rsi_vals) < lookback:
+        return False, {'error': 'rsi_calculation_failed'}
+
+    recent = rsi_vals[-lookback:]
+    recent_peak = float(np.nanmax(recent))
+    current_rsi = float(rsi_vals[-1])
+    pullback = recent_peak - current_rsi
+    has_pullback = pullback >= pullback_pts
+
+    return has_pullback, {
+        'current_rsi': current_rsi,
+        'recent_peak': recent_peak,
+        'pullback': pullback,
+        'required_pullback': pullback_pts,
+        'lookback': lookback
+    }
+
+def check_atr_filter_backtest(df, entry_idx, config):
+    if not config.get('enable_atr_filter', True):
+        return True, {'skipped': True}
+    if entry_idx < 14:
+        return False, {'error': 'insufficient_data'}
+
+    highs = df['high'].iloc[:entry_idx+1].values
+    lows = df['low'].iloc[:entry_idx+1].values
+    closes = df['close'].iloc[:entry_idx+1].values
+    atr_vals = talib.ATR(np.array(highs, dtype=np.float64), np.array(lows, dtype=np.float64), np.array(closes, dtype=np.float64), timeperiod=14)
+    if atr_vals is None or len(atr_vals) == 0:
+        return False, {'error': 'atr_calculation_failed'}
+
+    atr = float(atr_vals[-1])
+    last_close = float(closes[-1]) if len(closes) else 0
+    atr_pct = (atr / last_close * 100) if last_close > 0 else 0
+
+    min_atr = float(config.get('min_atr_pct', 0))
+    max_atr = float(config.get('max_atr_pct', 0))
+    atr_ok = True
+    if min_atr and atr_pct < min_atr:
+        atr_ok = False
+    if max_atr and atr_pct > max_atr:
+        atr_ok = False
+
+    return atr_ok, {
+        'atr': atr,
+        'atr_pct': atr_pct,
+        'min_atr_pct': min_atr,
+        'max_atr_pct': max_atr,
+        'atr_ok': atr_ok
+    }
+
+def find_entry_index(df, pump_idx, config):
     use_1h = config.get('use_1h_entry_timing', True)
-    
-    # For 1h candles we need more candles for 8 days (8*24=192)
     candles_needed = 192 if use_1h else 48
     if pump_idx + candles_needed >= len(df):
         return None
-    
-    # Wait for 3+ lower highs before entry (pattern analysis finding)
-    min_lower_highs = config.get('min_lower_highs', 3)
+
+    min_lower_highs = config.get('min_lower_highs', 2)
     entry_idx = pump_idx
-    
-    # Look for lower highs confirmation
     lower_high_count = 0
     last_high = df['high'].iloc[pump_idx]
+
     for i in range(pump_idx + 1, min(pump_idx + 10, len(df))):
         if df['high'].iloc[i] < last_high:
             lower_high_count += 1
@@ -328,10 +409,21 @@ def simulate_trade(df, pump_idx, pump_high, config, capital):
                 entry_idx = i
                 break
         last_high = max(last_high, df['high'].iloc[i])
-    
-    # If no lower highs found, use fallback entry (2-3 candles after pump)
+
     if entry_idx == pump_idx:
         entry_idx = pump_idx + 3
+    if entry_idx >= len(df):
+        return None
+
+    return entry_idx
+
+def simulate_trade(df, pump_idx, pump_high, config, capital, entry_idx=None):
+    """Simulate a short trade after pump detection"""
+    use_1h = config.get('use_1h_entry_timing', True)
+    if entry_idx is None:
+        entry_idx = find_entry_index(df, pump_idx, config)
+    if entry_idx is None:
+        return None
     
     entry_price = df['close'].iloc[entry_idx]
     
@@ -409,17 +501,18 @@ def simulate_trade(df, pump_idx, pump_high, config, capital):
         'is_winner': net_pnl > 0
     }
 
-def run_backtest(num_trades=20):
+def run_backtest(num_trades=20, lookback_days=180, pumps=None, label="BACKTEST"):
     """Run backtest for specified number of trades"""
     print("=" * 60)
-    print("PUMP FADE TRADING BOT - BACKTEST")
+    print(f"PUMP FADE TRADING BOT - {label}")
     print("=" * 60)
     
     config = load_config()
     ex = init_exchange()
     
     # Find pump candidates
-    pumps = find_pump_candidates(ex, config, lookback_days=180)
+    if pumps is None:
+        pumps = find_pump_candidates(ex, config, lookback_days=lookback_days)
     
     if not pumps:
         print("No pump candidates found!")
@@ -492,24 +585,64 @@ def run_backtest(num_trades=20):
             print(f"  Lower Highs: {fade_signals_dict.get('lower_high_count', 0)}")
             print(f"  Pattern Signals: {fade_signals}/5")
             
+            entry_idx = find_entry_index(df, pump_idx, config)
+            if entry_idx is None:
+                print("  -> Skipped: could not find entry index")
+                continue
+
+            rsi_pullback_ok, rsi_pullback_details = check_rsi_pullback_backtest(df, entry_idx, config)
+            atr_ok, atr_details = check_atr_filter_backtest(df, entry_idx, config)
+            
+            print(f"  RSI Pullback: {'PASS' if rsi_pullback_ok else 'FAIL'} (pullback: {rsi_pullback_details.get('pullback', 0):.1f})")
+            print(f"  ATR Filter: {'PASS' if atr_ok else 'FAIL'} (ATR%: {atr_details.get('atr_pct', 0):.2f}%)")
+            
             # Check if pump passes validation
             passes_validation = vol_valid and mtf_valid
             
             # New pattern-based entry signals
-            has_lower_highs = struct_valid  # Structure break includes lower highs
+            has_lower_highs = fade_signals_dict.get('has_lower_highs', False) or struct_valid
             has_bb_signal = fade_signals_dict.get('above_upper_bb', False)
             has_vol_decline = fade_signals_dict.get('volume_declining', False)
+            min_patterns = config.get('min_fade_signals', 3)
+            min_quality = config.get('min_entry_quality', 60)
+            fade_valid = fade_signals >= min_patterns
             
-            # Require at least 3 pattern confirmations
+            entry_quality = 30
+            if has_bb_signal:
+                entry_quality += 15
+            if has_vol_decline:
+                entry_quality += 12
+            if has_lower_highs:
+                entry_quality += 18
+            if struct_valid:
+                entry_quality += 15
+            if blowoff_valid:
+                entry_quality += 10
+            if rsi_pullback_ok:
+                entry_quality += 10
+            if fade_valid:
+                entry_quality += 10
+            
+            # Require pattern confirmations + quality + volatility gate
             pattern_count = sum([
-                1 if mtf_valid else 0,
-                1 if has_lower_highs else 0,
                 1 if has_bb_signal else 0,
                 1 if has_vol_decline else 0,
-                1 if blowoff_valid else 0
+                1 if has_lower_highs else 0,
+                1 if struct_valid else 0,
+                1 if blowoff_valid else 0,
+                1 if rsi_pullback_ok else 0,
+                1 if fade_valid else 0
             ])
             
-            has_entry_signal = pattern_count >= 3 and (has_lower_highs or blowoff_valid)
+            has_entry_signal = (
+                entry_quality >= min_quality and
+                pattern_count >= min_patterns and
+                (has_lower_highs or struct_valid) and
+                atr_ok
+            )
+
+            print(f"  Entry Quality: {entry_quality} (min {min_quality})")
+            print(f"  Patterns: {pattern_count}/{min_patterns}")
             
             if not passes_validation:
                 print(f"  -> REJECTED (failed validation)")
@@ -517,14 +650,14 @@ def run_backtest(num_trades=20):
                 continue
             
             if not has_entry_signal:
-                print(f"  -> REJECTED (only {pattern_count} patterns, need 3+)")
+                print(f"  -> REJECTED (quality {entry_quality}, patterns {pattern_count}/{min_patterns})")
                 rejected_count += 1
                 continue
             
             validated_count += 1
             
             # Simulate trade
-            trade_result = simulate_trade(df, pump_idx, pump['pump_high'], config, capital)
+            trade_result = simulate_trade(df, pump_idx, pump['pump_high'], config, capital, entry_idx=entry_idx)
             
             if trade_result is None:
                 print("  -> Skipped: couldn't simulate trade")
@@ -560,7 +693,7 @@ def run_backtest(num_trades=20):
     
     # Print summary
     print("\n" + "=" * 60)
-    print("BACKTEST RESULTS")
+    print(f"{label} RESULTS")
     print("=" * 60)
     
     if not trades:
@@ -629,11 +762,52 @@ def run_backtest(num_trades=20):
         'trades': trades
     }
     
-    with open('backtest_results.json', 'w') as f:
+    filename = f"{label.lower().replace(' ', '_')}_results.json"
+    with open(filename, 'w') as f:
         json.dump(results, f, indent=2, default=str)
     
-    print(f"\nResults saved to backtest_results.json")
+    print(f"\nResults saved to {filename}")
     print("=" * 60)
 
+def run_walkforward_tests(backtest_trades=50, forward_trades=50, lookback_days=180, split_ratio=0.7):
+    """Run backtest and forward test on time-split data."""
+    config = load_config()
+    ex = init_exchange()
+    pumps = find_pump_candidates(ex, config, lookback_days=lookback_days, sort_by='time')
+    if not pumps:
+        print("No pump candidates found!")
+        return
+
+    split_idx = int(len(pumps) * split_ratio)
+    backtest_pumps = pumps[:split_idx]
+    forward_pumps = pumps[split_idx:]
+
+    print("\n" + "=" * 60)
+    print(f"Walk-forward split: {split_ratio*100:.0f}% backtest / {(1-split_ratio)*100:.0f}% forward")
+    print(f"Candidates: {len(pumps)} (backtest {len(backtest_pumps)}, forward {len(forward_pumps)})")
+    print("=" * 60)
+
+    run_backtest(num_trades=backtest_trades, lookback_days=lookback_days, pumps=backtest_pumps, label="BACKTEST")
+    run_backtest(num_trades=forward_trades, lookback_days=lookback_days, pumps=forward_pumps, label="FORWARD_TEST")
+
 if __name__ == '__main__':
-    run_backtest(num_trades=20)
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run pump fade backtests.")
+    parser.add_argument("--backtest-trades", type=int, default=50, help="Number of backtest trades")
+    parser.add_argument("--forward-trades", type=int, default=50, help="Number of forward test trades")
+    parser.add_argument("--lookback-days", type=int, default=180, help="Lookback window in days")
+    parser.add_argument("--split-ratio", type=float, default=0.7, help="Backtest split ratio for walk-forward")
+    parser.add_argument("--walkforward", action="store_true", help="Run walk-forward backtest + forward test")
+
+    args = parser.parse_args()
+
+    if args.walkforward:
+        run_walkforward_tests(
+            backtest_trades=args.backtest_trades,
+            forward_trades=args.forward_trades,
+            lookback_days=args.lookback_days,
+            split_ratio=args.split_ratio
+        )
+    else:
+        run_backtest(num_trades=args.backtest_trades, lookback_days=args.lookback_days)
