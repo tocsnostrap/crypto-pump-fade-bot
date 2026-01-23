@@ -784,17 +784,18 @@ def run_backtest(num_trades=20, lookback_days=180, pumps=None, label="BACKTEST",
     print(f"\nResults saved to {filename}")
     print("=" * 60)
 
-def run_walkforward_tests(backtest_trades=50, forward_trades=50, lookback_days=180, split_ratio=0.7, symbol_limit=200):
+def run_walkforward_tests(backtest_trades=50, forward_trades=50, lookback_days=180, split_ratio=0.7, symbol_limit=200, pumps=None):
     """Run backtest and forward test on time-split data."""
     config = load_config()
     ex = init_exchange()
-    pumps = find_pump_candidates(
-        ex,
-        config,
-        lookback_days=lookback_days,
-        sort_by='time',
-        symbol_limit=symbol_limit
-    )
+    if pumps is None:
+        pumps = find_pump_candidates(
+            ex,
+            config,
+            lookback_days=lookback_days,
+            sort_by='time',
+            symbol_limit=symbol_limit
+        )
     if not pumps:
         print("No pump candidates found!")
         return
@@ -823,6 +824,36 @@ def run_walkforward_tests(backtest_trades=50, forward_trades=50, lookback_days=1
         symbol_limit=symbol_limit
     )
 
+
+def load_events_file(path):
+    import json
+    events = []
+    try:
+        with open(path, "r") as f:
+            data = json.load(f)
+        raw_events = data.get("events", data)
+        for ev in raw_events:
+            pump_time = ev.get("pump_time")
+            if isinstance(pump_time, str):
+                try:
+                    pump_time = datetime.fromisoformat(pump_time)
+                except ValueError:
+                    pump_time = None
+            if pump_time is None:
+                continue
+            events.append({
+                "symbol": ev.get("symbol"),
+                "pump_time": pump_time,
+                "pump_pct": ev.get("pump_pct"),
+                "pump_high": ev.get("pump_high"),
+                "pre_pump_low": ev.get("window_low")
+            })
+    except Exception as e:
+        print(f"Failed to load events file: {e}")
+        return []
+    events.sort(key=lambda x: x["pump_time"])
+    return events
+
 if __name__ == '__main__':
     import argparse
 
@@ -833,8 +864,16 @@ if __name__ == '__main__':
     parser.add_argument("--split-ratio", type=float, default=0.7, help="Backtest split ratio for walk-forward")
     parser.add_argument("--symbol-limit", type=int, default=200, help="Number of symbols to scan")
     parser.add_argument("--walkforward", action="store_true", help="Run walk-forward backtest + forward test")
+    parser.add_argument("--events-file", type=str, default="", help="Use a pre-mined pump events JSON file")
 
     args = parser.parse_args()
+
+    pumps = None
+    if args.events_file:
+        pumps = load_events_file(args.events_file)
+        if not pumps:
+            print("No pump events loaded from events file.")
+            return
 
     if args.walkforward:
         run_walkforward_tests(
@@ -842,11 +881,13 @@ if __name__ == '__main__':
             forward_trades=args.forward_trades,
             lookback_days=args.lookback_days,
             split_ratio=args.split_ratio,
-            symbol_limit=args.symbol_limit
+            symbol_limit=args.symbol_limit,
+            pumps=pumps
         )
     else:
         run_backtest(
             num_trades=args.backtest_trades,
             lookback_days=args.lookback_days,
-            symbol_limit=args.symbol_limit
+            symbol_limit=args.symbol_limit,
+            pumps=pumps
         )

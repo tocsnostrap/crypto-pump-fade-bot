@@ -215,6 +215,18 @@ def summarize_events(events):
     return summary, similarities
 
 
+def sanitize_for_json(obj):
+    if isinstance(obj, dict):
+        return {k: sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [sanitize_for_json(v) for v in obj]
+    if isinstance(obj, (np.integer, np.floating, np.bool_)):
+        return obj.item()
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    return obj
+
+
 def main():
     parser = argparse.ArgumentParser(description="Mine pump-fade events and summarize similarities.")
     parser.add_argument("--min-pump", type=float, default=60, help="Minimum pump percentage")
@@ -261,8 +273,13 @@ def main():
 
     if args.save:
         import json
+        payload = sanitize_for_json({
+            "events": events,
+            "summary": summary,
+            "similarities": similarities
+        })
         with open(args.save, "w") as f:
-            json.dump({"events": events, "summary": summary, "similarities": similarities}, f, indent=2)
+            json.dump(payload, f, indent=2)
         print(f"\nSaved results to {args.save}")
 
 
