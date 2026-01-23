@@ -166,12 +166,12 @@ def check_multi_timeframe_from_5m(df_5m, pump_idx, config):
     if not config.get('enable_multi_timeframe', True):
         return True, {'skipped': True}
     df_slice = df_5m.iloc[:pump_idx + 1]
-    df_1h = resample_ohlcv(df_slice, '1H')
+    df_1h = resample_ohlcv(df_slice, '1h')
     if df_1h is None or len(df_1h) < 14:
         return False, {'error': 'insufficient_1h_data'}
     closes_1h = np.array(df_1h['close'].values, dtype=np.float64)
     rsi_1h = talib.RSI(closes_1h, timeperiod=14)[-1]
-    df_4h = resample_ohlcv(df_slice, '4H')
+    df_4h = resample_ohlcv(df_slice, '4h')
     rsi_4h = None
     if df_4h is not None and len(df_4h) >= 14:
         closes_4h = np.array(df_4h['close'].values, dtype=np.float64)
@@ -188,7 +188,7 @@ def find_recent_low(df, end_idx, lookback=24):
 
 def calculate_swing_high_sl_backtest(df_5m, entry_idx, config):
     df_slice = df_5m.iloc[:entry_idx + 1]
-    df_15m = resample_ohlcv(df_slice, '15T')
+    df_15m = resample_ohlcv(df_slice, '15min')
     if df_15m is None or len(df_15m) < 5:
         return None, config.get('sl_pct_above_entry', 0.12), None
     highs = df_15m['high'].values[-10:]
