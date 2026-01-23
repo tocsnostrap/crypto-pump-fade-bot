@@ -4,12 +4,13 @@ echo "Starting at: $(date)"
 
 export NODE_ENV=production
 export PORT=${PORT:-5000}
+export BOT_MANAGED=1
 
 # Start Python bot in background (if python3 available)
 if command -v python3 &> /dev/null; then
     echo "Starting Python trading bot..."
     python3 main.py &
-    echo "Python bot started"
+    echo "Python bot started (PID: $!)"
 else
     echo "Python not available - dashboard only mode"
 fi
