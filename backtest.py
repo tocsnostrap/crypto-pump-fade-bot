@@ -522,7 +522,7 @@ def simulate_trade(df, pump_idx, pump_high, config, capital, entry_idx=None):
         'is_winner': net_pnl > 0
     }
 
-def run_backtest(num_trades=20, lookback_days=180, pumps=None, label="BACKTEST", symbol_limit=200):
+def run_backtest(num_trades=20, lookback_days=180, pumps=None, label="BACKTEST", symbol_limit=200, baseline_mode=False):
     """Run backtest for specified number of trades"""
     print("=" * 60)
     print(f"PUMP FADE TRADING BOT - {label}")
@@ -539,7 +539,8 @@ def run_backtest(num_trades=20, lookback_days=180, pumps=None, label="BACKTEST",
         print("No pump candidates found!")
         return
     
-    print(f"\nRunning backtest on {min(num_trades, len(pumps))} trades...")
+    mode_label = "BASELINE" if baseline_mode else "FULL"
+    print(f"\nRunning {mode_label} backtest on {min(num_trades, len(pumps))} trades...")
     print("-" * 60)
     
     capital = config.get('starting_capital', 5000)
@@ -617,25 +618,33 @@ def run_backtest(num_trades=20, lookback_days=180, pumps=None, label="BACKTEST",
             print(f"  RSI Pullback: {'PASS' if rsi_pullback_ok else 'FAIL'} (pullback: {rsi_pullback_details.get('pullback', 0):.1f})")
             print(f"  ATR Filter: {'PASS' if atr_ok else 'FAIL'} (ATR%: {atr_details.get('atr_pct', 0):.2f}%)")
             
-            # Check if pump passes validation (score-based)
-            validation_score = (1 if vol_valid else 0) + (1 if mtf_valid else 0)
-            min_validation_score = config.get('min_validation_score', 1)
-            passes_validation = validation_score >= min_validation_score
+            # Check if pump passes validation (score-based) unless baseline mode
+            if baseline_mode:
+                passes_validation = True
+            else:
+                validation_score = (1 if vol_valid else 0) + (1 if mtf_valid else 0)
+                min_validation_score = config.get('min_validation_score', 1)
+                passes_validation = validation_score >= min_validation_score
             
             # New pattern-based entry signals
             has_lower_highs = fade_signals_dict.get('has_lower_highs', False) or struct_valid
             has_bb_signal = fade_signals_dict.get('above_upper_bb', False)
             has_vol_decline = fade_signals_dict.get('volume_declining', False)
-            min_patterns = config.get('min_fade_signals', 2)
-            min_quality = config.get('min_entry_quality', 60)
-            small_threshold = config.get('pump_small_threshold_pct', 60)
-            if pump_pct < small_threshold:
-                min_patterns = config.get('min_fade_signals_small', 3)
-                min_quality = config.get('min_entry_quality_small', 65)
+            if baseline_mode:
+                min_patterns = 1
+                min_quality = 0
+                fade_valid = True
             else:
-                min_patterns = config.get('min_fade_signals_large', min_patterns)
-                min_quality = config.get('min_entry_quality_large', min_quality)
-            fade_valid = fade_signals >= min_patterns
+                min_patterns = config.get('min_fade_signals', 2)
+                min_quality = config.get('min_entry_quality', 60)
+                small_threshold = config.get('pump_small_threshold_pct', 60)
+                if pump_pct < small_threshold:
+                    min_patterns = config.get('min_fade_signals_small', 3)
+                    min_quality = config.get('min_entry_quality_small', 65)
+                else:
+                    min_patterns = config.get('min_fade_signals_large', min_patterns)
+                    min_quality = config.get('min_entry_quality_large', min_quality)
+                fade_valid = fade_signals >= min_patterns
             
             entry_quality = 30
             if has_bb_signal:
@@ -664,12 +673,17 @@ def run_backtest(num_trades=20, lookback_days=180, pumps=None, label="BACKTEST",
                 1 if fade_valid else 0
             ])
             
-            has_entry_signal = (
-                entry_quality >= min_quality and
-                pattern_count >= min_patterns and
-                (has_lower_highs or struct_valid) and
-                atr_ok
-            )
+            if baseline_mode:
+                lower_high_count = fade_signals_dict.get('lower_high_count', 0)
+                lower_high_ok = lower_high_count >= 2
+                has_entry_signal = lower_high_ok and has_vol_decline
+            else:
+                has_entry_signal = (
+                    entry_quality >= min_quality and
+                    pattern_count >= min_patterns and
+                    (has_lower_highs or struct_valid) and
+                    atr_ok
+                )
 
             print(f"  Entry Quality: {entry_quality} (min {min_quality})")
             print(f"  Patterns: {pattern_count}/{min_patterns}")
@@ -680,7 +694,10 @@ def run_backtest(num_trades=20, lookback_days=180, pumps=None, label="BACKTEST",
                 continue
             
             if not has_entry_signal:
-                print(f"  -> REJECTED (quality {entry_quality}, patterns {pattern_count}/{min_patterns})")
+                if baseline_mode:
+                    print(f"  -> REJECTED (baseline: lower_highs={fade_signals_dict.get('lower_high_count', 0)}, vol_decline={has_vol_decline})")
+                else:
+                    print(f"  -> REJECTED (quality {entry_quality}, patterns {pattern_count}/{min_patterns})")
                 rejected_count += 1
                 continue
             
@@ -799,7 +816,7 @@ def run_backtest(num_trades=20, lookback_days=180, pumps=None, label="BACKTEST",
     print(f"\nResults saved to {filename}")
     print("=" * 60)
 
-def run_walkforward_tests(backtest_trades=50, forward_trades=50, lookback_days=180, split_ratio=0.7, symbol_limit=200, pumps=None):
+def run_walkforward_tests(backtest_trades=50, forward_trades=50, lookback_days=180, split_ratio=0.7, symbol_limit=200, pumps=None, baseline_mode=False, forward_only=False):
     """Run backtest and forward test on time-split data."""
     config = load_config()
     ex = init_exchange()
@@ -824,19 +841,22 @@ def run_walkforward_tests(backtest_trades=50, forward_trades=50, lookback_days=1
     print(f"Candidates: {len(pumps)} (backtest {len(backtest_pumps)}, forward {len(forward_pumps)})")
     print("=" * 60)
 
-    run_backtest(
-        num_trades=backtest_trades,
-        lookback_days=lookback_days,
-        pumps=backtest_pumps,
-        label="BACKTEST",
-        symbol_limit=symbol_limit
-    )
+    if not forward_only:
+        run_backtest(
+            num_trades=backtest_trades,
+            lookback_days=lookback_days,
+            pumps=backtest_pumps,
+            label="BACKTEST",
+            symbol_limit=symbol_limit,
+            baseline_mode=baseline_mode
+        )
     run_backtest(
         num_trades=forward_trades,
         lookback_days=lookback_days,
         pumps=forward_pumps,
         label="FORWARD_TEST",
-        symbol_limit=symbol_limit
+        symbol_limit=symbol_limit,
+        baseline_mode=baseline_mode
     )
 
 
@@ -880,6 +900,8 @@ if __name__ == '__main__':
     parser.add_argument("--symbol-limit", type=int, default=200, help="Number of symbols to scan")
     parser.add_argument("--walkforward", action="store_true", help="Run walk-forward backtest + forward test")
     parser.add_argument("--events-file", type=str, default="", help="Use a pre-mined pump events JSON file")
+    parser.add_argument("--baseline-mode", action="store_true", help="Use baseline entry rules (lower highs + volume decline)")
+    parser.add_argument("--forward-only", action="store_true", help="Run only the forward test portion")
 
     args = parser.parse_args()
 
@@ -897,12 +919,15 @@ if __name__ == '__main__':
             lookback_days=args.lookback_days,
             split_ratio=args.split_ratio,
             symbol_limit=args.symbol_limit,
-            pumps=pumps
+            pumps=pumps,
+            baseline_mode=args.baseline_mode,
+            forward_only=args.forward_only
         )
     else:
         run_backtest(
             num_trades=args.backtest_trades,
             lookback_days=args.lookback_days,
             symbol_limit=args.symbol_limit,
-            pumps=pumps
+            pumps=pumps,
+            baseline_mode=args.baseline_mode
         )
