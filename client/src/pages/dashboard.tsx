@@ -401,6 +401,13 @@ export default function Dashboard() {
   const timeDecayLabel = `${config?.time_decay_minutes ?? 120} min`;
   const lowerHighsLabel = `${config?.min_lower_highs ?? 1}+ lower highs`;
   const fadeSignalsLabel = `${config?.min_fade_signals ?? 2}+ signals`;
+  const entryQualityLabel = `Min quality ${config?.min_entry_quality ?? 60}`;
+  const rsiPullbackLabel = (config?.enable_rsi_pullback ?? true)
+    ? `On (${config?.rsi_pullback_points ?? 3} pts / ${config?.rsi_pullback_lookback ?? 6} bars)`
+    : "Off";
+  const atrFilterLabel = (config?.enable_atr_filter ?? true)
+    ? `On (${(config?.min_atr_pct ?? 0).toFixed(1)}% - ${(config?.max_atr_pct ?? 0).toFixed(1)}%)`
+    : "Off";
 
   return (
     <div className="min-h-screen bg-background">
@@ -780,7 +787,10 @@ export default function Dashboard() {
             </div>
 
             <div className="mt-4 pt-4 border-t text-xs text-muted-foreground space-y-1">
-              <p>Entry: {entryLabel} | Fade: {fadeSignalsLabel} | {lowerHighsLabel}</p>
+              <p>Entry: {entryLabel} | {entryQualityLabel}</p>
+              <p>Fade: {fadeSignalsLabel} | {lowerHighsLabel}</p>
+              <p>RSI Pullback: {rsiPullbackLabel}</p>
+              <p>ATR Filter: {atrFilterLabel}</p>
               <p>Bollinger: {bollingerLabel}</p>
               <p>Structure Break: {structureLabel}</p>
               <p>Time Decay: {timeDecayLabel}</p>

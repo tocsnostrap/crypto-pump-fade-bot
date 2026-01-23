@@ -56,7 +56,7 @@ DEFAULT_CONFIG = {
     'mtf_rsi_threshold': 70,            # RSI >= 70 at peak (72.8% win rate)
     
     'enable_bollinger_check': True,     # Check price above upper BB (74% win rate)
-    'min_bb_extension_pct': 0,          # Minimum % above upper BB
+    'min_bb_extension_pct': 1.0,        # Minimum % above upper BB
     
     'enable_cross_exchange': False,     # Require pump visible on multiple exchanges
     'cross_exchange_min_pct': 40,       # Min pump % on second exchange
@@ -67,7 +67,7 @@ DEFAULT_CONFIG = {
     # === ENTRY TIMING (early entry with strict filters) ===
     'enable_structure_break': True,     # Wait for micro-structure break
     'structure_break_candles': 3,       # Number of candles to confirm break
-    'min_lower_highs': 1,               # Enter after 1 lower high (early entry)
+    'min_lower_highs': 2,               # Require 2+ lower highs for higher win rate
     
     'enable_blowoff_detection': True,   # Detect blow-off top patterns
     'blowoff_wick_ratio': 2.5,          # Upper wick must be N times body
@@ -76,10 +76,19 @@ DEFAULT_CONFIG = {
     'scale_in_levels': [0.5, 0.3, 0.2], # Position size per scale-in
     
     'time_decay_minutes': 120,          # Skip if no reversal within N minutes
+
+    # === ENTRY QUALITY TUNING ===
+    'min_entry_quality': 65,            # Require higher quality setups
+    'enable_rsi_pullback': True,        # Require RSI to roll over from peak
+    'rsi_pullback_points': 3,           # Min RSI pullback points
+    'rsi_pullback_lookback': 6,         # Lookback candles for RSI peak
+    'enable_atr_filter': True,          # Filter extreme/flat volatility
+    'min_atr_pct': 0.4,                 # Minimum ATR% of price
+    'max_atr_pct': 8.0,                 # Maximum ATR% of price
     
     # === LEARNING & LOGGING ===
     'enable_trade_logging': True,       # Log detailed feature vectors
-    'min_fade_signals': 2               # Reduced: enter earlier with strict RSI/BB filters
+    'min_fade_signals': 3               # Require more confirmations for entries
 }
 
 # State files
@@ -790,13 +799,19 @@ def check_bollinger_bands(df, config):
         
         # Calculate how far above the band
         bb_extension = ((last_high - last_upper) / last_upper * 100) if last_upper > 0 else 0
+        min_extension = config.get('min_bb_extension_pct', 0)
+        meets_extension = bb_extension >= min_extension if min_extension else True
+        if not meets_extension:
+            above_upper = False
         
         details = {
             'upper_band': float(last_upper),
             'last_high': float(last_high),
             'last_close': float(last_close),
             'above_upper': above_upper,
-            'extension_pct': bb_extension
+            'extension_pct': bb_extension,
+            'min_extension_pct': min_extension,
+            'meets_extension': meets_extension
         }
         
         return above_upper, details
@@ -839,6 +854,86 @@ def check_volume_decline(df, config):
         
         return is_declining, details
         
+    except Exception as e:
+        return False, {'error': str(e)}
+
+def check_rsi_pullback(df, config):
+    """
+    Require RSI to roll over from a recent peak before entry.
+    
+    Returns: (has_pullback, details_dict)
+    """
+    if not config.get('enable_rsi_pullback', True):
+        return True, {'skipped': True}
+
+    if df is None or len(df) < 14:
+        return False, {'error': 'insufficient_data'}
+
+    try:
+        closes = np.array(df['close'].values, dtype=np.float64)
+        rsi_vals = talib.RSI(closes, timeperiod=14)
+        lookback = int(config.get('rsi_pullback_lookback', 6))
+        pullback_pts = float(config.get('rsi_pullback_points', 3))
+        if lookback < 2:
+            lookback = 2
+
+        recent = rsi_vals[-lookback:]
+        recent_peak = float(np.nanmax(recent))
+        current_rsi = float(rsi_vals[-1])
+        pullback = recent_peak - current_rsi
+
+        has_pullback = pullback >= pullback_pts
+
+        details = {
+            'current_rsi': current_rsi,
+            'recent_peak': recent_peak,
+            'pullback': pullback,
+            'required_pullback': pullback_pts,
+            'lookback': lookback
+        }
+
+        return has_pullback, details
+    except Exception as e:
+        return False, {'error': str(e)}
+
+def check_atr_filter(df, config):
+    """
+    Filter out trades with extremely low/high volatility (ATR%).
+    
+    Returns: (atr_ok, details_dict)
+    """
+    if not config.get('enable_atr_filter', True):
+        return True, {'skipped': True}
+
+    if df is None or len(df) < 14:
+        return False, {'error': 'insufficient_data'}
+
+    try:
+        highs = np.array(df['high'].values, dtype=np.float64)
+        lows = np.array(df['low'].values, dtype=np.float64)
+        closes = np.array(df['close'].values, dtype=np.float64)
+        atr_vals = talib.ATR(highs, lows, closes, timeperiod=14)
+        atr = float(atr_vals[-1]) if len(atr_vals) else 0
+        last_close = float(closes[-1]) if len(closes) else 0
+        atr_pct = (atr / last_close * 100) if last_close > 0 else 0
+
+        min_atr = float(config.get('min_atr_pct', 0))
+        max_atr = float(config.get('max_atr_pct', 0))
+        atr_ok = True
+        if min_atr and atr_pct < min_atr:
+            atr_ok = False
+        if max_atr and atr_pct > max_atr:
+            atr_ok = False
+
+        details = {
+            'atr': atr,
+            'atr_pct': atr_pct,
+            'min_atr_pct': min_atr,
+            'max_atr_pct': max_atr,
+            'atr_ok': atr_ok
+        }
+
+        return atr_ok, details
     except Exception as e:
         return False, {'error': str(e)}
 
@@ -933,12 +1028,16 @@ def check_entry_timing(ex, symbol, df, config):
     all_details = {}
     entry_quality = 30  # Start lower, require more confirmations
     
+    # 0. Volatility filter (ATR%) - avoid extreme/flat conditions
+    atr_ok, atr_details = check_atr_filter(df, config)
+    all_details['atr_filter'] = atr_details
+    
     # 1. Bollinger Band Check (89% of dumps showed price above upper BB)
     bb_above, bb_details = check_bollinger_bands(df, config)
     all_details['bollinger_bands'] = bb_details
     if bb_above:
         entry_quality += 15
-    
+
     # 2. Volume Decline Check (67% of dumps showed declining volume)
     vol_decline, vol_details = check_volume_decline(df, config)
     all_details['volume_decline'] = vol_details
@@ -962,20 +1061,26 @@ def check_entry_timing(ex, symbol, df, config):
     all_details['blowoff_pattern'] = blowoff_details
     if blowoff:
         entry_quality += 10
+
+    # 6. RSI Pullback Check (momentum rollover)
+    rsi_pullback, rsi_pullback_details = check_rsi_pullback(df, config)
+    all_details['rsi_pullback'] = rsi_pullback_details
+    if rsi_pullback:
+        entry_quality += 10
     
-    # 6. Standard Fade Signals (RSI, MACD)
+    # 7. Standard Fade Signals (RSI, MACD)
     fade_valid, rsi = check_fade_signals(df)
     all_details['fade_signals'] = {'valid': fade_valid, 'rsi': rsi}
     if fade_valid:
         entry_quality += 10
     
     # Count pattern confirmations
-    pattern_count = sum([bb_above, vol_decline, lower_highs, struct_break, blowoff, fade_valid])
+    pattern_count = sum([bb_above, vol_decline, lower_highs, struct_break, blowoff, rsi_pullback, fade_valid])
     all_details['pattern_count'] = pattern_count
     
     # Determine if we should enter - require multiple pattern confirmations
     min_patterns = config.get('min_fade_signals', 3)
-    min_quality = 60
+    min_quality = config.get('min_entry_quality', 60)
     
     # Enter if: enough quality score AND enough pattern confirmations
     should_enter = (entry_quality >= min_quality) and (pattern_count >= min_patterns)
@@ -984,6 +1089,10 @@ def check_entry_timing(ex, symbol, df, config):
     if not (lower_highs or struct_break):
         should_enter = False
         entry_quality -= 15
+
+    # Volatility gating
+    if not atr_ok:
+        should_enter = False
     
     all_details['entry_quality'] = entry_quality
     all_details['should_enter'] = should_enter

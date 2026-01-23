@@ -95,6 +95,13 @@ export interface BotConfig {
   time_decay_minutes?: number;
   min_lower_highs?: number;
   min_fade_signals?: number;
+  min_entry_quality?: number;
+  enable_rsi_pullback?: boolean;
+  rsi_pullback_points?: number;
+  rsi_pullback_lookback?: number;
+  enable_atr_filter?: boolean;
+  min_atr_pct?: number;
+  max_atr_pct?: number;
 }
 
 export interface BotStatus {
