@@ -20,10 +20,10 @@ def load_config():
             return json.load(f)
     except:
         return {
-            'min_pump_pct': 60.0,
-            'max_pump_pct': 200.0,
+            'min_pump_pct': 50.0,
+            'max_pump_pct': 250.0,
             'min_volume_usdt': 1000000,
-            'rsi_overbought': 78,
+            'rsi_overbought': 70,
             'leverage_default': 3,
             'risk_pct_per_trade': 0.01,
             'sl_pct_above_entry': 0.12,
@@ -32,6 +32,7 @@ def load_config():
             'enable_volume_profile': True,
             'volume_sustained_candles': 3,
             'volume_spike_threshold': 2.0,
+            'min_validation_score': 1,
             'enable_multi_timeframe': True,
             'mtf_rsi_threshold': 65,
             'enable_structure_break': True,
@@ -40,6 +41,11 @@ def load_config():
             'blowoff_wick_ratio': 2.0,
             'min_fade_signals': 2,
             'min_entry_quality': 60,
+            'min_entry_quality_small': 65,
+            'min_entry_quality_large': 60,
+            'min_fade_signals_small': 3,
+            'min_fade_signals_large': 2,
+            'pump_small_threshold_pct': 60,
             'min_lower_highs': 2,
             'min_bb_extension_pct': 0.5,
             'enable_rsi_peak_filter': True,
@@ -611,15 +617,24 @@ def run_backtest(num_trades=20, lookback_days=180, pumps=None, label="BACKTEST",
             print(f"  RSI Pullback: {'PASS' if rsi_pullback_ok else 'FAIL'} (pullback: {rsi_pullback_details.get('pullback', 0):.1f})")
             print(f"  ATR Filter: {'PASS' if atr_ok else 'FAIL'} (ATR%: {atr_details.get('atr_pct', 0):.2f}%)")
             
-            # Check if pump passes validation
-            passes_validation = vol_valid and mtf_valid
+            # Check if pump passes validation (score-based)
+            validation_score = (1 if vol_valid else 0) + (1 if mtf_valid else 0)
+            min_validation_score = config.get('min_validation_score', 1)
+            passes_validation = validation_score >= min_validation_score
             
             # New pattern-based entry signals
             has_lower_highs = fade_signals_dict.get('has_lower_highs', False) or struct_valid
             has_bb_signal = fade_signals_dict.get('above_upper_bb', False)
             has_vol_decline = fade_signals_dict.get('volume_declining', False)
-            min_patterns = config.get('min_fade_signals', 3)
+            min_patterns = config.get('min_fade_signals', 2)
             min_quality = config.get('min_entry_quality', 60)
+            small_threshold = config.get('pump_small_threshold_pct', 60)
+            if pump_pct < small_threshold:
+                min_patterns = config.get('min_fade_signals_small', 3)
+                min_quality = config.get('min_entry_quality_small', 65)
+            else:
+                min_patterns = config.get('min_fade_signals_large', min_patterns)
+                min_quality = config.get('min_entry_quality_large', min_quality)
             fade_valid = fade_signals >= min_patterns
             
             entry_quality = 30

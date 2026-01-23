@@ -1,7 +1,7 @@
 {
   "paper_mode": true,
-  "min_pump_pct": 60,
-  "max_pump_pct": 200,
+  "min_pump_pct": 50,
+  "max_pump_pct": 250,
   "poll_interval_sec": 300,
   "min_volume_usdt": 1000000,
   "funding_min": 0.0001,
@@ -34,6 +34,7 @@
   "enable_volume_profile": true,
   "volume_sustained_candles": 3,
   "volume_spike_threshold": 2.0,
+  "min_validation_score": 1,
 
   "enable_multi_timeframe": true,
   "mtf_rsi_threshold": 65,
@@ -62,6 +63,11 @@
   "time_decay_minutes": 120,
 
   "min_entry_quality": 60,
+  "min_entry_quality_small": 65,
+  "min_entry_quality_large": 60,
+  "min_fade_signals_small": 3,
+  "min_fade_signals_large": 2,
+  "pump_small_threshold_pct": 60,
   "enable_rsi_peak_filter": true,
   "rsi_peak_lookback": 12,
   "enable_rsi_pullback": true,
@@ -70,6 +76,10 @@
   "enable_atr_filter": true,
   "min_atr_pct": 0.4,
   "max_atr_pct": 15.0,
+  "enable_oi_filter": true,
+  "oi_drop_pct": 10.0,
+  "require_oi_data": false,
+  "btc_volatility_max_pct": 2.0,
 
   "enable_trade_logging": true,
   "min_fade_signals": 2

@@ -339,8 +339,8 @@ export default function Dashboard() {
       leverage_default: 3,
       risk_pct_per_trade: 0.01,
       starting_capital: 5000,
-      min_pump_pct: 60,
-      max_pump_pct: 200,
+      min_pump_pct: 50,
+      max_pump_pct: 250,
       rsi_overbought: 70,
       use_swing_high_sl: true,
       sl_swing_buffer_pct: 0.02,
@@ -362,12 +362,22 @@ export default function Dashboard() {
       enable_rsi_peak_filter: true,
       rsi_peak_lookback: 12,
       min_entry_quality: 60,
+      min_entry_quality_small: 65,
+      min_entry_quality_large: 60,
+      min_fade_signals_small: 3,
+      min_fade_signals_large: 2,
+      pump_small_threshold_pct: 60,
       enable_rsi_pullback: true,
       rsi_pullback_points: 3,
       rsi_pullback_lookback: 6,
       enable_atr_filter: true,
       min_atr_pct: 0.4,
       max_atr_pct: 15,
+      min_validation_score: 1,
+      enable_oi_filter: true,
+      oi_drop_pct: 10,
+      require_oi_data: false,
+      btc_volatility_max_pct: 2,
     },
     status: { running: false, last_poll: null, exchanges_connected: [], symbols_loaded: {} },
     metrics: {
@@ -401,6 +411,14 @@ export default function Dashboard() {
     .join(", ");
   const exitLabel = config?.use_staged_exits ? `Staged: ${stagedExitLabel}` : `Single: ${singleExitLabel}`;
   const entryLabel = `RSI peak >= ${(config?.rsi_overbought ?? 70).toFixed(0)} (${config?.rsi_peak_lookback ?? 12} bars)`;
+  const pumpThresholdLabel = `${config?.pump_small_threshold_pct ?? 60}% threshold`;
+  const entryQualityLabel = `Min quality ${config?.min_entry_quality_large ?? config?.min_entry_quality ?? 60} (small ${config?.min_entry_quality_small ?? 65})`;
+  const fadeSignalsLabel = `Signals ${config?.min_fade_signals_large ?? config?.min_fade_signals ?? 2} (small ${config?.min_fade_signals_small ?? 3})`;
+  const validationLabel = `Validation score >= ${config?.min_validation_score ?? 1}`;
+  const oiLabel = (config?.enable_oi_filter ?? false)
+    ? `On (drop ${config?.oi_drop_pct ?? 10}%)`
+    : "Off";
+  const btcVolLabel = `${config?.btc_volatility_max_pct ?? 2}% max`;
   const bollingerLabel = (config?.enable_bollinger_check ?? true)
     ? `On (min ext ${(config?.min_bb_extension_pct ?? 0).toFixed(0)}%)`
     : "Off";
@@ -409,8 +427,6 @@ export default function Dashboard() {
     : "Off";
   const timeDecayLabel = `${config?.time_decay_minutes ?? 120} min`;
   const lowerHighsLabel = `${config?.min_lower_highs ?? 1}+ lower highs`;
-  const fadeSignalsLabel = `${config?.min_fade_signals ?? 2}+ signals`;
-  const entryQualityLabel = `Min quality ${config?.min_entry_quality ?? 60}`;
   const rsiPullbackLabel = (config?.enable_rsi_pullback ?? true)
     ? `On (${config?.rsi_pullback_points ?? 3} pts / ${config?.rsi_pullback_lookback ?? 6} bars)`
     : "Off";
@@ -796,11 +812,15 @@ export default function Dashboard() {
             </div>
 
             <div className="mt-4 pt-4 border-t text-xs text-muted-foreground space-y-1">
+              <p>Pump Tier: {pumpThresholdLabel}</p>
               <p>Entry: {entryLabel} | {entryQualityLabel}</p>
               <p>Fade: {fadeSignalsLabel} | {lowerHighsLabel}</p>
               <p>RSI Pullback: {rsiPullbackLabel}</p>
               <p>ATR Filter: {atrFilterLabel}</p>
               <p>Bollinger: {bollingerLabel}</p>
+              <p>{validationLabel}</p>
+              <p>Open Interest: {oiLabel}</p>
+              <p>BTC Vol Filter: {btcVolLabel}</p>
               <p>Structure Break: {structureLabel}</p>
               <p>Time Decay: {timeDecayLabel}</p>
               <p>Exits: {exitLabel}</p>

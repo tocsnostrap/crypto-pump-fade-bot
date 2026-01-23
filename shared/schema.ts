@@ -95,6 +95,11 @@ export interface BotConfig {
   time_decay_minutes?: number;
   min_lower_highs?: number;
   min_fade_signals?: number;
+  min_entry_quality_small?: number;
+  min_entry_quality_large?: number;
+  min_fade_signals_small?: number;
+  min_fade_signals_large?: number;
+  pump_small_threshold_pct?: number;
   enable_rsi_peak_filter?: boolean;
   rsi_peak_lookback?: number;
   min_entry_quality?: number;
@@ -104,6 +109,11 @@ export interface BotConfig {
   enable_atr_filter?: boolean;
   min_atr_pct?: number;
   max_atr_pct?: number;
+  min_validation_score?: number;
+  enable_oi_filter?: boolean;
+  oi_drop_pct?: number;
+  require_oi_data?: boolean;
+  btc_volatility_max_pct?: number;
 }
 
 export interface BotStatus {

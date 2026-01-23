@@ -11,8 +11,8 @@ import urllib.request
 
 # === DEFAULT CONFIG (can be overridden by bot_config.json) ===
 DEFAULT_CONFIG = {
-    'min_pump_pct': 60.0,
-    'max_pump_pct': 200.0,              # Filter out mega-pumps (tend to have multiple legs)
+    'min_pump_pct': 50.0,
+    'max_pump_pct': 250.0,              # Allow larger pumps but still filter extremes
     'poll_interval_sec': 300,
     'min_volume_usdt': 1000000,
     'funding_min': 0.0001,
@@ -51,6 +51,7 @@ DEFAULT_CONFIG = {
     'enable_volume_profile': True,      # Check sustained volume vs single-spike
     'volume_sustained_candles': 3,      # Require elevated volume for N candles
     'volume_spike_threshold': 2.0,      # Single candle volume must not exceed avg * threshold
+    'min_validation_score': 1,          # Require at least one validation signal
     
     'enable_multi_timeframe': True,     # Check 1h/4h for overextension
     'mtf_rsi_threshold': 65,            # Relaxed for more signals
@@ -78,7 +79,12 @@ DEFAULT_CONFIG = {
     'time_decay_minutes': 120,          # Skip if no reversal within N minutes
 
     # === ENTRY QUALITY TUNING ===
-    'min_entry_quality': 60,            # Require higher quality setups
+    'min_entry_quality': 60,            # Base minimum quality
+    'min_entry_quality_small': 65,      # Stricter for smaller pumps
+    'min_entry_quality_large': 60,      # Looser for larger pumps
+    'min_fade_signals_small': 3,        # Small pump confirmations
+    'min_fade_signals_large': 2,        # Large pump confirmations
+    'pump_small_threshold_pct': 60,     # Small vs large pump threshold
     'enable_rsi_peak_filter': True,     # Require RSI peak in recent candles
     'rsi_peak_lookback': 12,            # Lookback candles for RSI peak
     'enable_rsi_pullback': True,        # Require RSI to roll over from peak
@@ -87,10 +93,14 @@ DEFAULT_CONFIG = {
     'enable_atr_filter': True,          # Filter extreme/flat volatility
     'min_atr_pct': 0.4,                 # Minimum ATR% of price
     'max_atr_pct': 15.0,                # Maximum ATR% of price
+    'enable_oi_filter': True,           # Require open interest rollover if available
+    'oi_drop_pct': 10.0,                # % drop from OI peak
+    'require_oi_data': False,           # Do not block if OI missing
+    'btc_volatility_max_pct': 2.0,      # Skip new entries if BTC swings too much
     
     # === LEARNING & LOGGING ===
     'enable_trade_logging': True,       # Log detailed feature vectors
-    'min_fade_signals': 2               # Require more confirmations for entries
+    'min_fade_signals': 2               # Base confirmations for entries
 }
 
 # State files
@@ -885,6 +895,21 @@ def check_rsi_peak(df, config):
     except Exception as e:
         return False, {'error': str(e)}
 
+def fetch_open_interest(ex, symbol):
+    """Fetch open interest if the exchange supports it."""
+    try:
+        if hasattr(ex, "fetch_open_interest") and (not hasattr(ex, "has") or ex.has.get("fetchOpenInterest", True)):
+            data = ex.fetch_open_interest(symbol)
+            if isinstance(data, dict):
+                for key in ['openInterest', 'openInterestAmount', 'value', 'open_interest']:
+                    if key in data and data[key] is not None:
+                        return float(data[key])
+            if data is not None:
+                return float(data)
+    except Exception:
+        return None
+    return None
+
 def check_rsi_pullback(df, config):
     """
     Require RSI to roll over from a recent peak before entry.
@@ -1020,30 +1045,34 @@ def validate_pump(ex, ex_name, symbol, ticker, pct_change, config):
     # 1. Volume Profile Check
     vol_valid, vol_details = analyze_volume_profile(ex, symbol, config)
     all_details['volume_profile'] = vol_details
-    if not vol_valid:
-        return False, 'fake_pump_single_spike', all_details
     
     # 2. Multi-Timeframe Check
     mtf_confirmed, mtf_details = check_multi_timeframe(ex, symbol, config)
     all_details['multi_timeframe'] = mtf_details
-    if not mtf_confirmed:
-        return False, 'no_mtf_confirmation', all_details
     
     # 3. Cross-Exchange Check
     cross_confirmed, cross_details = check_cross_exchange(symbol, pct_change, ex_name, config)
     all_details['cross_exchange'] = cross_details
-    if not cross_confirmed:
-        return False, 'no_cross_exchange_confirmation', all_details
     
-    # 4. Spread Anomaly Check
+    # 4. Spread Anomaly Check (hard filter)
     spread_valid, spread_details = check_spread_anomaly(ticker, config)
     all_details['spread_check'] = spread_details
     if not spread_valid:
         return False, 'abnormal_spread_manipulation', all_details
     
+    validation_score = 0
+    validation_score += 1 if vol_valid else 0
+    validation_score += 1 if mtf_confirmed else 0
+    validation_score += 1 if cross_confirmed else 0
+    all_details['validation_score'] = validation_score
+    min_score = config.get('min_validation_score', 1)
+    
+    if validation_score < min_score:
+        return False, f'validation_score_{validation_score}_lt_{min_score}', all_details
+    
     return True, None, all_details
 
-def check_entry_timing(ex, symbol, df, config):
+def check_entry_timing(ex, symbol, df, config, pump_pct=None, oi_state=None):
     """
     Check entry timing signals for optimal entry.
     Based on pattern analysis: uses Bollinger Bands, volume decline, lower highs.
@@ -1095,6 +1124,20 @@ def check_entry_timing(ex, symbol, df, config):
     all_details['rsi_pullback'] = rsi_pullback_details
     if rsi_pullback:
         entry_quality += 10
+
+    # 6.5 Open interest rollover (optional)
+    oi_ok = True
+    oi_drop_pct = None
+    if oi_state:
+        oi_drop_pct = oi_state.get('drop_pct')
+        oi_ok = oi_state.get('ok', True)
+        all_details['open_interest'] = oi_state
+        if oi_drop_pct is not None and oi_ok:
+            entry_quality += 8
+    elif config.get('enable_oi_filter', False):
+        if config.get('require_oi_data', False):
+            oi_ok = False
+            all_details['open_interest'] = {'error': 'missing'}
     
     # 7. Standard Fade Signals (RSI, MACD)
     fade_valid, rsi = check_fade_signals(df)
@@ -1107,8 +1150,16 @@ def check_entry_timing(ex, symbol, df, config):
     all_details['pattern_count'] = pattern_count
     
     # Determine if we should enter - require multiple pattern confirmations
-    min_patterns = config.get('min_fade_signals', 3)
+    min_patterns = config.get('min_fade_signals', 2)
     min_quality = config.get('min_entry_quality', 60)
+    if pump_pct is not None:
+        small_threshold = config.get('pump_small_threshold_pct', 60)
+        if pump_pct < small_threshold:
+            min_patterns = config.get('min_fade_signals_small', 3)
+            min_quality = config.get('min_entry_quality_small', 65)
+        else:
+            min_patterns = config.get('min_fade_signals_large', min_patterns)
+            min_quality = config.get('min_entry_quality_large', min_quality)
     
     # Enter if: enough quality score AND enough pattern confirmations
     should_enter = (entry_quality >= min_quality) and (pattern_count >= min_patterns)
@@ -1121,9 +1172,15 @@ def check_entry_timing(ex, symbol, df, config):
     # Volatility gating
     if not atr_ok:
         should_enter = False
+
+    # Open interest gating
+    if config.get('enable_oi_filter', False) and not oi_ok:
+        should_enter = False
     
     all_details['entry_quality'] = entry_quality
     all_details['should_enter'] = should_enter
+    all_details['min_patterns'] = min_patterns
+    all_details['min_quality'] = min_quality
     
     return should_enter, entry_quality, all_details
 
@@ -1865,7 +1922,7 @@ def sync_live_positions(ex_name, ex, open_trades, config):
 
     return open_trades
 
-def process_entry_watchlist(ex_name, ex, tickers, entry_watchlist, open_trades, current_balance, config):
+def process_entry_watchlist(ex_name, ex, tickers, entry_watchlist, open_trades, current_balance, config, allow_entries=True):
     """Process watchlist entries without blocking the main loop."""
     if ex_name not in entry_watchlist:
         return open_trades, current_balance
@@ -1900,15 +1957,38 @@ def process_entry_watchlist(ex_name, ex, tickers, entry_watchlist, open_trades, 
         watch['last_price'] = current_price
         watch['pump_high'] = max(watch.get('pump_high', current_price), current_price)
 
+        # Open interest tracking (optional)
+        oi_state = None
+        if config.get('enable_oi_filter', False):
+            oi_current = fetch_open_interest(ex, symbol)
+            if oi_current is not None:
+                oi_peak = max(watch.get('oi_peak', oi_current), oi_current)
+                watch['oi_peak'] = oi_peak
+                watch['oi_last'] = oi_current
+                drop_pct = ((oi_peak - oi_current) / oi_peak * 100) if oi_peak > 0 else 0
+                min_drop = config.get('oi_drop_pct', 10.0)
+                oi_ok = drop_pct >= min_drop
+                oi_state = {
+                    'current': oi_current,
+                    'peak': oi_peak,
+                    'drop_pct': drop_pct,
+                    'min_drop_pct': min_drop,
+                    'ok': oi_ok
+                }
+            else:
+                oi_state = {'error': 'unavailable', 'ok': not config.get('require_oi_data', False)}
+
         df = get_ohlcv(ex, symbol)
         if df is None:
             continue
 
-        should_enter, entry_quality, entry_details = check_entry_timing(ex, symbol, df, config)
+        should_enter, entry_quality, entry_details = check_entry_timing(
+            ex, symbol, df, config, pump_pct=watch.get('pct_change'), oi_state=oi_state
+        )
         if not should_enter:
             continue
 
-        if len(open_trades) >= config['max_open_trades']:
+        if len(open_trades) >= config['max_open_trades'] or not allow_entries:
             continue
 
         # Calculate recent_low from recent candles for TP calculation
@@ -2004,6 +2084,7 @@ def main():
                     open_trades = sync_live_positions(ex_name, ex, open_trades, config)
                 last_position_sync = time.time()
 
+            skip_new_entries = False
             try:
                 btc_ticker = exchanges['gate'].fetch_ticker('BTC/USDT:USDT')
                 btc_price = btc_ticker['last']
@@ -2019,6 +2100,10 @@ def main():
                     time.sleep(3600)
                     btc_prev['price'] = None
                     continue
+
+                btc_vol_max = config.get('btc_volatility_max_pct', 0)
+                if btc_vol_max and abs(btc_pct) >= btc_vol_max:
+                    skip_new_entries = True
                     
                 if current_balance > 0 and abs(daily_loss / current_balance) >= config['daily_loss_limit_pct']:
                     print(f"[{datetime.now()}] PAUSE: Daily loss limit hit (${daily_loss:.2f}) - waiting 1h")
@@ -2046,7 +2131,8 @@ def main():
 
                 # Process any watchlist entries for this exchange
                 open_trades, current_balance = process_entry_watchlist(
-                    ex_name, ex, tickers, entry_watchlist, open_trades, current_balance, config
+                    ex_name, ex, tickers, entry_watchlist, open_trades, current_balance, config,
+                    allow_entries=not skip_new_entries
                 )
 
                 if not tickers:
@@ -2064,6 +2150,9 @@ def main():
                     if is_symbol_open(open_trades, ex_name, symbol):
                         continue
                     if symbol in entry_watchlist.get(ex_name, {}):
+                        continue
+
+                    if skip_new_entries:
                         continue
                         
                     volume = ticker.get('quoteVolume', 0) or 0
@@ -2200,12 +2289,15 @@ def main():
                                 entry_watchlist.setdefault(ex_name, {})
                                 watch = entry_watchlist[ex_name].get(symbol)
                                 if watch is None:
+                                    oi_value = fetch_open_interest(ex, symbol) if config.get('enable_oi_filter', False) else None
                                     entry_watchlist[ex_name][symbol] = {
                                         'start_ts': time.time(),
                                         'pump_high': current_price,
                                         'last_price': current_price,
                                         'pct_change': pct_change,
-                                        'validation_details': validation_details
+                                        'validation_details': validation_details,
+                                        'oi_peak': oi_value,
+                                        'oi_last': oi_value
                                     }
                                     save_signal(ex_name, symbol, 'fade_watch', current_price,
                                                "Watching for fade confirmation after pump",
