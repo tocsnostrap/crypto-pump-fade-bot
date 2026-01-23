@@ -6,6 +6,8 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from talib_compat import talib
+import urllib.parse
+import urllib.request
 
 # === DEFAULT CONFIG (can be overridden by bot_config.json) ===
 DEFAULT_CONFIG = {
@@ -89,6 +91,17 @@ SIGNALS_FILE = 'signals.json'
 CLOSED_TRADES_FILE = 'closed_trades.json'
 TRADE_FEATURES_FILE = 'trade_features.json'  # For learning feature vectors
 
+# Pushover alert configuration
+PUSHOVER_USER_KEY = os.getenv('PUSHOVER_USER_KEY', '').strip()
+PUSHOVER_APP_TOKEN = os.getenv('PUSHOVER_APP_TOKEN', '').strip()
+PUSHOVER_SOUND = os.getenv('PUSHOVER_SOUND', '').strip()
+try:
+    PUSHOVER_RATE_LIMIT_SEC = float(os.getenv('PUSHOVER_RATE_LIMIT_SEC', '0') or 0)
+except ValueError:
+    PUSHOVER_RATE_LIMIT_SEC = 0
+ALERTS_ENABLED = bool(PUSHOVER_USER_KEY and PUSHOVER_APP_TOKEN)
+last_push_ts = 0
+
 # Cross-exchange pump cache for confirmation
 cross_exchange_pumps = {}  # {symbol: {'gate': pct, 'bitget': pct, 'ts': timestamp}}
 
@@ -140,6 +153,68 @@ def atomic_write_json(filepath, data):
             pass
         raise e
 
+def format_price(value):
+    """Format a price for alerts safely."""
+    try:
+        return f"${float(value):.4f}"
+    except (TypeError, ValueError):
+        return str(value)
+
+def send_push_notification(title, message, priority=0):
+    """Send a Pushover notification if configured."""
+    global last_push_ts
+    if not ALERTS_ENABLED:
+        return
+    now = time.time()
+    if PUSHOVER_RATE_LIMIT_SEC > 0 and (now - last_push_ts) < PUSHOVER_RATE_LIMIT_SEC:
+        return
+
+    message = message.strip()
+    if len(message) > 1000:
+        message = message[:1000] + "..."
+
+    payload = {
+        'token': PUSHOVER_APP_TOKEN,
+        'user': PUSHOVER_USER_KEY,
+        'title': title,
+        'message': message,
+        'priority': priority
+    }
+    if PUSHOVER_SOUND:
+        payload['sound'] = PUSHOVER_SOUND
+
+    try:
+        data = urllib.parse.urlencode(payload).encode('utf-8')
+        req = urllib.request.Request('https://api.pushover.net/1/messages.json', data=data)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            resp.read()
+        last_push_ts = now
+    except Exception as e:
+        print(f"[{datetime.now()}] Error sending push notification: {e}")
+
+def build_alert_message(exchange, symbol, signal_type, price, message, change_pct, funding_rate, rsi):
+    extras = []
+    if change_pct is not None:
+        try:
+            extras.append(f"change {float(change_pct):.1f}%")
+        except (TypeError, ValueError):
+            pass
+    if funding_rate is not None:
+        try:
+            extras.append(f"funding {float(funding_rate)*100:.3f}%")
+        except (TypeError, ValueError):
+            pass
+    if rsi is not None:
+        try:
+            extras.append(f"RSI {float(rsi):.1f}")
+        except (TypeError, ValueError):
+            pass
+
+    extras_text = f" ({', '.join(extras)})" if extras else ""
+    title = signal_type.replace('_', ' ').title()
+    body = f"{exchange} {symbol} {format_price(price)} - {message}{extras_text}"
+    return title, body
+
 def save_signal(exchange, symbol, signal_type, price, message, change_pct=None, funding_rate=None, rsi=None):
     """Save a signal to the signals file for the dashboard"""
     try:
@@ -167,6 +242,10 @@ def save_signal(exchange, symbol, signal_type, price, message, change_pct=None, 
         signals = signals[-100:]
         
         atomic_write_json(SIGNALS_FILE, signals)
+
+        # Send push notification for all signal events
+        title, body = build_alert_message(exchange, symbol, signal_type, price, message, change_pct, funding_rate, rsi)
+        send_push_notification(title, body)
     except Exception as e:
         print(f"[{datetime.now()}] Error saving signal: {e}")
 
@@ -1763,6 +1842,10 @@ def main():
     print(f"[{datetime.now()}] Open Trades: {len(open_trades)}")
     print(f"[{datetime.now()}] Entering main loop (polling every {config['poll_interval_sec']}s)...")
     print("=" * 60)
+    send_push_notification(
+        "Bot started",
+        f"Mode: {'PAPER' if config['paper_mode'] else 'LIVE'} | Balance: ${current_balance:,.2f} | Open trades: {len(open_trades)}"
+    )
 
     while True:
         try:
@@ -1795,12 +1878,14 @@ def main():
                 
                 if btc_pct <= config['pause_on_btc_dump_pct']:
                     print(f"[{datetime.now()}] PAUSE: BTC dumped {btc_pct:.1f}% - waiting 1h")
+                    send_push_notification("Trading paused", f"BTC dumped {btc_pct:.1f}% - pausing 1h", priority=1)
                     time.sleep(3600)
                     btc_prev['price'] = None
                     continue
                     
                 if current_balance > 0 and abs(daily_loss / current_balance) >= config['daily_loss_limit_pct']:
                     print(f"[{datetime.now()}] PAUSE: Daily loss limit hit (${daily_loss:.2f}) - waiting 1h")
+                    send_push_notification("Trading paused", f"Daily loss limit hit (${daily_loss:.2f}) - pausing 1h", priority=1)
                     time.sleep(3600)
                     continue
                     
@@ -2002,6 +2087,7 @@ def main():
             break
         except Exception as e:
             print(f"[{datetime.now()}] Main loop error: {e}")
+            send_push_notification("Bot error", f"Main loop error: {e}", priority=1)
             save_state(prev_data, open_trades, current_balance)
             time.sleep(60)
 
