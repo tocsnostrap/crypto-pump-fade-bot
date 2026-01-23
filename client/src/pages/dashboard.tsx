@@ -334,7 +334,32 @@ export default function Dashboard() {
   }
 
   const { config, status, metrics, open_trades, closed_trades, signals } = data || {
-    config: { paper_mode: true, leverage_default: 3, risk_pct_per_trade: 0.01, starting_capital: 5000 },
+    config: {
+      paper_mode: true,
+      leverage_default: 3,
+      risk_pct_per_trade: 0.01,
+      starting_capital: 5000,
+      min_pump_pct: 60,
+      max_pump_pct: 200,
+      rsi_overbought: 70,
+      use_swing_high_sl: true,
+      sl_swing_buffer_pct: 0.02,
+      sl_pct_above_entry: 0.12,
+      use_staged_exits: true,
+      staged_exit_levels: [
+        { fib: 0.382, pct: 0.5 },
+        { fib: 0.5, pct: 0.3 },
+        { fib: 0.618, pct: 0.2 },
+      ],
+      tp_fib_levels: [0.382, 0.5, 0.618],
+      enable_bollinger_check: true,
+      min_bb_extension_pct: 0,
+      enable_structure_break: true,
+      structure_break_candles: 3,
+      time_decay_minutes: 120,
+      min_lower_highs: 1,
+      min_fade_signals: 2,
+    },
     status: { running: false, last_poll: null, exchanges_connected: [], symbols_loaded: {} },
     metrics: {
       total_trades: 0, winning_trades: 0, losing_trades: 0, win_rate: 0,
@@ -352,12 +377,30 @@ export default function Dashboard() {
   const stopLossLabel = config?.use_swing_high_sl
     ? `Swing + ${(((config?.sl_swing_buffer_pct ?? 0.02) * 100).toFixed(0))}%`
     : `${(((config?.sl_pct_above_entry ?? 0.12) * 100).toFixed(0))}%`;
-  const exitLabel = config?.use_staged_exits
-    ? `Staged (${(config?.staged_exit_levels || [])
-        .map((level) => `${Math.round(level.pct * 100)}%`)
-        .join("/") || "50/30/20"})`
-    : "Single TP";
+  const stagedExitLevels = config?.staged_exit_levels?.length
+    ? config.staged_exit_levels
+    : [
+        { fib: 0.382, pct: 0.5 },
+        { fib: 0.5, pct: 0.3 },
+        { fib: 0.618, pct: 0.2 },
+      ];
+  const stagedExitLabel = stagedExitLevels
+    .map((level) => `${(level.fib * 100).toFixed(1)}% (${Math.round(level.pct * 100)}%)`)
+    .join(", ");
+  const singleExitLabel = (config?.tp_fib_levels?.length ? config.tp_fib_levels : [0.382, 0.5, 0.618])
+    .map((level) => `${(level * 100).toFixed(1)}%`)
+    .join(", ");
+  const exitLabel = config?.use_staged_exits ? `Staged: ${stagedExitLabel}` : `Single: ${singleExitLabel}`;
   const entryLabel = `RSI >= ${(config?.rsi_overbought ?? 70).toFixed(0)}`;
+  const bollingerLabel = (config?.enable_bollinger_check ?? true)
+    ? `On (min ext ${(config?.min_bb_extension_pct ?? 0).toFixed(0)}%)`
+    : "Off";
+  const structureLabel = (config?.enable_structure_break ?? true)
+    ? `On (${config?.structure_break_candles ?? 3} candles)`
+    : "Off";
+  const timeDecayLabel = `${config?.time_decay_minutes ?? 120} min`;
+  const lowerHighsLabel = `${config?.min_lower_highs ?? 1}+ lower highs`;
+  const fadeSignalsLabel = `${config?.min_fade_signals ?? 2}+ signals`;
 
   return (
     <div className="min-h-screen bg-background">
@@ -719,7 +762,7 @@ export default function Dashboard() {
                 <p className="text-lg font-bold font-mono">{((config?.risk_pct_per_trade || 0.01) * 100).toFixed(0)}%</p>
               </div>
               <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">Min Pump</p>
+                <p className="text-xs text-muted-foreground">Pump Range</p>
                 <p className="text-lg font-bold font-mono">{pumpRange}</p>
               </div>
               <div className="p-3 rounded-lg bg-muted/50">
@@ -737,7 +780,10 @@ export default function Dashboard() {
             </div>
 
             <div className="mt-4 pt-4 border-t text-xs text-muted-foreground space-y-1">
-              <p>Entry: {entryLabel}</p>
+              <p>Entry: {entryLabel} | Fade: {fadeSignalsLabel} | {lowerHighsLabel}</p>
+              <p>Bollinger: {bollingerLabel}</p>
+              <p>Structure Break: {structureLabel}</p>
+              <p>Time Decay: {timeDecayLabel}</p>
               <p>Exits: {exitLabel}</p>
             </div>
 

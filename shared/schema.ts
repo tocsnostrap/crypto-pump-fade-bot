@@ -88,6 +88,13 @@ export interface BotConfig {
   max_open_trades: number;
   starting_capital: number;
   compound_pct: number;
+  enable_bollinger_check?: boolean;
+  min_bb_extension_pct?: number;
+  enable_structure_break?: boolean;
+  structure_break_candles?: number;
+  time_decay_minutes?: number;
+  min_lower_highs?: number;
+  min_fade_signals?: number;
 }
 
 export interface BotStatus {
