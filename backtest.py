@@ -12,6 +12,8 @@ import time
 import os
 from datetime import datetime, timedelta
 from talib_compat import talib
+import main as bot
+import main as bot
 
 # Load config
 def load_config():
@@ -86,6 +88,292 @@ def get_historical_ohlcv(ex, symbol, timeframe, since, limit=500):
     except Exception as e:
         print(f"Error fetching {symbol}: {e}")
         return None
+
+def fetch_ohlcv_range(ex, symbol, timeframe, since_ms, end_ms, limit=1000):
+    """Fetch OHLCV data between since and end timestamps."""
+    all_rows = []
+    since = since_ms
+    while True:
+        ohlcv = ex.fetch_ohlcv(symbol, timeframe, since=since, limit=limit)
+        if not ohlcv:
+            break
+        all_rows.extend(ohlcv)
+        last_ts = ohlcv[-1][0]
+        if last_ts >= end_ms:
+            break
+        since = last_ts + 1
+        if len(ohlcv) < limit:
+            break
+        time.sleep(0.05)
+    if not all_rows:
+        return None
+    df = pd.DataFrame(all_rows, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+    df = df[df['timestamp'] <= pd.to_datetime(end_ms, unit='ms')]
+    return df
+
+def resample_ohlcv(df, rule):
+    if df is None or df.empty:
+        return None
+    resampled = (
+        df.set_index('timestamp')
+        .resample(rule)
+        .agg({
+            'open': 'first',
+            'high': 'max',
+            'low': 'min',
+            'close': 'last',
+            'volume': 'sum',
+        })
+        .dropna()
+        .reset_index()
+    )
+    return resampled
+
+def analyze_volume_profile_5m(df, pump_idx, config):
+    if not config.get('enable_volume_profile', True):
+        return True, {'skipped': True}
+    if pump_idx < 12:
+        return False, {'error': 'insufficient_data'}
+    try:
+        window = df.iloc[pump_idx - 24:pump_idx]
+        if len(window) < 12:
+            return False, {'error': 'insufficient_data'}
+        volumes = window['volume'].values
+        total_volume = sum(volumes)
+        avg_volume = np.mean(volumes)
+        max_volume = max(volumes)
+        volume_dominance = max_volume / total_volume if total_volume > 0 else 1.0
+        elevated_count = sum(1 for v in volumes if v > avg_volume * 1.5)
+        spike_threshold = config.get('volume_spike_threshold', 2.0)
+        is_single_spike = volume_dominance > 0.5 or (max_volume > avg_volume * spike_threshold * 3 and elevated_count < 2)
+        min_sustained = config.get('volume_sustained_candles', 3)
+        is_sustained = elevated_count >= min_sustained
+        is_valid = is_sustained and not is_single_spike
+        return is_valid, {
+            'avg_volume': avg_volume,
+            'total_volume': total_volume,
+            'max_volume': max_volume,
+            'volume_dominance': volume_dominance,
+            'elevated_candles': elevated_count,
+            'is_single_spike': is_single_spike,
+            'is_sustained': is_sustained,
+        }
+    except Exception as e:
+        return False, {'error': str(e)}
+
+def check_multi_timeframe_from_5m(df_5m, pump_idx, config):
+    if not config.get('enable_multi_timeframe', True):
+        return True, {'skipped': True}
+    df_slice = df_5m.iloc[:pump_idx + 1]
+    df_1h = resample_ohlcv(df_slice, '1H')
+    if df_1h is None or len(df_1h) < 14:
+        return False, {'error': 'insufficient_1h_data'}
+    closes_1h = np.array(df_1h['close'].values, dtype=np.float64)
+    rsi_1h = talib.RSI(closes_1h, timeperiod=14)[-1]
+    df_4h = resample_ohlcv(df_slice, '4H')
+    rsi_4h = None
+    if df_4h is not None and len(df_4h) >= 14:
+        closes_4h = np.array(df_4h['close'].values, dtype=np.float64)
+        rsi_4h = talib.RSI(closes_4h, timeperiod=14)[-1]
+    mtf_threshold = config.get('mtf_rsi_threshold', 65)
+    is_confirmed = rsi_1h >= mtf_threshold
+    if rsi_4h is not None and rsi_4h < mtf_threshold - 15:
+        is_confirmed = False
+    return is_confirmed, {'rsi_1h': rsi_1h, 'rsi_4h': rsi_4h, 'threshold': mtf_threshold}
+
+def find_recent_low(df, end_idx, lookback=24):
+    start = max(0, end_idx - lookback)
+    return float(df['low'].iloc[start:end_idx + 1].min())
+
+def calculate_swing_high_sl_backtest(df_5m, entry_idx, config):
+    df_slice = df_5m.iloc[:entry_idx + 1]
+    df_15m = resample_ohlcv(df_slice, '15T')
+    if df_15m is None or len(df_15m) < 5:
+        return None, config.get('sl_pct_above_entry', 0.12), None
+    highs = df_15m['high'].values[-10:]
+    swing_high = float(np.max(highs))
+    buffer_pct = config.get('sl_swing_buffer_pct', 0.02)
+    return swing_high * (1 + buffer_pct), buffer_pct, swing_high
+
+def simulate_exact_trade(df_5m, pump_idx, pump_high, pump_pct, config, capital):
+    df_slice = df_5m.iloc[:pump_idx + 1]
+    rsi_peak_ok, _ = bot.check_rsi_peak(df_slice, config)
+    if not rsi_peak_ok:
+        return None
+
+    vol_valid, _ = analyze_volume_profile_5m(df_5m, pump_idx, config)
+    mtf_valid, _ = check_multi_timeframe_from_5m(df_5m, pump_idx, config)
+    validation_score = (1 if vol_valid else 0) + (1 if mtf_valid else 0)
+    if validation_score < config.get('min_validation_score', 1):
+        return None
+
+    time_decay_minutes = config.get('time_decay_minutes', 120)
+    time_decay_candles = int(time_decay_minutes / 5)
+    max_hold_candles = int(48 * 60 / 5)
+
+    entry_idx = None
+    for idx in range(pump_idx + 1, min(pump_idx + time_decay_candles + 1, len(df_5m))):
+        df_slice = df_5m.iloc[:idx + 1]
+        should_enter, _, _ = bot.check_entry_timing(
+            None, "", df_slice, config, pump_pct=pump_pct, oi_state=None
+        )
+        if should_enter:
+            entry_idx = idx
+            break
+
+    if entry_idx is None:
+        return None
+
+    entry_price = float(df_5m['close'].iloc[entry_idx])
+    simulated_entry, _ = bot.simulate_realistic_entry(entry_price, config)
+
+    sl_price, _, _ = calculate_swing_high_sl_backtest(df_5m, entry_idx, config)
+    if sl_price is None:
+        sl_price = simulated_entry * (1 + config.get('sl_pct_above_entry', 0.12))
+
+    sl_distance = abs(sl_price - simulated_entry)
+    if sl_distance <= 0:
+        return None
+
+    risk_amount = capital * config.get('risk_pct_per_trade', 0.01)
+    position_size = risk_amount / sl_distance
+
+    recent_low = find_recent_low(df_5m, entry_idx, lookback=24)
+    diff = pump_high - recent_low
+    staged_levels = config.get('staged_exit_levels', [
+        {'fib': 0.382, 'pct': 0.50},
+        {'fib': 0.50, 'pct': 0.30},
+        {'fib': 0.618, 'pct': 0.20}
+    ])
+    tp_prices = [pump_high - (level['fib'] * diff) for level in staged_levels]
+
+    exits_taken = []
+    remaining_amount = position_size
+    total_profit = 0
+    total_fees = 0
+
+    for idx in range(entry_idx + 1, min(entry_idx + max_hold_candles, len(df_5m))):
+        candle = df_5m.iloc[idx]
+        high = float(candle['high'])
+        low = float(candle['low'])
+        close = float(candle['close'])
+
+        if high >= sl_price:
+            exit_price, _ = bot.simulate_realistic_exit(sl_price, config)
+            gross = remaining_amount * (simulated_entry - exit_price)
+            fees = (simulated_entry + exit_price) * remaining_amount * config.get('paper_fee_pct', 0.0005)
+            total_profit += gross - fees
+            total_fees += fees
+            return {
+                'entry_price': simulated_entry,
+                'exit_price': exit_price,
+                'exit_reason': 'stop_loss',
+                'position_size': position_size,
+                'gross_pnl': total_profit,
+                'fees': total_fees,
+                'net_pnl': total_profit,
+                'pnl_pct': (total_profit / (simulated_entry * position_size)) * 100,
+                'is_winner': total_profit > 0
+            }
+
+        for level_idx, level in enumerate(staged_levels):
+            fib = level['fib']
+            if fib in exits_taken:
+                continue
+            tp_price = tp_prices[level_idx]
+            if low <= tp_price:
+                portion = remaining_amount * level['pct']
+                exit_price, _ = bot.simulate_realistic_exit(tp_price, config)
+                gross = portion * (simulated_entry - exit_price)
+                fees = (simulated_entry + exit_price) * portion * config.get('paper_fee_pct', 0.0005)
+                total_profit += gross - fees
+                total_fees += fees
+                remaining_amount -= portion
+                exits_taken.append(fib)
+
+        profit_pct = (simulated_entry - close) / simulated_entry if simulated_entry > 0 else 0
+        if profit_pct > config.get('trailing_stop_pct', 0.05):
+            new_sl = close * (1 + config.get('trailing_stop_pct', 0.05))
+            if new_sl < sl_price:
+                sl_price = new_sl
+
+        if remaining_amount <= 0:
+            break
+
+    exit_price, _ = bot.simulate_realistic_exit(float(df_5m['close'].iloc[min(entry_idx + max_hold_candles, len(df_5m) - 1)]), config)
+    gross = remaining_amount * (simulated_entry - exit_price)
+    fees = (simulated_entry + exit_price) * remaining_amount * config.get('paper_fee_pct', 0.0005)
+    total_profit += gross - fees
+    total_fees += fees
+    return {
+        'entry_price': simulated_entry,
+        'exit_price': exit_price,
+        'exit_reason': 'time_exit',
+        'position_size': position_size,
+        'gross_pnl': total_profit,
+        'fees': total_fees,
+        'net_pnl': total_profit,
+        'pnl_pct': (total_profit / (simulated_entry * position_size)) * 100,
+        'is_winner': total_profit > 0
+    }
+
+def run_exact_forward(events, trades_target=50, split_ratio=0.7, lookback_hours=48):
+    config = load_config()
+    ex = init_exchange()
+    events = sorted(events, key=lambda x: x['pump_time'])
+    split_idx = int(len(events) * split_ratio)
+    forward_events = events[split_idx:]
+
+    trades = []
+    capital = config.get('starting_capital', 5000)
+    for ev in forward_events:
+        if len(trades) >= trades_target:
+            break
+        symbol = ev['symbol']
+        pump_time = ev['pump_time']
+        pump_high = ev.get('pump_high')
+        if not symbol or pump_time is None:
+            continue
+        start_ts = int((pump_time - timedelta(hours=36)).timestamp() * 1000)
+        end_ts = int((pump_time + timedelta(hours=lookback_hours)).timestamp() * 1000)
+        df_5m = fetch_ohlcv_range(ex, symbol, '5m', start_ts, end_ts, limit=1500)
+        if df_5m is None or len(df_5m) < 300:
+            continue
+        pump_idx = df_5m['timestamp'].sub(pump_time).abs().idxmin()
+        if pump_high is None:
+            pump_high = float(df_5m['high'].iloc[pump_idx])
+
+        trade = simulate_exact_trade(df_5m, pump_idx, pump_high, ev.get('pump_pct'), config, capital)
+        if trade is None:
+            continue
+        trade['symbol'] = symbol
+        trade['pump_time'] = pump_time.isoformat()
+        trades.append(trade)
+        capital += trade['net_pnl']
+
+    if not trades:
+        print("No trades executed in exact forward test.")
+        return
+
+    winners = [t for t in trades if t['is_winner']]
+    losers = [t for t in trades if not t['is_winner']]
+    total_pnl = sum(t['net_pnl'] for t in trades)
+    avg_win = np.mean([t['net_pnl'] for t in winners]) if winners else 0
+    avg_loss = np.mean([t['net_pnl'] for t in losers]) if losers else 0
+
+    print("\n" + "=" * 60)
+    print("EXACT FORWARD TEST RESULTS")
+    print("=" * 60)
+    print(f"Trades Executed: {len(trades)}")
+    print(f"  Winners: {len(winners)} ({len(winners)/len(trades)*100:.1f}%)")
+    print(f"  Losers: {len(losers)} ({len(losers)/len(trades)*100:.1f}%)")
+    print(f"\nP&L Summary:")
+    print(f"  Total Net P&L: ${total_pnl:.2f}")
+    print(f"  Average Win: ${avg_win:.2f}")
+    print(f"  Average Loss: ${avg_loss:.2f}")
+    print(f"  Win/Loss Ratio: {abs(avg_win/avg_loss):.2f}" if avg_loss != 0 else "  Win/Loss Ratio: N/A")
+    print(f"  Ending Capital: ${capital:.2f}")
 
 def calculate_rsi(closes, period=14):
     """Calculate RSI"""
@@ -902,6 +1190,8 @@ if __name__ == '__main__':
     parser.add_argument("--events-file", type=str, default="", help="Use a pre-mined pump events JSON file")
     parser.add_argument("--baseline-mode", action="store_true", help="Use baseline entry rules (lower highs + volume decline)")
     parser.add_argument("--forward-only", action="store_true", help="Run only the forward test portion")
+    parser.add_argument("--exact-strategy", action="store_true", help="Run forward test using exact live strategy logic (5m)")
+    parser.add_argument("--exact-lookback-hours", type=int, default=48, help="Hours to fetch after pump for exact forward test")
 
     args = parser.parse_args()
 
@@ -912,7 +1202,17 @@ if __name__ == '__main__':
             print("No pump events loaded from events file.")
             raise SystemExit(1)
 
-    if args.walkforward:
+    if args.exact_strategy:
+        if not pumps:
+            print("Exact strategy mode requires --events-file")
+            raise SystemExit(1)
+        run_exact_forward(
+            pumps,
+            trades_target=args.forward_trades,
+            split_ratio=args.split_ratio,
+            lookback_hours=args.exact_lookback_hours
+        )
+    elif args.walkforward:
         run_walkforward_tests(
             backtest_trades=args.backtest_trades,
             forward_trades=args.forward_trades,
