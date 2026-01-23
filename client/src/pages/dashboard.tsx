@@ -348,6 +348,16 @@ export default function Dashboard() {
   };
 
   const isPaperMode = config?.paper_mode ?? true;
+  const pumpRange = `${config?.min_pump_pct ?? 60}% - ${config?.max_pump_pct ?? 200}%`;
+  const stopLossLabel = config?.use_swing_high_sl
+    ? `Swing + ${(((config?.sl_swing_buffer_pct ?? 0.02) * 100).toFixed(0))}%`
+    : `${(((config?.sl_pct_above_entry ?? 0.12) * 100).toFixed(0))}%`;
+  const exitLabel = config?.use_staged_exits
+    ? `Staged (${(config?.staged_exit_levels || [])
+        .map((level) => `${Math.round(level.pct * 100)}%`)
+        .join("/") || "50/30/20"})`
+    : "Single TP";
+  const entryLabel = `RSI >= ${(config?.rsi_overbought ?? 70).toFixed(0)}`;
 
   return (
     <div className="min-h-screen bg-background">
@@ -710,11 +720,11 @@ export default function Dashboard() {
               </div>
               <div className="p-3 rounded-lg bg-muted/50">
                 <p className="text-xs text-muted-foreground">Min Pump</p>
-                <p className="text-lg font-bold font-mono">{config?.min_pump_pct || 60}%</p>
+                <p className="text-lg font-bold font-mono">{pumpRange}</p>
               </div>
               <div className="p-3 rounded-lg bg-muted/50">
                 <p className="text-xs text-muted-foreground">Stop Loss</p>
-                <p className="text-lg font-bold font-mono">{((config?.sl_pct_above_entry || 0.12) * 100).toFixed(0)}%</p>
+                <p className="text-lg font-bold font-mono">{stopLossLabel}</p>
               </div>
               <div className="p-3 rounded-lg bg-muted/50">
                 <p className="text-xs text-muted-foreground">Compound</p>
@@ -724,6 +734,11 @@ export default function Dashboard() {
                 <p className="text-xs text-muted-foreground">Max Trades</p>
                 <p className="text-lg font-bold font-mono">{config?.max_open_trades || 4}</p>
               </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t text-xs text-muted-foreground space-y-1">
+              <p>Entry: {entryLabel}</p>
+              <p>Exits: {exitLabel}</p>
             </div>
 
             {status?.exchanges_connected && status.exchanges_connected.length > 0 && (

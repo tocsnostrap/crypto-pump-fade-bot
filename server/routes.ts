@@ -34,13 +34,18 @@ function requireControlAuth(req: Request, res: Response, next: NextFunction) {
 interface BotConfig {
   paper_mode: boolean;
   min_pump_pct: number;
+  max_pump_pct?: number;
   poll_interval_sec: number;
   min_volume_usdt: number;
   funding_min: number;
   rsi_overbought: number;
   leverage_default: number;
   risk_pct_per_trade: number;
+  use_swing_high_sl?: boolean;
+  sl_swing_buffer_pct?: number;
   sl_pct_above_entry: number;
+  use_staged_exits?: boolean;
+  staged_exit_levels?: { fib: number; pct: number }[];
   tp_fib_levels: number[];
   max_open_trades: number;
   starting_capital: number;
@@ -165,13 +170,25 @@ function calculateMetrics(
   currentBalance: number,
   startingBalance: number
 ) {
-  const winningTrades = closedTrades.filter((t) => t.profit > 0);
-  const losingTrades = closedTrades.filter((t) => t.profit <= 0);
+  const normalizedTrades = closedTrades.map((trade) => {
+    const profitValue =
+      typeof trade.profit === "number"
+        ? trade.profit
+        : Number.parseFloat(String(trade.profit));
+    return {
+      ...trade,
+      profit_value: Number.isFinite(profitValue) ? profitValue : 0,
+    };
+  });
 
-  const totalProfit = winningTrades.reduce((sum, t) => sum + t.profit, 0);
-  const totalLoss = Math.abs(losingTrades.reduce((sum, t) => sum + t.profit, 0));
-  const netPnl = totalProfit - totalLoss;
-  const winRate = closedTrades.length > 0 ? (winningTrades.length / closedTrades.length) * 100 : 0;
+  const winningTrades = normalizedTrades.filter((t) => t.profit_value > 0);
+  const losingTrades = normalizedTrades.filter((t) => t.profit_value <= 0);
+
+  const totalProfit = winningTrades.reduce((sum, t) => sum + t.profit_value, 0);
+  const totalLossRaw = losingTrades.reduce((sum, t) => sum + t.profit_value, 0);
+  const totalLoss = Math.abs(totalLossRaw);
+  const netPnl = totalProfit + totalLossRaw;
+  const winRate = normalizedTrades.length > 0 ? (winningTrades.length / normalizedTrades.length) * 100 : 0;
   const avgWin = winningTrades.length > 0 ? totalProfit / winningTrades.length : 0;
   const avgLoss = losingTrades.length > 0 ? totalLoss / losingTrades.length : 0;
   const profitFactor = totalLoss > 0 ? totalProfit / totalLoss : totalProfit > 0 ? 999 : 0;
@@ -182,8 +199,8 @@ function calculateMetrics(
   let peak = startingBalance;
   let runningBalance = startingBalance;
 
-  for (const trade of closedTrades) {
-    runningBalance += trade.profit;
+  for (const trade of normalizedTrades) {
+    runningBalance += trade.profit_value;
     if (runningBalance > peak) {
       peak = runningBalance;
     }

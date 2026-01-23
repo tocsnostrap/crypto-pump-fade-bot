@@ -72,13 +72,18 @@ export interface Signal {
 export interface BotConfig {
   paper_mode: boolean;
   min_pump_pct: number;
+  max_pump_pct?: number;
   poll_interval_sec: number;
   min_volume_usdt: number;
   funding_min: number;
   rsi_overbought: number;
   leverage_default: number;
   risk_pct_per_trade: number;
+  use_swing_high_sl?: boolean;
+  sl_swing_buffer_pct?: number;
   sl_pct_above_entry: number;
+  use_staged_exits?: boolean;
+  staged_exit_levels?: { fib: number; pct: number }[];
   tp_fib_levels: number[];
   max_open_trades: number;
   starting_capital: number;
