@@ -95,7 +95,7 @@ def calculate_macd(closes):
     macd, signal, hist = talib.MACD(closes_arr)
     return macd[-1], signal[-1], hist[-1]
 
-def find_pump_candidates(ex, config, lookback_days=30, sort_by='pct'):
+def find_pump_candidates(ex, config, lookback_days=30, sort_by='pct', symbol_limit=200):
     """Find symbols that had 60%+ pumps in the past"""
     print(f"\nScanning for historical pumps (last {lookback_days} days)...")
     
@@ -106,7 +106,7 @@ def find_pump_candidates(ex, config, lookback_days=30, sort_by='pct'):
     since = int((datetime.now() - timedelta(days=lookback_days)).timestamp() * 1000)
     
     scanned = 0
-    for symbol in swap_markets[:200]:  # Scan more symbols
+    for symbol in swap_markets[:symbol_limit]:
         try:
             df = get_historical_ohlcv(ex, symbol, '4h', since, limit=180)
             if df is None or len(df) < 50:
@@ -501,7 +501,7 @@ def simulate_trade(df, pump_idx, pump_high, config, capital, entry_idx=None):
         'is_winner': net_pnl > 0
     }
 
-def run_backtest(num_trades=20, lookback_days=180, pumps=None, label="BACKTEST"):
+def run_backtest(num_trades=20, lookback_days=180, pumps=None, label="BACKTEST", symbol_limit=200):
     """Run backtest for specified number of trades"""
     print("=" * 60)
     print(f"PUMP FADE TRADING BOT - {label}")
@@ -512,7 +512,7 @@ def run_backtest(num_trades=20, lookback_days=180, pumps=None, label="BACKTEST")
     
     # Find pump candidates
     if pumps is None:
-        pumps = find_pump_candidates(ex, config, lookback_days=lookback_days)
+        pumps = find_pump_candidates(ex, config, lookback_days=lookback_days, symbol_limit=symbol_limit)
     
     if not pumps:
         print("No pump candidates found!")
@@ -769,11 +769,17 @@ def run_backtest(num_trades=20, lookback_days=180, pumps=None, label="BACKTEST")
     print(f"\nResults saved to {filename}")
     print("=" * 60)
 
-def run_walkforward_tests(backtest_trades=50, forward_trades=50, lookback_days=180, split_ratio=0.7):
+def run_walkforward_tests(backtest_trades=50, forward_trades=50, lookback_days=180, split_ratio=0.7, symbol_limit=200):
     """Run backtest and forward test on time-split data."""
     config = load_config()
     ex = init_exchange()
-    pumps = find_pump_candidates(ex, config, lookback_days=lookback_days, sort_by='time')
+    pumps = find_pump_candidates(
+        ex,
+        config,
+        lookback_days=lookback_days,
+        sort_by='time',
+        symbol_limit=symbol_limit
+    )
     if not pumps:
         print("No pump candidates found!")
         return
@@ -787,8 +793,20 @@ def run_walkforward_tests(backtest_trades=50, forward_trades=50, lookback_days=1
     print(f"Candidates: {len(pumps)} (backtest {len(backtest_pumps)}, forward {len(forward_pumps)})")
     print("=" * 60)
 
-    run_backtest(num_trades=backtest_trades, lookback_days=lookback_days, pumps=backtest_pumps, label="BACKTEST")
-    run_backtest(num_trades=forward_trades, lookback_days=lookback_days, pumps=forward_pumps, label="FORWARD_TEST")
+    run_backtest(
+        num_trades=backtest_trades,
+        lookback_days=lookback_days,
+        pumps=backtest_pumps,
+        label="BACKTEST",
+        symbol_limit=symbol_limit
+    )
+    run_backtest(
+        num_trades=forward_trades,
+        lookback_days=lookback_days,
+        pumps=forward_pumps,
+        label="FORWARD_TEST",
+        symbol_limit=symbol_limit
+    )
 
 if __name__ == '__main__':
     import argparse
@@ -798,6 +816,7 @@ if __name__ == '__main__':
     parser.add_argument("--forward-trades", type=int, default=50, help="Number of forward test trades")
     parser.add_argument("--lookback-days", type=int, default=180, help="Lookback window in days")
     parser.add_argument("--split-ratio", type=float, default=0.7, help="Backtest split ratio for walk-forward")
+    parser.add_argument("--symbol-limit", type=int, default=200, help="Number of symbols to scan")
     parser.add_argument("--walkforward", action="store_true", help="Run walk-forward backtest + forward test")
 
     args = parser.parse_args()
@@ -807,7 +826,12 @@ if __name__ == '__main__':
             backtest_trades=args.backtest_trades,
             forward_trades=args.forward_trades,
             lookback_days=args.lookback_days,
-            split_ratio=args.split_ratio
+            split_ratio=args.split_ratio,
+            symbol_limit=args.symbol_limit
         )
     else:
-        run_backtest(num_trades=args.backtest_trades, lookback_days=args.lookback_days)
+        run_backtest(
+            num_trades=args.backtest_trades,
+            lookback_days=args.lookback_days,
+            symbol_limit=args.symbol_limit
+        )
