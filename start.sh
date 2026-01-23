@@ -5,9 +5,6 @@ echo "Starting at: $(date)"
 export NODE_ENV=production
 export PORT=${PORT:-5000}
 
-# Install Python dependencies if needed
-pip install ccxt numpy pandas ta-lib 2>/dev/null || true
-
 # Build if needed
 if [ ! -f "dist/index.cjs" ]; then
     echo "Building application..."
