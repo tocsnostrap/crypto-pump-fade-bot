@@ -16,7 +16,7 @@ DEFAULT_CONFIG = {
     'poll_interval_sec': 300,
     'min_volume_usdt': 1000000,
     'funding_min': 0.0001,
-    'rsi_overbought': 70,               # Optimized: RSI >= 70 for 72.8% win rate
+    'rsi_overbought': 70,               # RSI peak threshold
     'leverage_default': 3,
     'risk_pct_per_trade': 0.01,
     'sl_pct_above_entry': 0.12,         # Fallback SL if swing high not available
@@ -53,10 +53,10 @@ DEFAULT_CONFIG = {
     'volume_spike_threshold': 2.0,      # Single candle volume must not exceed avg * threshold
     
     'enable_multi_timeframe': True,     # Check 1h/4h for overextension
-    'mtf_rsi_threshold': 70,            # RSI >= 70 at peak (72.8% win rate)
+    'mtf_rsi_threshold': 65,            # Relaxed for more signals
     
     'enable_bollinger_check': True,     # Check price above upper BB (74% win rate)
-    'min_bb_extension_pct': 1.0,        # Minimum % above upper BB
+    'min_bb_extension_pct': 0.5,        # Minimum % above upper BB
     
     'enable_cross_exchange': False,     # Require pump visible on multiple exchanges
     'cross_exchange_min_pct': 40,       # Min pump % on second exchange
@@ -70,7 +70,7 @@ DEFAULT_CONFIG = {
     'min_lower_highs': 2,               # Require 2+ lower highs for higher win rate
     
     'enable_blowoff_detection': True,   # Detect blow-off top patterns
-    'blowoff_wick_ratio': 2.5,          # Upper wick must be N times body
+    'blowoff_wick_ratio': 2.0,          # Upper wick must be N times body
     
     'enable_scale_in': False,           # Scale into position (50/30/20)
     'scale_in_levels': [0.5, 0.3, 0.2], # Position size per scale-in
@@ -78,17 +78,19 @@ DEFAULT_CONFIG = {
     'time_decay_minutes': 120,          # Skip if no reversal within N minutes
 
     # === ENTRY QUALITY TUNING ===
-    'min_entry_quality': 65,            # Require higher quality setups
+    'min_entry_quality': 60,            # Require higher quality setups
+    'enable_rsi_peak_filter': True,     # Require RSI peak in recent candles
+    'rsi_peak_lookback': 12,            # Lookback candles for RSI peak
     'enable_rsi_pullback': True,        # Require RSI to roll over from peak
     'rsi_pullback_points': 3,           # Min RSI pullback points
     'rsi_pullback_lookback': 6,         # Lookback candles for RSI peak
     'enable_atr_filter': True,          # Filter extreme/flat volatility
     'min_atr_pct': 0.4,                 # Minimum ATR% of price
-    'max_atr_pct': 8.0,                 # Maximum ATR% of price
+    'max_atr_pct': 15.0,                # Maximum ATR% of price
     
     # === LEARNING & LOGGING ===
     'enable_trade_logging': True,       # Log detailed feature vectors
-    'min_fade_signals': 3               # Require more confirmations for entries
+    'min_fade_signals': 2               # Require more confirmations for entries
 }
 
 # State files
@@ -854,6 +856,32 @@ def check_volume_decline(df, config):
         
         return is_declining, details
         
+    except Exception as e:
+        return False, {'error': str(e)}
+
+def check_rsi_peak(df, config):
+    """Check if RSI peaked above threshold in recent candles."""
+    if not config.get('enable_rsi_peak_filter', True):
+        return True, {'skipped': True}
+
+    if df is None or len(df) < 14:
+        return False, {'error': 'insufficient_data'}
+
+    try:
+        closes = np.array(df['close'].values, dtype=np.float64)
+        rsi_vals = talib.RSI(closes, timeperiod=14)
+        lookback = int(config.get('rsi_peak_lookback', 12))
+        if lookback < 2:
+            lookback = 2
+        recent = rsi_vals[-lookback:]
+        peak = float(np.nanmax(recent))
+        threshold = float(config.get('rsi_overbought', 70))
+        ok = peak >= threshold
+        return ok, {
+            'rsi_peak': peak,
+            'threshold': threshold,
+            'lookback': lookback
+        }
     except Exception as e:
         return False, {'error': str(e)}
 
@@ -2156,15 +2184,18 @@ def main():
 
                         df = get_ohlcv(ex, symbol)
                         if df is not None:
-                            _, rsi = check_fade_signals(df)
-                            if rsi < config['rsi_overbought']:
-                                print(f"  RSI {rsi:.1f} < {config['rsi_overbought']}, skipping")
+                            rsi_peak_ok, rsi_peak_details = check_rsi_peak(df, config)
+                            if not rsi_peak_ok:
+                                peak_val = rsi_peak_details.get('rsi_peak', 0)
+                                threshold = rsi_peak_details.get('threshold', config.get('rsi_overbought', 70))
+                                print(f"  RSI peak {peak_val:.1f} < {threshold}, skipping")
                                 save_signal(ex_name, symbol, 'pump_rejected', current_price,
-                                           f"RSI {rsi:.1f} < {config['rsi_overbought']} threshold",
-                                           change_pct=pct_change, rsi=rsi)
+                                           f"RSI peak {peak_val:.1f} < {threshold} threshold",
+                                           change_pct=pct_change, rsi=peak_val)
                                 continue
 
-                            print(f"  RSI {rsi:.1f} >= {config['rsi_overbought']}, adding to fade watchlist...")
+                            peak_val = rsi_peak_details.get('rsi_peak', 0)
+                            print(f"  RSI peak {peak_val:.1f} >= {config['rsi_overbought']}, adding to fade watchlist...")
                             if not is_symbol_open(open_trades, ex_name, symbol):
                                 entry_watchlist.setdefault(ex_name, {})
                                 watch = entry_watchlist[ex_name].get(symbol)
@@ -2178,7 +2209,7 @@ def main():
                                     }
                                     save_signal(ex_name, symbol, 'fade_watch', current_price,
                                                "Watching for fade confirmation after pump",
-                                               change_pct=pct_change, rsi=rsi)
+                                               change_pct=pct_change, rsi=peak_val)
                                 else:
                                     watch['pump_high'] = max(watch.get('pump_high', current_price), current_price)
                                     watch['last_price'] = current_price

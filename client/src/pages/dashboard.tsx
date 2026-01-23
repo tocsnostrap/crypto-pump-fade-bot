@@ -353,12 +353,21 @@ export default function Dashboard() {
       ],
       tp_fib_levels: [0.382, 0.5, 0.618],
       enable_bollinger_check: true,
-      min_bb_extension_pct: 0,
+      min_bb_extension_pct: 0.5,
       enable_structure_break: true,
       structure_break_candles: 3,
       time_decay_minutes: 120,
-      min_lower_highs: 1,
+      min_lower_highs: 2,
       min_fade_signals: 2,
+      enable_rsi_peak_filter: true,
+      rsi_peak_lookback: 12,
+      min_entry_quality: 60,
+      enable_rsi_pullback: true,
+      rsi_pullback_points: 3,
+      rsi_pullback_lookback: 6,
+      enable_atr_filter: true,
+      min_atr_pct: 0.4,
+      max_atr_pct: 15,
     },
     status: { running: false, last_poll: null, exchanges_connected: [], symbols_loaded: {} },
     metrics: {
@@ -391,7 +400,7 @@ export default function Dashboard() {
     .map((level) => `${(level * 100).toFixed(1)}%`)
     .join(", ");
   const exitLabel = config?.use_staged_exits ? `Staged: ${stagedExitLabel}` : `Single: ${singleExitLabel}`;
-  const entryLabel = `RSI >= ${(config?.rsi_overbought ?? 70).toFixed(0)}`;
+  const entryLabel = `RSI peak >= ${(config?.rsi_overbought ?? 70).toFixed(0)} (${config?.rsi_peak_lookback ?? 12} bars)`;
   const bollingerLabel = (config?.enable_bollinger_check ?? true)
     ? `On (min ext ${(config?.min_bb_extension_pct ?? 0).toFixed(0)}%)`
     : "Off";

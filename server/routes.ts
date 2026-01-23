@@ -57,6 +57,8 @@ interface BotConfig {
   time_decay_minutes?: number;
   min_lower_highs?: number;
   min_fade_signals?: number;
+  enable_rsi_peak_filter?: boolean;
+  rsi_peak_lookback?: number;
   min_entry_quality?: number;
   enable_rsi_pullback?: boolean;
   rsi_pullback_points?: number;

@@ -36,10 +36,10 @@
   "volume_spike_threshold": 2.0,
 
   "enable_multi_timeframe": true,
-  "mtf_rsi_threshold": 70,
+  "mtf_rsi_threshold": 65,
 
   "enable_bollinger_check": true,
-  "min_bb_extension_pct": 1.0,
+  "min_bb_extension_pct": 0.5,
 
   "enable_cross_exchange": false,
   "cross_exchange_min_pct": 40,
@@ -52,7 +52,7 @@
   "min_lower_highs": 2,
 
   "enable_blowoff_detection": true,
-  "blowoff_wick_ratio": 2.5,
+  "blowoff_wick_ratio": 2.0,
 
   "enable_volume_decline_check": true,
 
@@ -61,14 +61,16 @@
 
   "time_decay_minutes": 120,
 
-  "min_entry_quality": 65,
+  "min_entry_quality": 60,
+  "enable_rsi_peak_filter": true,
+  "rsi_peak_lookback": 12,
   "enable_rsi_pullback": true,
   "rsi_pullback_points": 3,
   "rsi_pullback_lookback": 6,
   "enable_atr_filter": true,
   "min_atr_pct": 0.4,
-  "max_atr_pct": 8.0,
+  "max_atr_pct": 15.0,
 
   "enable_trade_logging": true,
-  "min_fade_signals": 3
+  "min_fade_signals": 2
 }

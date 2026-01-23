@@ -33,21 +33,23 @@ def load_config():
             'volume_sustained_candles': 3,
             'volume_spike_threshold': 2.0,
             'enable_multi_timeframe': True,
-            'mtf_rsi_threshold': 70,
+            'mtf_rsi_threshold': 65,
             'enable_structure_break': True,
             'structure_break_candles': 3,
             'enable_blowoff_detection': True,
-            'blowoff_wick_ratio': 2.5,
-            'min_fade_signals': 3,
-            'min_entry_quality': 65,
+            'blowoff_wick_ratio': 2.0,
+            'min_fade_signals': 2,
+            'min_entry_quality': 60,
             'min_lower_highs': 2,
-            'min_bb_extension_pct': 1.0,
+            'min_bb_extension_pct': 0.5,
+            'enable_rsi_peak_filter': True,
+            'rsi_peak_lookback': 12,
             'enable_rsi_pullback': True,
             'rsi_pullback_points': 3,
             'rsi_pullback_lookback': 6,
             'enable_atr_filter': True,
             'min_atr_pct': 0.4,
-            'max_atr_pct': 8.0,
+            'max_atr_pct': 15.0,
             'paper_slippage_pct': 0.0015,
             'paper_spread_pct': 0.001,
             'paper_fee_pct': 0.0005,
@@ -266,10 +268,23 @@ def count_fade_signals(df, pump_idx, config):
     
     closes = df['close'].iloc[:pump_idx+1].values
     
-    # 1. RSI overbought (78% of dumps)
-    rsi = calculate_rsi(closes)
+    # 1. RSI peak overbought
+    rsi_series = calculate_rsi_series(closes)
+    rsi = rsi_series[-1] if rsi_series is not None and len(rsi_series) else None
     signals['rsi'] = rsi
-    signals['rsi_overbought'] = rsi and rsi > 70
+    lookback = int(config.get('rsi_peak_lookback', 12))
+    if lookback < 2:
+        lookback = 2
+    if rsi_series is not None and len(rsi_series) >= lookback:
+        rsi_peak = float(np.nanmax(rsi_series[-lookback:]))
+    else:
+        rsi_peak = float(rsi) if rsi is not None else np.nan
+    signals['rsi_peak'] = rsi_peak
+    threshold = float(config.get('rsi_overbought', 70))
+    if config.get('enable_rsi_peak_filter', True):
+        signals['rsi_overbought'] = rsi_peak >= threshold
+    else:
+        signals['rsi_overbought'] = rsi and rsi > threshold
     
     # 2. Bollinger Band check (89% of dumps)
     if len(closes) >= 20:
