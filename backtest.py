@@ -873,7 +873,7 @@ if __name__ == '__main__':
         pumps = load_events_file(args.events_file)
         if not pumps:
             print("No pump events loaded from events file.")
-            return
+            raise SystemExit(1)
 
     if args.walkforward:
         run_walkforward_tests(
