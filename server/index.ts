@@ -21,10 +21,11 @@ function startPythonBot() {
   }
   
   const mainPyPath = path.join(process.cwd(), "main.py");
+  const pythonBin = process.env.PYTHON_BIN || "python3";
   
-  console.log(`[python-bot] Starting Python trading bot...`);
+  console.log(`[python-bot] Starting Python trading bot with ${pythonBin}...`);
   
-  pythonProcess = spawn("python", [mainPyPath], {
+  pythonProcess = spawn(pythonBin, [mainPyPath], {
     cwd: process.cwd(),
     env: process.env,
     stdio: ["ignore", "pipe", "pipe"],

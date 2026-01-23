@@ -40,7 +40,7 @@ trap cleanup SIGINT SIGTERM EXIT
 (
     while true; do
         echo "$(date): [python-bot] Starting..."
-        python main.py 2>&1 | while IFS= read -r line; do echo "[python-bot] $line"; done
+        python3 main.py 2>&1 | while IFS= read -r line; do echo "[python-bot] $line"; done
         echo "$(date): [python-bot] Exited, restarting in 10s..."
         sleep 10
     done

@@ -4,7 +4,7 @@ set -e
 MARKER_FILE=".python_deps_ready"
 
 check_talib() {
-  python - <<'PY'
+  python3 - <<'PY'
 import sys
 try:
     import talib
@@ -18,12 +18,12 @@ PY
 
 if [ ! -f "$MARKER_FILE" ]; then
   echo "[bootstrap] Installing Python deps..."
-  python -m pip install --upgrade pip
-  python -m pip install ccxt numpy pandas ta-lib || true
+  python3 -m pip install --upgrade pip
+  python3 -m pip install ccxt numpy pandas ta-lib || true
 
   if ! check_talib; then
     echo "[bootstrap] Installing pandas-ta fallback..."
-    python -m pip install pandas-ta
+    python3 -m pip install pandas-ta
   fi
 
   touch "$MARKER_FILE"
