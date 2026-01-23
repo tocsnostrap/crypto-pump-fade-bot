@@ -4,11 +4,11 @@
 import ccxt
 import pandas as pd
 import numpy as np
-import talib
 import json
 import time
 import os
 from datetime import datetime, timedelta
+from talib_compat import talib
 
 def load_config():
     with open('bot_config.json', 'r') as f:

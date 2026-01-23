@@ -7,11 +7,11 @@ Fetches historical pump data and simulates trades with the new validation filter
 import ccxt
 import pandas as pd
 import numpy as np
-import talib
 import json
 import time
 import os
 from datetime import datetime, timedelta
+from talib_compat import talib
 
 # Load config
 def load_config():

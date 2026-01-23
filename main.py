@@ -2,10 +2,10 @@ import ccxt
 import time
 import json
 import os
-import talib
 import pandas as pd
 import numpy as np
 from datetime import datetime
+from talib_compat import talib
 
 # === DEFAULT CONFIG (can be overridden by bot_config.json) ===
 DEFAULT_CONFIG = {

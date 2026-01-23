@@ -13,6 +13,11 @@ echo "=== Pump Fade Trading Bot Production Startup ==="
 echo "Starting at: $(date)"
 echo "PORT: $PORT"
 
+# Bootstrap Python deps if available
+if [ -f "./script/bootstrap_python.sh" ]; then
+    sh ./script/bootstrap_python.sh
+fi
+
 # Verify build exists
 if [ ! -f "dist/index.cjs" ]; then
     echo "ERROR: dist/index.cjs not found!"
