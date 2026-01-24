@@ -345,7 +345,7 @@ export default function Dashboard() {
       risk_scale_validation_min: 1,
       risk_pct_per_trade: 0.01,
       starting_capital: 5000,
-      min_pump_pct: 58,
+      min_pump_pct: 55,
       max_pump_pct: 250,
       rsi_overbought: 73,
       trailing_stop_pct: 0.08,

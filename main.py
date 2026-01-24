@@ -11,7 +11,7 @@ import urllib.request
 
 # === DEFAULT CONFIG (can be overridden by bot_config.json) ===
 DEFAULT_CONFIG = {
-    'min_pump_pct': 58.0,
+    'min_pump_pct': 55.0,
     'max_pump_pct': 250.0,              # Allow larger pumps but still filter extremes
     'poll_interval_sec': 300,
     'min_volume_usdt': 1000000,

@@ -1,6 +1,6 @@
 {
   "paper_mode": true,
-  "min_pump_pct": 58,
+  "min_pump_pct": 55,
   "max_pump_pct": 250,
   "poll_interval_sec": 300,
   "min_volume_usdt": 1000000,

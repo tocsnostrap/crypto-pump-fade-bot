@@ -21,7 +21,7 @@ def load_config():
             return json.load(f)
     except:
         return {
-            'min_pump_pct': 58.0,
+            'min_pump_pct': 55.0,
             'max_pump_pct': 250.0,
             'min_volume_usdt': 1000000,
             'rsi_overbought': 73,
