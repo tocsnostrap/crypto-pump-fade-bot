@@ -38,6 +38,16 @@ DEFAULT_CONFIG = {
         {'fib': 0.786, 'pct': 0.20},    # 20% position at 78.6% retrace
         {'fib': 0.886, 'pct': 0.70}     # 70% position at 88.6% retrace
     ],
+    'staged_exit_levels_small': [
+        {'fib': 0.50, 'pct': 0.30},     # 30% at 50% retrace (smaller pumps)
+        {'fib': 0.618, 'pct': 0.30},    # 30% at 61.8% retrace
+        {'fib': 0.786, 'pct': 0.40}     # 40% at 78.6% retrace
+    ],
+    'staged_exit_levels_large': [
+        {'fib': 0.618, 'pct': 0.10},    # 10% at 61.8% retrace
+        {'fib': 0.786, 'pct': 0.20},    # 20% at 78.6% retrace
+        {'fib': 0.886, 'pct': 0.70}     # 70% at 88.6% retrace
+    ],
     'tp_fib_levels': [0.618, 0.786, 0.886],  # Fallback if staged exits disabled
     
     'max_open_trades': 4,
@@ -1662,6 +1672,14 @@ def calculate_swing_high_sl(ex, symbol, entry_price, config):
     fallback_pct = config.get('sl_pct_above_entry', 0.12)
     return entry_price * (1 + fallback_pct), fallback_pct, entry_price
 
+def select_exit_levels(config, pump_pct):
+    small_levels = config.get('staged_exit_levels_small')
+    large_levels = config.get('staged_exit_levels_large')
+    if small_levels and large_levels and pump_pct is not None:
+        threshold = config.get('pump_small_threshold_pct', 60)
+        return small_levels if pump_pct < threshold else large_levels
+    return config.get('staged_exit_levels', [])
+
 def place_exchange_stop_loss(ex, symbol, amount, stop_price):
     """Place a reduce-only stop-market order on the exchange if supported."""
     try:
@@ -1689,7 +1707,7 @@ def cancel_exchange_order(ex, symbol, order_id):
     except Exception as e:
         print(f"[{datetime.now()}] Failed to cancel order {order_id} for {symbol}: {e}")
 
-def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent_low, open_trades, config, entry_quality=None, validation_details=None):
+def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent_low, open_trades, config, entry_quality=None, validation_details=None, pump_pct=None):
     """Enter a short position (paper or live) with swing high stop loss
     
     Args:
@@ -1716,6 +1734,8 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
         sl_price = entry_price * (1 + sl_pct)
         swing_high = pump_high
     
+    exit_levels = select_exit_levels(config, pump_pct)
+
     if paper_mode:
         # Apply realistic entry simulation
         simulated_entry, entry_fee_per_unit = simulate_realistic_entry(entry_price, config)
@@ -1745,7 +1765,7 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
         entry_fee_cost = notional_value * config.get('paper_fee_pct', 0.0005)
         
         # Calculate TP prices from staged exit levels using actual pump range
-        staged_exit_levels = config.get('staged_exit_levels', [
+        staged_exit_levels = exit_levels or config.get('staged_exit_levels', [
             {'fib': 0.382, 'pct': 0.50},
             {'fib': 0.50, 'pct': 0.30},
             {'fib': 0.618, 'pct': 0.20}
@@ -1772,6 +1792,7 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
             'swing_high': swing_high,
             'sl': sl_price,
             'tp_prices': tp_prices,
+            'staged_exit_levels': staged_exit_levels,
             'amount': position_size,
             'leverage': leverage,
             'contract_size': 1,
@@ -1795,7 +1816,7 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
         filled_entry = order.get('average') or order.get('price') or entry_price
         
         # Calculate TP prices for live trades using actual pump range
-        staged_exit_levels = config.get('staged_exit_levels', [
+        staged_exit_levels = exit_levels or config.get('staged_exit_levels', [
             {'fib': 0.382, 'pct': 0.50},
             {'fib': 0.50, 'pct': 0.30},
             {'fib': 0.618, 'pct': 0.20}
@@ -1820,6 +1841,7 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
             'swing_high': swing_high,
             'sl': sl_price,
             'tp_prices': tp_prices,
+            'staged_exit_levels': staged_exit_levels,
             'amount': amount,
             'leverage': leverage,
             'contract_size': contract_size,
@@ -2124,11 +2146,12 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
                 exits_taken = trade_data.get('exits_taken', [])
                 diff = pump_high - recent_low
                 tp_prices = trade_data.get('tp_prices')
+                active_exit_levels = trade_data.get('staged_exit_levels') or staged_exit_levels
                 
-                for idx, level in enumerate(staged_exit_levels):
+                for idx, level in enumerate(active_exit_levels):
                     fib = level['fib']
                     exit_pct = level['pct']
-                    if tp_prices and len(tp_prices) == len(staged_exit_levels):
+                    if tp_prices and len(tp_prices) == len(active_exit_levels):
                         tp_price = tp_prices[idx]
                     else:
                         tp_price = pump_high - (fib * diff)
@@ -2447,7 +2470,8 @@ def process_entry_watchlist(ex_name, ex, tickers, entry_watchlist, open_trades, 
             open_trades,
             config,
             entry_quality=entry_quality,
-            validation_details=watch.get('validation_details')
+            validation_details=watch.get('validation_details'),
+            pump_pct=watch.get('pct_change')
         )
 
         if trade_info:
