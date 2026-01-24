@@ -44,6 +44,7 @@
   "early_cut_timeframe": "5m",
   "early_cut_require_bullish": true,
   "enable_breakeven_after_first_tp": true,
+  "breakeven_after_tps": 2,
   "breakeven_buffer_pct": 0.001,
   
   "max_open_trades": 4,

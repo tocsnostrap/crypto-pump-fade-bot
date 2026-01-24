@@ -56,6 +56,7 @@ DEFAULT_CONFIG = {
     'early_cut_timeframe': '5m',
     'early_cut_require_bullish': True,
     'enable_breakeven_after_first_tp': True,
+    'breakeven_after_tps': 2,
     'breakeven_buffer_pct': 0.001,
     
     'max_open_trades': 4,
@@ -2207,7 +2208,11 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
                         open_trades[i]['trade']['exits_taken'] = exits_taken
 
                         # Move SL to breakeven after first TP
-                        if config.get('enable_breakeven_after_first_tp', False) and len(exits_taken) == 1:
+                        if config.get('enable_breakeven_after_first_tp', False):
+                            required_tps = int(config.get('breakeven_after_tps', 1))
+                        else:
+                            required_tps = 0
+                        if required_tps and len(exits_taken) == required_tps:
                             buffer_pct = config.get('breakeven_buffer_pct', 0.001)
                             new_sl = entry * (1 + buffer_pct)
                             if new_sl < sl:

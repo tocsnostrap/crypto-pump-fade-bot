@@ -380,6 +380,7 @@ export default function Dashboard() {
       early_cut_timeframe: "5m",
       early_cut_require_bullish: true,
       enable_breakeven_after_first_tp: true,
+      breakeven_after_tps: 2,
       breakeven_buffer_pct: 0.001,
       enable_bollinger_check: true,
       min_bb_extension_pct: 0.3,

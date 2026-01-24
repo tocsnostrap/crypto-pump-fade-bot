@@ -65,6 +65,7 @@ def load_config():
             'early_cut_timeframe': '5m',
             'early_cut_require_bullish': True,
             'enable_breakeven_after_first_tp': True,
+            'breakeven_after_tps': 2,
             'breakeven_buffer_pct': 0.001,
             'starting_capital': 5000.0,
             'enable_volume_profile': True,
@@ -403,11 +404,13 @@ def simulate_exact_trade(df_5m, pump_idx, pump_high, pump_pct, config, capital):
                 total_fees += fees
                 remaining_amount -= portion
                 exits_taken.append(fib)
-                if config.get('enable_breakeven_after_first_tp', False) and len(exits_taken) == 1:
-                    buffer_pct = config.get('breakeven_buffer_pct', 0.001)
-                    new_sl = simulated_entry * (1 + buffer_pct)
-                    if new_sl < sl_price:
-                        sl_price = new_sl
+                if config.get('enable_breakeven_after_first_tp', False):
+                    required_tps = int(config.get('breakeven_after_tps', 1))
+                    if len(exits_taken) == required_tps:
+                        buffer_pct = config.get('breakeven_buffer_pct', 0.001)
+                        new_sl = simulated_entry * (1 + buffer_pct)
+                        if new_sl < sl_price:
+                            sl_price = new_sl
 
         profit_pct = (simulated_entry - close) / simulated_entry if simulated_entry > 0 else 0
         if profit_pct > config.get('trailing_stop_pct', 0.05):
