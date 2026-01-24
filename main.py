@@ -26,7 +26,7 @@ DEFAULT_CONFIG = {
     'leverage_quality_high': 85,
     'leverage_validation_bonus_threshold': 2,
     'risk_pct_per_trade': 0.01,
-    'reward_risk_min': 1.2,
+    'reward_risk_min': 1.0,
     'sl_pct_above_entry': 0.12,         # Fallback SL if swing high not available
     'max_sl_pct_above_entry': 0.06,     # Cap swing-high SL distance
     'max_sl_pct_small': 0.05,
