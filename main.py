@@ -82,7 +82,7 @@ DEFAULT_CONFIG = {
     'enable_volume_profile': True,      # Check sustained volume vs single-spike
     'volume_sustained_candles': 3,      # Require elevated volume for N candles
     'volume_spike_threshold': 2.0,      # Single candle volume must not exceed avg * threshold
-    'min_validation_score': 1,          # Require at least one validation signal
+    'min_validation_score': 0,          # Allow pumps even if validators missing
     
     'enable_multi_timeframe': True,     # Check 1h/4h for overextension
     'mtf_rsi_threshold': 65,            # Relaxed for more signals

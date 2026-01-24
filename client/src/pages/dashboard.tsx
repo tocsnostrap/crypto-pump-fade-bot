@@ -417,7 +417,7 @@ export default function Dashboard() {
       enable_atr_filter: true,
       min_atr_pct: 0.4,
       max_atr_pct: 15,
-      min_validation_score: 1,
+      min_validation_score: 0,
       enable_oi_filter: true,
       oi_drop_pct: 10,
       require_oi_data: false,

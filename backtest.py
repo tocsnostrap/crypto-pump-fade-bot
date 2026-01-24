@@ -74,7 +74,7 @@ def load_config():
             'enable_volume_profile': True,
             'volume_sustained_candles': 3,
             'volume_spike_threshold': 2.0,
-            'min_validation_score': 1,
+            'min_validation_score': 0,
             'enable_multi_timeframe': True,
             'mtf_rsi_threshold': 65,
             'enable_multi_window_pump': True,

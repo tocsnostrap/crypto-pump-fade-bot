@@ -68,7 +68,7 @@
   "enable_volume_profile": true,
   "volume_sustained_candles": 3,
   "volume_spike_threshold": 2.0,
-  "min_validation_score": 1,
+  "min_validation_score": 0,
 
   "enable_multi_timeframe": true,
   "mtf_rsi_threshold": 65,
