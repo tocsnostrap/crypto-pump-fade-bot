@@ -60,6 +60,7 @@ def load_config():
             'blowoff_wick_ratio': 2.0,
             'enable_volume_decline_check': True,
             'require_fade_signal': True,
+            'fade_signal_required_pump_pct': 70,
             'min_fade_signals': 2,
             'min_entry_quality': 60,
             'min_entry_quality_small': 65,

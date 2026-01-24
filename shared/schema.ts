@@ -111,6 +111,7 @@ export interface BotConfig {
   min_lower_highs?: number;
   enable_volume_decline_check?: boolean;
   require_fade_signal?: boolean;
+  fade_signal_required_pump_pct?: number;
   min_fade_signals?: number;
   min_entry_quality_small?: number;
   min_entry_quality_large?: number;
