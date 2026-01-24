@@ -133,8 +133,8 @@ DEFAULT_CONFIG = {
     'pump_small_threshold_pct': 70,     # Small vs large pump threshold
     'require_entry_drawdown': True,
     'entry_drawdown_lookback': 24,
-    'min_drawdown_pct_small': 2.0,
-    'min_drawdown_pct_large': 3.0,
+    'min_drawdown_pct_small': 1.5,
+    'min_drawdown_pct_large': 2.5,
     'enable_rsi_peak_filter': True,     # Require RSI peak in recent candles
     'rsi_peak_lookback': 12,            # Lookback candles for RSI peak
     'enable_rsi_pullback': True,        # Require RSI to roll over from peak
