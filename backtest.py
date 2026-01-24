@@ -99,7 +99,7 @@ def load_config():
             'min_entry_quality_large': 58,
             'min_fade_signals_small': 2,
             'min_fade_signals_large': 1,
-            'pump_small_threshold_pct': 70,
+            'pump_small_threshold_pct': 65,
             'require_entry_drawdown': True,
             'entry_drawdown_lookback': 24,
             'min_drawdown_pct_small': 2.0,

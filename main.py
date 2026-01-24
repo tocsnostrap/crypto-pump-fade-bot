@@ -133,7 +133,7 @@ DEFAULT_CONFIG = {
     'min_entry_quality_large': 58,      # Looser for larger pumps
     'min_fade_signals_small': 2,        # Small pump confirmations
     'min_fade_signals_large': 1,        # Large pump confirmations
-    'pump_small_threshold_pct': 70,     # Small vs large pump threshold
+    'pump_small_threshold_pct': 65,     # Small vs large pump threshold
     'require_entry_drawdown': True,
     'entry_drawdown_lookback': 24,
     'min_drawdown_pct_small': 2.0,
