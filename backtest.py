@@ -86,7 +86,7 @@ def load_config():
             'paper_slippage_pct': 0.0015,
             'paper_spread_pct': 0.001,
             'paper_fee_pct': 0.0005,
-            'trailing_stop_pct': 0.07,
+            'trailing_stop_pct': 0.08,
             'max_hold_hours': 48,
             'enable_funding_filter': False,
             'enable_holders_filter': False,
