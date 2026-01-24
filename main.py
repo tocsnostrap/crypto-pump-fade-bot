@@ -8,6 +8,7 @@ from datetime import datetime
 from talib_compat import talib
 import urllib.parse
 import urllib.request
+import urllib.error
 
 # === DEFAULT CONFIG (can be overridden by bot_config.json) ===
 DEFAULT_CONFIG = {
@@ -479,6 +480,28 @@ def send_push_notification(title, message, priority=0):
         with urllib.request.urlopen(req, timeout=10) as resp:
             resp.read()
         last_push_ts = now
+    except urllib.error.HTTPError as e:
+        error_detail = ''
+        try:
+            body = e.read().decode('utf-8', errors='replace')
+        except Exception:
+            body = ''
+        if body:
+            try:
+                decoded = json.loads(body)
+                if isinstance(decoded, dict):
+                    detail = decoded.get('errors') or decoded.get('error') or body
+                else:
+                    detail = body
+            except Exception:
+                detail = body
+            if isinstance(detail, list):
+                error_detail = '; '.join(str(item) for item in detail)
+            else:
+                error_detail = str(detail)
+        if not error_detail:
+            error_detail = str(getattr(e, 'reason', e))
+        print(f"[{datetime.now()}] Pushover HTTP {e.code}: {error_detail}")
     except Exception as e:
         print(f"[{datetime.now()}] Error sending push notification: {e}")
 
@@ -2850,22 +2873,6 @@ def main():
                             except (ValueError, TypeError):
                                 pass
                     
-                    if config.get('enable_funding_filter', False):
-                        favorable = is_funding_favorable(funding, config)
-                        funding_min = config.get('funding_min', 0.0001)
-                        filter_pump_pct = config.get('funding_filter_pump_pct', config.get('min_pump_pct', 50))
-                        if pct_change < filter_pump_pct and (not favorable or abs(funding) < funding_min):
-                            save_signal(
-                                ex_name,
-                                symbol,
-                                'pump_rejected',
-                                current_price,
-                                f"Funding {funding*100:.3f}% below threshold",
-                                change_pct=pct_change,
-                                funding_rate=funding
-                            )
-                            continue
-
                     # Calculate 24h percentage change from multiple sources
                     pct_change = 0
                     change_source = None
@@ -2937,6 +2944,22 @@ def main():
                         if hash(symbol) % 100 == 0:
                             print(f"[{datetime.now()}] No 24h change data for {ex_name} {symbol}")
                         continue
+                    
+                    if config.get('enable_funding_filter', False):
+                        favorable = is_funding_favorable(funding, config)
+                        funding_min = config.get('funding_min', 0.0001)
+                        filter_pump_pct = config.get('funding_filter_pump_pct', config.get('min_pump_pct', 50))
+                        if pct_change < filter_pump_pct and (not favorable or abs(funding) < funding_min):
+                            save_signal(
+                                ex_name,
+                                symbol,
+                                'pump_rejected',
+                                current_price,
+                                f"Funding {funding*100:.3f}% below threshold",
+                                change_pct=pct_change,
+                                funding_rate=funding
+                            )
+                            continue
                     
                     min_pump = config['min_pump_pct']
                     max_pump = config.get('max_pump_pct', 200.0)
