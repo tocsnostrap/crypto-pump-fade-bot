@@ -45,7 +45,7 @@ def load_config():
             'risk_scale_quality_high': 80,
             'risk_scale_quality_low': 60,
             'risk_scale_validation_min': 2,
-            'risk_scale_min_pump_pct': 60,
+            'risk_scale_min_pump_pct': 65,
             'reward_risk_min': 1.0,
             'sl_pct_above_entry': 0.12,
             'max_sl_pct_above_entry': 0.06,

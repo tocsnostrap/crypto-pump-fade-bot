@@ -343,7 +343,7 @@ export default function Dashboard() {
       risk_scale_quality_high: 80,
       risk_scale_quality_low: 60,
       risk_scale_validation_min: 2,
-      risk_scale_min_pump_pct: 60,
+      risk_scale_min_pump_pct: 65,
       risk_pct_per_trade: 0.01,
       starting_capital: 5000,
       min_pump_pct: 55,

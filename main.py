@@ -33,7 +33,7 @@ DEFAULT_CONFIG = {
     'risk_scale_quality_high': 80,
     'risk_scale_quality_low': 60,
     'risk_scale_validation_min': 2,
-    'risk_scale_min_pump_pct': 60,
+    'risk_scale_min_pump_pct': 65,
     'sl_pct_above_entry': 0.12,         # Fallback SL if swing high not available
     'max_sl_pct_above_entry': 0.06,     # Cap swing-high SL distance
     'max_sl_pct_small': 0.05,
