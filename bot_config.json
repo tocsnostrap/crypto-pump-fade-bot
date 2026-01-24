@@ -22,11 +22,11 @@
   
   "use_staged_exits": true,
   "staged_exit_levels": [
-    {"fib": 0.50, "pct": 0.30},
     {"fib": 0.618, "pct": 0.30},
-    {"fib": 0.786, "pct": 0.40}
+    {"fib": 0.786, "pct": 0.30},
+    {"fib": 0.886, "pct": 0.40}
   ],
-  "tp_fib_levels": [0.5, 0.618, 0.786],
+  "tp_fib_levels": [0.618, 0.786, 0.886],
   
   "max_open_trades": 4,
   "starting_capital": 5000,

@@ -42,11 +42,11 @@ def load_config():
             'sl_pct_above_entry': 0.12,
             'max_sl_pct_above_entry': 0.08,
             'sl_swing_buffer_pct': 0.03,
-            'tp_fib_levels': [0.5, 0.618, 0.786],
+            'tp_fib_levels': [0.618, 0.786, 0.886],
             'staged_exit_levels': [
-                {'fib': 0.50, 'pct': 0.30},
                 {'fib': 0.618, 'pct': 0.30},
-                {'fib': 0.786, 'pct': 0.40}
+                {'fib': 0.786, 'pct': 0.30},
+                {'fib': 0.886, 'pct': 0.40}
             ],
             'starting_capital': 5000.0,
             'enable_volume_profile': True,
