@@ -109,7 +109,7 @@ def load_config():
             'enable_ema_filter': True,
             'ema_fast': 9,
             'ema_slow': 21,
-            'require_ema_breakdown': True,
+            'require_ema_breakdown': False,
             'ema_required_pump_pct': 70,
         }
 

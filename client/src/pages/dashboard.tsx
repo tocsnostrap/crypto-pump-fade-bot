@@ -371,7 +371,7 @@ export default function Dashboard() {
       enable_ema_filter: true,
       ema_fast: 9,
       ema_slow: 21,
-      require_ema_breakdown: true,
+      require_ema_breakdown: false,
       ema_required_pump_pct: 70,
       min_fade_signals: 2,
       enable_volume_decline_check: true,
