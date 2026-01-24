@@ -40,6 +40,7 @@ def load_config():
             'leverage_validation_bonus_threshold': 2,
             'risk_pct_per_trade': 0.01,
             'sl_pct_above_entry': 0.12,
+            'sl_swing_buffer_pct': 0.03,
             'tp_fib_levels': [0.382, 0.5, 0.618],
             'starting_capital': 5000.0,
             'enable_volume_profile': True,

@@ -28,7 +28,7 @@ DEFAULT_CONFIG = {
     'risk_pct_per_trade': 0.01,
     'sl_pct_above_entry': 0.12,         # Fallback SL if swing high not available
     'use_swing_high_sl': True,          # Use swing high for stop loss (improved win/loss ratio)
-    'sl_swing_buffer_pct': 0.02,        # 2% buffer above swing high for SL
+    'sl_swing_buffer_pct': 0.03,        # 3% buffer above swing high for SL
     
     # === STAGED EXITS (Optimized from backtest - 7.8% annual return) ===
     'use_staged_exits': True,           # Take partial profits at multiple levels
