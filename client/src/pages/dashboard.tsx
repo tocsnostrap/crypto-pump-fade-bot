@@ -339,7 +339,7 @@ export default function Dashboard() {
       leverage_default: 3,
       enable_quality_risk_scale: true,
       risk_scale_high: 5.0,
-      risk_scale_mid: 1.2,
+      risk_scale_mid: 1.5,
       risk_scale_low: 0.6,
       risk_scale_quality_high: 80,
       risk_scale_quality_low: 60,
