@@ -13,7 +13,6 @@ import os
 from datetime import datetime, timedelta
 from talib_compat import talib
 import main as bot
-import main as bot
 
 # Load config
 def load_config():
@@ -25,8 +24,20 @@ def load_config():
             'min_pump_pct': 50.0,
             'max_pump_pct': 250.0,
             'min_volume_usdt': 1000000,
-            'rsi_overbought': 70,
+            'rsi_overbought': 75,
             'leverage_default': 3,
+            'enable_dynamic_leverage': True,
+            'leverage_min': 3,
+            'leverage_max': 5,
+            'leverage_quality_mid': 75,
+            'leverage_quality_high': 85,
+            'leverage_validation_bonus_threshold': 2,
+            'enable_dynamic_leverage': True,
+            'leverage_min': 3,
+            'leverage_max': 5,
+            'leverage_quality_mid': 75,
+            'leverage_quality_high': 85,
+            'leverage_validation_bonus_threshold': 2,
             'risk_pct_per_trade': 0.01,
             'sl_pct_above_entry': 0.12,
             'tp_fib_levels': [0.382, 0.5, 0.618],
@@ -61,6 +72,27 @@ def load_config():
             'paper_slippage_pct': 0.0015,
             'paper_spread_pct': 0.001,
             'paper_fee_pct': 0.0005,
+            'max_hold_hours': 48,
+            'enable_funding_filter': False,
+            'enable_holders_filter': False,
+            'require_holders_data': False,
+            'holders_max_top1_pct': 25.0,
+            'holders_max_top5_pct': 45.0,
+            'holders_max_top10_pct': 70.0,
+            'holders_cache_file': 'token_holders_cache.json',
+            'holders_data_file': 'token_holders.json',
+            'holders_refresh_hours': 24,
+            'holders_api_url_template': '',
+            'holders_list_keys': ['data', 'result', 'holders'],
+            'holders_percent_keys': ['percentage', 'percent', 'share', 'holdingPercent', 'ratio'],
+            'token_address_map': {},
+            'enable_funding_bias': True,
+            'funding_positive_is_favorable': True,
+            'funding_hold_threshold': 0.0001,
+            'funding_time_extension_hours': 12,
+            'funding_adverse_time_cap_hours': 24,
+            'funding_trailing_min_pct': 0.03,
+            'funding_trailing_tighten_factor': 0.8,
         }
 
 # Initialize exchange
@@ -210,7 +242,8 @@ def simulate_exact_trade(df_5m, pump_idx, pump_high, pump_pct, config, capital):
 
     time_decay_minutes = config.get('time_decay_minutes', 120)
     time_decay_candles = int(time_decay_minutes / 5)
-    max_hold_candles = int(48 * 60 / 5)
+    max_hold_hours = config.get('max_hold_hours', 48)
+    max_hold_candles = int(max_hold_hours * 60 / 5)
 
     entry_idx = None
     for idx in range(pump_idx + 1, min(pump_idx + time_decay_candles + 1, len(df_5m))):
@@ -318,16 +351,37 @@ def simulate_exact_trade(df_5m, pump_idx, pump_high, pump_pct, config, capital):
         'is_winner': total_profit > 0
     }
 
-def run_exact_forward(events, trades_target=50, split_ratio=0.7, lookback_hours=48):
+def summarize_exact_trades(trades, starting_capital, label):
+    if not trades:
+        print(f"No trades executed in {label.lower()}.")
+        return
+
+    winners = [t for t in trades if t['is_winner']]
+    losers = [t for t in trades if not t['is_winner']]
+    total_pnl = sum(t['net_pnl'] for t in trades)
+    avg_win = np.mean([t['net_pnl'] for t in winners]) if winners else 0
+    avg_loss = np.mean([t['net_pnl'] for t in losers]) if losers else 0
+    ending_capital = starting_capital + total_pnl
+
+    print("\n" + "=" * 60)
+    print(f"{label} RESULTS")
+    print("=" * 60)
+    print(f"Trades Executed: {len(trades)}")
+    print(f"  Winners: {len(winners)} ({len(winners)/len(trades)*100:.1f}%)")
+    print(f"  Losers: {len(losers)} ({len(losers)/len(trades)*100:.1f}%)")
+    print(f"\nP&L Summary:")
+    print(f"  Total Net P&L: ${total_pnl:.2f}")
+    print(f"  Average Win: ${avg_win:.2f}")
+    print(f"  Average Loss: ${avg_loss:.2f}")
+    print(f"  Win/Loss Ratio: {abs(avg_win/avg_loss):.2f}" if avg_loss != 0 else "  Win/Loss Ratio: N/A")
+    print(f"  Ending Capital: ${ending_capital:.2f}")
+
+def run_exact_bucket(events, trades_target, lookback_hours, label):
     config = load_config()
     ex = init_exchange()
-    events = sorted(events, key=lambda x: x['pump_time'])
-    split_idx = int(len(events) * split_ratio)
-    forward_events = events[split_idx:]
-
     trades = []
     capital = config.get('starting_capital', 5000)
-    for ev in forward_events:
+    for ev in events:
         if len(trades) >= trades_target:
             break
         symbol = ev['symbol']
@@ -352,28 +406,28 @@ def run_exact_forward(events, trades_target=50, split_ratio=0.7, lookback_hours=
         trades.append(trade)
         capital += trade['net_pnl']
 
-    if not trades:
-        print("No trades executed in exact forward test.")
-        return
+    summarize_exact_trades(trades, config.get('starting_capital', 5000), label)
+    return trades
 
-    winners = [t for t in trades if t['is_winner']]
-    losers = [t for t in trades if not t['is_winner']]
-    total_pnl = sum(t['net_pnl'] for t in trades)
-    avg_win = np.mean([t['net_pnl'] for t in winners]) if winners else 0
-    avg_loss = np.mean([t['net_pnl'] for t in losers]) if losers else 0
+def run_exact_forward(events, trades_target=50, split_ratio=0.7, lookback_hours=48):
+    events = sorted(events, key=lambda x: x['pump_time'])
+    split_idx = int(len(events) * split_ratio)
+    forward_events = events[split_idx:]
+    return run_exact_bucket(forward_events, trades_target, lookback_hours, "EXACT FORWARD TEST")
+
+def run_exact_walkforward(events, backtest_trades=50, forward_trades=50, split_ratio=0.7, lookback_hours=48):
+    events = sorted(events, key=lambda x: x['pump_time'])
+    split_idx = int(len(events) * split_ratio)
+    backtest_events = events[:split_idx]
+    forward_events = events[split_idx:]
 
     print("\n" + "=" * 60)
-    print("EXACT FORWARD TEST RESULTS")
+    print(f"Exact-strategy walk-forward split: {split_ratio*100:.0f}% backtest / {(1-split_ratio)*100:.0f}% forward")
+    print(f"Candidates: {len(events)} (backtest {len(backtest_events)}, forward {len(forward_events)})")
     print("=" * 60)
-    print(f"Trades Executed: {len(trades)}")
-    print(f"  Winners: {len(winners)} ({len(winners)/len(trades)*100:.1f}%)")
-    print(f"  Losers: {len(losers)} ({len(losers)/len(trades)*100:.1f}%)")
-    print(f"\nP&L Summary:")
-    print(f"  Total Net P&L: ${total_pnl:.2f}")
-    print(f"  Average Win: ${avg_win:.2f}")
-    print(f"  Average Loss: ${avg_loss:.2f}")
-    print(f"  Win/Loss Ratio: {abs(avg_win/avg_loss):.2f}" if avg_loss != 0 else "  Win/Loss Ratio: N/A")
-    print(f"  Ending Capital: ${capital:.2f}")
+
+    run_exact_bucket(backtest_events, backtest_trades, lookback_hours, "EXACT BACKTEST")
+    run_exact_bucket(forward_events, forward_trades, lookback_hours, "EXACT FORWARD TEST")
 
 def calculate_rsi(closes, period=14):
     """Calculate RSI"""
@@ -1206,12 +1260,21 @@ if __name__ == '__main__':
         if not pumps:
             print("Exact strategy mode requires --events-file")
             raise SystemExit(1)
-        run_exact_forward(
-            pumps,
-            trades_target=args.forward_trades,
-            split_ratio=args.split_ratio,
-            lookback_hours=args.exact_lookback_hours
-        )
+        if args.forward_only:
+            run_exact_forward(
+                pumps,
+                trades_target=args.forward_trades,
+                split_ratio=args.split_ratio,
+                lookback_hours=args.exact_lookback_hours
+            )
+        else:
+            run_exact_walkforward(
+                pumps,
+                backtest_trades=args.backtest_trades,
+                forward_trades=args.forward_trades,
+                split_ratio=args.split_ratio,
+                lookback_hours=args.exact_lookback_hours
+            )
     elif args.walkforward:
         run_walkforward_tests(
             backtest_trades=args.backtest_trades,

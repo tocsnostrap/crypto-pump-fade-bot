@@ -38,8 +38,15 @@ interface BotConfig {
   poll_interval_sec: number;
   min_volume_usdt: number;
   funding_min: number;
+  enable_funding_filter?: boolean;
   rsi_overbought: number;
   leverage_default: number;
+  enable_dynamic_leverage?: boolean;
+  leverage_min?: number;
+  leverage_max?: number;
+  leverage_quality_mid?: number;
+  leverage_quality_high?: number;
+  leverage_validation_bonus_threshold?: number;
   risk_pct_per_trade: number;
   use_swing_high_sl?: boolean;
   sl_swing_buffer_pct?: number;
@@ -50,6 +57,8 @@ interface BotConfig {
   max_open_trades: number;
   starting_capital: number;
   compound_pct: number;
+  trailing_stop_pct?: number;
+  max_hold_hours?: number;
   enable_bollinger_check?: boolean;
   min_bb_extension_pct?: number;
   enable_structure_break?: boolean;
@@ -76,6 +85,25 @@ interface BotConfig {
   oi_drop_pct?: number;
   require_oi_data?: boolean;
   btc_volatility_max_pct?: number;
+  enable_holders_filter?: boolean;
+  require_holders_data?: boolean;
+  holders_max_top1_pct?: number;
+  holders_max_top5_pct?: number;
+  holders_max_top10_pct?: number;
+  holders_cache_file?: string;
+  holders_data_file?: string;
+  holders_refresh_hours?: number;
+  holders_api_url_template?: string;
+  holders_list_keys?: string[];
+  holders_percent_keys?: string[];
+  token_address_map?: Record<string, string | { address: string; chain?: string }>;
+  enable_funding_bias?: boolean;
+  funding_positive_is_favorable?: boolean;
+  funding_hold_threshold?: number;
+  funding_time_extension_hours?: number;
+  funding_adverse_time_cap_hours?: number;
+  funding_trailing_min_pct?: number;
+  funding_trailing_tighten_factor?: number;
 }
 
 interface TradeInfo {
@@ -90,7 +118,13 @@ interface TradeInfo {
   sl_order_id?: string | null;
   entry_ts: number;
   entry_quality?: number;
+  validation_score?: number;
   validation_details?: Record<string, unknown>;
+  pump_pct?: number;
+  funding_rate_entry?: number;
+  funding_rate_current?: number;
+  holders_details?: Record<string, unknown> | null;
+  max_drawdown_pct?: number;
   exits_taken?: number[];
 }
 

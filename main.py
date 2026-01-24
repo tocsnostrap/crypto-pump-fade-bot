@@ -16,8 +16,15 @@ DEFAULT_CONFIG = {
     'poll_interval_sec': 300,
     'min_volume_usdt': 1000000,
     'funding_min': 0.0001,
-    'rsi_overbought': 70,               # RSI peak threshold
+    'enable_funding_filter': False,
+    'rsi_overbought': 75,               # RSI peak threshold
     'leverage_default': 3,
+    'enable_dynamic_leverage': True,
+    'leverage_min': 3,
+    'leverage_max': 5,
+    'leverage_quality_mid': 75,
+    'leverage_quality_high': 85,
+    'leverage_validation_bonus_threshold': 2,
     'risk_pct_per_trade': 0.01,
     'sl_pct_above_entry': 0.12,         # Fallback SL if swing high not available
     'use_swing_high_sl': True,          # Use swing high for stop loss (improved win/loss ratio)
@@ -39,6 +46,7 @@ DEFAULT_CONFIG = {
     'starting_capital': 5000.0,
     'paper_mode': True,
     'trailing_stop_pct': 0.05,
+    'max_hold_hours': 48,
     
     # Realistic paper trading simulation parameters (Gate.io fees)
     'paper_slippage_pct': 0.001,        # 0.1% slippage on entries/exits
@@ -100,7 +108,28 @@ DEFAULT_CONFIG = {
     
     # === LEARNING & LOGGING ===
     'enable_trade_logging': True,       # Log detailed feature vectors
-    'min_fade_signals': 2               # Base confirmations for entries
+    'min_fade_signals': 2,              # Base confirmations for entries
+    # === HOLDERS CONCENTRATION FILTER ===
+    'enable_holders_filter': False,
+    'require_holders_data': False,
+    'holders_max_top1_pct': 25.0,
+    'holders_max_top5_pct': 45.0,
+    'holders_max_top10_pct': 70.0,
+    'holders_cache_file': 'token_holders_cache.json',
+    'holders_data_file': 'token_holders.json',
+    'holders_refresh_hours': 24,
+    'holders_api_url_template': '',
+    'holders_list_keys': ['data', 'result', 'holders'],
+    'holders_percent_keys': ['percentage', 'percent', 'share', 'holdingPercent', 'ratio'],
+    'token_address_map': {},
+    # === FUNDING BIAS ===
+    'enable_funding_bias': True,
+    'funding_positive_is_favorable': True,
+    'funding_hold_threshold': 0.0001,   # 0.01%
+    'funding_time_extension_hours': 12,
+    'funding_adverse_time_cap_hours': 24,
+    'funding_trailing_min_pct': 0.03,
+    'funding_trailing_tighten_factor': 0.8
 }
 
 # State files
@@ -111,6 +140,8 @@ CONFIG_FILE = 'bot_config.json'
 SIGNALS_FILE = 'signals.json'
 CLOSED_TRADES_FILE = 'closed_trades.json'
 TRADE_FEATURES_FILE = 'trade_features.json'  # For learning feature vectors
+HOLDERS_CACHE_FILE = 'token_holders_cache.json'
+HOLDERS_DATA_FILE = 'token_holders.json'
 
 # Pushover alert configuration
 PUSHOVER_USER_KEY = os.getenv('PUSHOVER_USER_KEY', '').strip()
@@ -173,6 +204,188 @@ def atomic_write_json(filepath, data):
         except:
             pass
         raise e
+
+def read_json_file(filepath, default):
+    """Read JSON safely with a fallback."""
+    if not filepath or not os.path.exists(filepath):
+        return default
+    try:
+        with open(filepath, 'r') as f:
+            return json.load(f)
+    except Exception:
+        return default
+
+def normalize_symbol(symbol):
+    if not symbol:
+        return symbol
+    return symbol.split('/')[0]
+
+def extract_holder_percentages(snapshot, config):
+    if snapshot is None:
+        return []
+    if isinstance(snapshot, dict):
+        if 'top_holders_pct' in snapshot:
+            percentages = snapshot.get('top_holders_pct', [])
+        elif all(k in snapshot for k in ['top1_pct', 'top5_pct', 'top10_pct']):
+            return [snapshot['top1_pct'], snapshot['top5_pct'], snapshot['top10_pct']]
+        else:
+            percentages = snapshot.get('holders_pct', [])
+    else:
+        percentages = snapshot
+
+    if not isinstance(percentages, list):
+        return []
+    cleaned = []
+    for pct in percentages:
+        try:
+            cleaned.append(float(pct))
+        except (TypeError, ValueError):
+            continue
+    if cleaned and max(cleaned) <= 1.0:
+        cleaned = [pct * 100 for pct in cleaned]
+    return cleaned
+
+def fetch_holders_from_api(address, chain, config):
+    template = config.get('holders_api_url_template')
+    if not template or not address:
+        return None
+    url = template.format(address=address, chain=chain or '')
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'pump-fade-bot'})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+    except Exception as e:
+        return {'error': str(e)}
+
+    holders = data
+    for key in config.get('holders_list_keys', ['data', 'result', 'holders']):
+        if isinstance(holders, dict) and key in holders:
+            holders = holders[key]
+            break
+    if not isinstance(holders, list):
+        return {'error': 'holders_list_not_found'}
+
+    percentages = []
+    percent_keys = config.get('holders_percent_keys', ['percentage', 'percent', 'share', 'holdingPercent', 'ratio'])
+    for holder in holders:
+        if isinstance(holder, dict):
+            for key in percent_keys:
+                if key in holder:
+                    try:
+                        percentages.append(float(holder[key]))
+                    except (TypeError, ValueError):
+                        pass
+                    break
+        else:
+            try:
+                percentages.append(float(holder))
+            except (TypeError, ValueError):
+                continue
+    return {'top_holders_pct': percentages, 'source': url}
+
+def load_holders_snapshot(symbol, config):
+    data_file = config.get('holders_data_file', HOLDERS_DATA_FILE)
+    cache_file = config.get('holders_cache_file', HOLDERS_CACHE_FILE)
+    base_symbol = normalize_symbol(symbol)
+
+    cached = read_json_file(cache_file, {})
+    snapshot = cached.get(symbol) or cached.get(base_symbol)
+    if snapshot:
+        return snapshot, 'cache'
+
+    data = read_json_file(data_file, {})
+    snapshot = data.get(symbol) or data.get(base_symbol)
+    if snapshot:
+        return snapshot, 'file'
+    return None, None
+
+def update_holders_cache(symbol, snapshot, config):
+    cache_file = config.get('holders_cache_file', HOLDERS_CACHE_FILE)
+    cache = read_json_file(cache_file, {})
+    cache[symbol] = snapshot
+    atomic_write_json(cache_file, cache)
+
+def check_holder_concentration(symbol, config):
+    if not config.get('enable_holders_filter', False):
+        return True, {'skipped': True}
+
+    snapshot, source = load_holders_snapshot(symbol, config)
+    if snapshot is None:
+        token_map = config.get('token_address_map', {}) or {}
+        token_info = token_map.get(symbol) or token_map.get(normalize_symbol(symbol))
+        if isinstance(token_info, dict):
+            address = token_info.get('address')
+            chain = token_info.get('chain')
+        else:
+            address = token_info
+            chain = None
+
+        refreshed = None
+        if address:
+            refreshed = fetch_holders_from_api(address, chain, config)
+            if refreshed and isinstance(refreshed, dict) and 'error' not in refreshed:
+                refreshed['updated_at'] = datetime.now().isoformat()
+                update_holders_cache(symbol, refreshed, config)
+                snapshot = refreshed
+                source = 'api'
+
+        if snapshot is None:
+            if config.get('require_holders_data', False):
+                return False, {'error': 'missing_holders_data'}
+            return True, {'missing': True}
+
+    percentages = extract_holder_percentages(snapshot, config)
+    if not percentages:
+        if config.get('require_holders_data', False):
+            return False, {'error': 'invalid_holders_data', 'source': source}
+        return True, {'missing': True, 'source': source}
+
+    percentages = sorted(percentages, reverse=True)
+    top1 = percentages[0] if len(percentages) >= 1 else 0.0
+    top5 = sum(percentages[:5])
+    top10 = sum(percentages[:10])
+
+    max_top1 = config.get('holders_max_top1_pct', 25.0)
+    max_top5 = config.get('holders_max_top5_pct', 45.0)
+    max_top10 = config.get('holders_max_top10_pct', 70.0)
+
+    ok = top1 <= max_top1 and top5 <= max_top5 and top10 <= max_top10
+    details = {
+        'top1_pct': top1,
+        'top5_pct': top5,
+        'top10_pct': top10,
+        'source': source
+    }
+    return ok, details
+
+def select_leverage(entry_quality, validation_score, config):
+    leverage = config.get('leverage_default', 3)
+    if not config.get('enable_dynamic_leverage', True):
+        return leverage
+
+    max_leverage = config.get('leverage_max', leverage)
+    min_leverage = config.get('leverage_min', leverage)
+    if entry_quality is None:
+        return leverage
+
+    if entry_quality >= config.get('leverage_quality_high', 85):
+        leverage += 2
+    elif entry_quality >= config.get('leverage_quality_mid', 75):
+        leverage += 1
+
+    if validation_score is not None and validation_score >= config.get('leverage_validation_bonus_threshold', 2):
+        leverage += 1
+
+    leverage = min(max_leverage, leverage)
+    leverage = max(min_leverage, leverage)
+    return leverage
+
+def is_funding_favorable(funding_rate, config):
+    if funding_rate is None:
+        return None
+    if config.get('funding_positive_is_favorable', True):
+        return funding_rate >= 0
+    return funding_rate <= 0
 
 def format_price(value):
     """Format a price for alerts safely."""
@@ -1059,6 +1272,12 @@ def validate_pump(ex, ex_name, symbol, ticker, pct_change, config):
     all_details['spread_check'] = spread_details
     if not spread_valid:
         return False, 'abnormal_spread_manipulation', all_details
+
+    # 5. Holders concentration check (optional)
+    holders_ok, holders_details = check_holder_concentration(symbol, config)
+    all_details['holders'] = holders_details
+    if not holders_ok:
+        return False, 'holders_concentration', all_details
     
     validation_score = 0
     validation_score += 1 if vol_valid else 0
@@ -1292,12 +1511,9 @@ def simulate_realistic_exit(exit_price, config):
 
 def calculate_funding_payment(trade, current_price, funding_rate, config):
     """Calculate funding payment for a SHORT position held across funding interval.
-    
-    Funding rate convention:
-    - Positive funding rate = shorts PAY longs (we pay)
-    - Negative funding rate = longs PAY shorts (we receive)
-    
-    Returns: funding impact (negative = we paid, positive = we received)
+
+    Funding direction can be flipped via config (positive usually favors shorts).
+    Returns: funding impact (positive = received, negative = paid)
     """
     if not config.get('paper_realistic_mode', True):
         return 0
@@ -1309,10 +1525,9 @@ def calculate_funding_payment(trade, current_price, funding_rate, config):
     # Position notional value (not multiplied by leverage - funding is on notional)
     position_notional = amount * current_price * contract_size
     
-    # For shorts: positive funding = we pay, negative funding = we receive
     # funding_rate is typically a small decimal like 0.0001 (0.01%)
-    # Negative return means cost to us
-    funding_payment = -position_notional * funding_rate
+    direction = 1 if config.get('funding_positive_is_favorable', True) else -1
+    funding_payment = position_notional * funding_rate * direction
     
     return funding_payment
 
@@ -1362,14 +1577,17 @@ def cancel_exchange_order(ex, symbol, order_id):
     except Exception as e:
         print(f"[{datetime.now()}] Failed to cancel order {order_id} for {symbol}: {e}")
 
-def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent_low, open_trades, config):
+def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent_low, open_trades, config, entry_quality=None, validation_details=None):
     """Enter a short position (paper or live) with swing high stop loss
     
     Args:
         recent_low: The low price before the pump (for fibonacci retracement calculation)
     """
     paper_mode = config['paper_mode']
-    leverage = config['leverage_default']
+    validation_score = None
+    if isinstance(validation_details, dict):
+        validation_score = validation_details.get('validation_score')
+    leverage = select_leverage(entry_quality, validation_score, config)
     use_swing_high = config.get('use_swing_high_sl', True)
     
     # Calculate stop loss - prefer swing high if enabled
@@ -1534,6 +1752,20 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
         save_closed_trade(ex_name, sym, entry, simulated_exit, net_profit, reason)
         save_signal(ex_name, sym, 'exit_signal', simulated_exit,
                    f"PAPER exit: {reason}, Net P&L ${net_profit:.2f} (fees ${total_fees:.2f})")
+
+        if config.get('enable_trade_logging', True):
+            outcome = {
+                'trade_id': trade_data.get('id'),
+                'exit_price': simulated_exit,
+                'net_profit': net_profit,
+                'gross_profit': gross_profit,
+                'fees': total_fees,
+                'funding': funding_payments,
+                'reason': reason,
+                'duration_min': ((time.time() - trade_data.get('entry_ts', time.time())) / 60),
+                'max_drawdown_pct': trade_data.get('max_drawdown_pct')
+            }
+            log_trade_features(sym, ex_name, 'exit', trade_data.get('features', {}), outcome)
         
         current_balance += net_profit * compound_pct
         daily_loss += min(net_profit, 0)
@@ -1551,6 +1783,20 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
         save_closed_trade(ex_name, sym, entry, current_price, profit, reason)
         save_signal(ex_name, sym, 'exit_signal', current_price,
                    f"LIVE exit: {reason}, P&L ${profit:.2f}")
+
+        if config.get('enable_trade_logging', True):
+            outcome = {
+                'trade_id': trade_data.get('id'),
+                'exit_price': current_price,
+                'net_profit': profit,
+                'gross_profit': profit,
+                'fees': trade_data.get('total_fees', 0),
+                'funding': trade_data.get('funding_payments', 0),
+                'reason': reason,
+                'duration_min': ((time.time() - trade_data.get('entry_ts', time.time())) / 60),
+                'max_drawdown_pct': trade_data.get('max_drawdown_pct')
+            }
+            log_trade_features(sym, ex_name, 'exit', trade_data.get('features', {}), outcome)
         current_balance += profit * compound_pct
         daily_loss += min(profit, 0)
         return profit, current_balance, daily_loss
@@ -1571,6 +1817,7 @@ def close_partial_trade(ex, trade, pct_to_close, reason, current_price, current_
         entry = trade_data.get('entry', current_price)
         total_amount = trade_data.get('amount', 0)
         leverage = trade_data.get('leverage', leverage_default)
+        contract_size = trade_data.get('contract_size', 1)
         
         # Calculate amount to close
         amount_to_close = total_amount * pct_to_close
@@ -1598,6 +1845,20 @@ def close_partial_trade(ex, trade, pct_to_close, reason, current_price, current_
         
         save_signal(ex_name, sym, 'partial_exit', simulated_exit,
                    f"Partial {pct_to_close*100:.0f}% exit: {reason}, P&L ${net_profit:.2f}")
+
+        if config.get('enable_trade_logging', True):
+            outcome = {
+                'trade_id': trade_data.get('id'),
+                'exit_price': simulated_exit,
+                'net_profit': net_profit,
+                'gross_profit': gross_profit,
+                'fees': exit_fee_cost,
+                'funding': partial_funding,
+                'reason': reason,
+                'pct_closed': pct_to_close,
+                'remaining_amount': remaining_amount
+            }
+            log_trade_features(sym, ex_name, 'partial_exit', trade_data.get('features', {}), outcome)
         
         current_balance += net_profit * compound_pct
         daily_loss += min(net_profit, 0)
@@ -1622,6 +1883,20 @@ def close_partial_trade(ex, trade, pct_to_close, reason, current_price, current_
         print(f"[{datetime.now()}] [LIVE] Partial close {sym} ({pct_to_close*100:.0f}%) - {reason}: P&L ${profit:.2f}")
         save_signal(ex_name, sym, 'partial_exit', current_price,
                    f"Partial {pct_to_close*100:.0f}% exit: {reason}, P&L ${profit:.2f}")
+
+        if config.get('enable_trade_logging', True):
+            outcome = {
+                'trade_id': trade_data.get('id'),
+                'exit_price': current_price,
+                'net_profit': profit,
+                'gross_profit': profit,
+                'fees': trade_data.get('total_fees', 0),
+                'funding': trade_data.get('funding_payments', 0) * pct_to_close,
+                'reason': reason,
+                'pct_closed': pct_to_close,
+                'remaining_amount': total_amount - amount_to_close
+            }
+            log_trade_features(sym, ex_name, 'partial_exit', trade_data.get('features', {}), outcome)
         
         current_balance += profit * compound_pct
         daily_loss += min(profit, 0)
@@ -1641,7 +1916,7 @@ def close_partial_trade(ex, trade, pct_to_close, reason, current_price, current_
 def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config):
     """Manage open trades: check SL, staged TP, trailing stop, time exit, and funding payments"""
     to_close = []
-    trailing_stop_pct = config['trailing_stop_pct']
+    base_trailing_stop_pct = config['trailing_stop_pct']
     paper_mode = config['paper_mode']
     funding_interval_hrs = config.get('paper_funding_interval_hrs', 8)
     funding_interval_sec = funding_interval_hrs * 3600
@@ -1659,6 +1934,15 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
         try:
             ticker = ex.fetch_ticker(trade['sym'])
             current_price = ticker['last']
+            info = ticker.get('info', {})
+            funding_rate = None
+            for key in ['funding_rate', 'fundingRate', 'funding']:
+                if key in info:
+                    try:
+                        funding_rate = float(info[key])
+                        break
+                    except (ValueError, TypeError):
+                        pass
             trade_data = trade.get('trade', trade)
             recent_low = trade_data.get('recent_low') or ticker.get('low', current_price)
             pump_high = trade_data.get('pump_high', current_price)
@@ -1679,21 +1963,19 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
             open_trades[i]['trade']['unrealized_pnl'] = unrealized_pnl
             open_trades[i]['trade']['pnl_percent'] = pnl_percent
             open_trades[i]['trade']['last_update'] = datetime.now().isoformat()
+            if funding_rate is not None:
+                open_trades[i]['trade']['funding_rate_current'] = funding_rate
+
+            max_dd = trade_data.get('max_drawdown_pct')
+            max_dd = pnl_percent if max_dd is None else min(max_dd, pnl_percent)
+            open_trades[i]['trade']['max_drawdown_pct'] = max_dd
 
             # Apply funding payments for paper trades (every 8 hours)
             if paper_mode and config.get('paper_realistic_mode', True):
                 last_funding_ts = trade_data.get('last_funding_ts', time.time())
                 if time.time() - last_funding_ts >= funding_interval_sec:
-                    info = ticker.get('info', {})
-                    funding_rate = 0
-                    for key in ['funding_rate', 'fundingRate', 'funding']:
-                        if key in info:
-                            try:
-                                funding_rate = float(info[key])
-                                break
-                            except (ValueError, TypeError):
-                                pass
-                    
+                    if funding_rate is None:
+                        funding_rate = 0
                     if funding_rate != 0:
                         funding_payment = calculate_funding_payment(trade, current_price, funding_rate, config)
                         old_funding = trade_data.get('funding_payments', 0)
@@ -1747,8 +2029,16 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
                 if i not in to_close:
                     # Trailing stop update
                     profit_pct = (entry - current_price) / entry if entry > 0 else 0
-                    if profit_pct > trailing_stop_pct:
-                        new_sl = current_price * (1 + trailing_stop_pct)
+                    effective_trailing_stop = base_trailing_stop_pct
+                    if config.get('enable_funding_bias', True) and funding_rate is not None:
+                        hold_threshold = config.get('funding_hold_threshold', 0.0001)
+                        favorable = is_funding_favorable(funding_rate, config)
+                        if favorable is False and abs(funding_rate) >= hold_threshold:
+                            tightened = base_trailing_stop_pct * config.get('funding_trailing_tighten_factor', 0.8)
+                            effective_trailing_stop = max(config.get('funding_trailing_min_pct', 0.03), tightened)
+
+                    if profit_pct > effective_trailing_stop:
+                        new_sl = current_price * (1 + effective_trailing_stop)
                         if new_sl < sl:
                             open_trades[i]['trade']['sl'] = new_sl
                             if not paper_mode and trade_data.get('amount', 0) > 0:
@@ -1766,8 +2056,16 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
                         break
                 else:
                     profit_pct = (entry - current_price) / entry if entry > 0 else 0
-                    if profit_pct > trailing_stop_pct:
-                        new_sl = current_price * (1 + trailing_stop_pct)
+                    effective_trailing_stop = base_trailing_stop_pct
+                    if config.get('enable_funding_bias', True) and funding_rate is not None:
+                        hold_threshold = config.get('funding_hold_threshold', 0.0001)
+                        favorable = is_funding_favorable(funding_rate, config)
+                        if favorable is False and abs(funding_rate) >= hold_threshold:
+                            tightened = base_trailing_stop_pct * config.get('funding_trailing_tighten_factor', 0.8)
+                            effective_trailing_stop = max(config.get('funding_trailing_min_pct', 0.03), tightened)
+
+                    if profit_pct > effective_trailing_stop:
+                        new_sl = current_price * (1 + effective_trailing_stop)
                         if new_sl < sl:
                             open_trades[i]['trade']['sl'] = new_sl
                             if not paper_mode and trade_data.get('amount', 0) > 0:
@@ -1776,11 +2074,30 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
                                 open_trades[i]['trade']['sl_order_id'] = sl_order.get('id') if sl_order else None
                             print(f"[{datetime.now()}] Trailing stop updated for {trade['sym']}: {new_sl:.4f}")
 
-            # Time exit (48h max)
+            # Time exit (configurable, with funding bias)
             if i not in to_close:
                 entry_ts = trade_data.get('entry_ts', time.time())
-                if time.time() - entry_ts > 172800:
-                    _, current_balance, daily_loss = close_trade(ex, trade, 'Time exit (48h)', current_price, current_balance, daily_loss, config)
+                max_hold_hours = config.get('max_hold_hours', 48)
+                time_exit_sec = max_hold_hours * 3600
+                if config.get('enable_funding_bias', True) and funding_rate is not None:
+                    hold_threshold = config.get('funding_hold_threshold', 0.0001)
+                    favorable = is_funding_favorable(funding_rate, config)
+                    if favorable is True and abs(funding_rate) >= hold_threshold:
+                        time_exit_sec += config.get('funding_time_extension_hours', 12) * 3600
+                    elif favorable is False and abs(funding_rate) >= hold_threshold:
+                        time_exit_sec = min(time_exit_sec, config.get('funding_adverse_time_cap_hours', 24) * 3600)
+
+                if time.time() - entry_ts > time_exit_sec:
+                    hold_hours = int(round(time_exit_sec / 3600))
+                    _, current_balance, daily_loss = close_trade(
+                        ex,
+                        trade,
+                        f'Time exit ({hold_hours}h)',
+                        current_price,
+                        current_balance,
+                        daily_loss,
+                        config
+                    )
                     to_close.append(i)
 
         except Exception as e:
@@ -1996,14 +2313,28 @@ def process_entry_watchlist(ex_name, ex, tickers, entry_watchlist, open_trades, 
 
         risk = current_balance * config['risk_pct_per_trade']
         trade_info = enter_short(
-            ex, ex_name, symbol, current_price, risk,
-            watch.get('pump_high', current_price), recent_low, open_trades, config
+            ex,
+            ex_name,
+            symbol,
+            current_price,
+            risk,
+            watch.get('pump_high', current_price),
+            recent_low,
+            open_trades,
+            config,
+            entry_quality=entry_quality,
+            validation_details=watch.get('validation_details')
         )
 
         if trade_info:
             trade_info['entry_ts'] = time.time()
             trade_info['entry_quality'] = entry_quality
             trade_info['validation_details'] = watch.get('validation_details')
+            trade_info['validation_score'] = (watch.get('validation_details') or {}).get('validation_score')
+            trade_info['pump_pct'] = watch.get('pct_change')
+            trade_info['funding_rate_entry'] = watch.get('funding_rate')
+            trade_info['rsi_peak'] = watch.get('rsi_peak')
+            trade_info['holders_details'] = watch.get('holders_details')
 
             open_trades.append({
                 'ex': ex_name,
@@ -2017,8 +2348,15 @@ def process_entry_watchlist(ex_name, ex, tickers, entry_watchlist, open_trades, 
                     'entry_timing': entry_details,
                     'entry_quality': entry_quality,
                     'entry_price': current_price,
-                    'pump_high': watch.get('pump_high', current_price)
+                    'pump_high': watch.get('pump_high', current_price),
+                    'pump_pct': watch.get('pct_change'),
+                    'funding_rate': watch.get('funding_rate'),
+                    'rsi_peak': watch.get('rsi_peak'),
+                    'holders': watch.get('holders_details'),
+                    'trade_id': trade_info.get('id'),
+                    'leverage': trade_info.get('leverage')
                 }
+                trade_info['features'] = combined_features
                 log_trade_features(symbol, ex_name, 'entry', combined_features)
 
             del entry_watchlist[ex_name][symbol]
@@ -2169,11 +2507,19 @@ def main():
                             except (ValueError, TypeError):
                                 pass
                     
-                    # Note: Funding filter disabled to catch all pumps
-                    # Positive funding = shorts paying longs (shorts crowded)
-                    # Negative funding = longs paying shorts (longs crowded after pump)
-                    # if funding <= config['funding_min']:
-                    #     continue
+                    if config.get('enable_funding_filter', False):
+                        favorable = is_funding_favorable(funding, config)
+                        if not favorable or abs(funding) < config.get('funding_min', 0.0001):
+                            save_signal(
+                                ex_name,
+                                symbol,
+                                'pump_rejected',
+                                current_price,
+                                f"Funding {funding*100:.3f}% below threshold",
+                                change_pct=None,
+                                funding_rate=funding
+                            )
+                            continue
 
                     # Calculate 24h percentage change from multiple sources
                     pct_change = 0
@@ -2296,6 +2642,9 @@ def main():
                                         'last_price': current_price,
                                         'pct_change': pct_change,
                                         'validation_details': validation_details,
+                                        'funding_rate': funding,
+                                        'rsi_peak': peak_val,
+                                        'holders_details': validation_details.get('holders') if isinstance(validation_details, dict) else None,
                                         'oi_peak': oi_value,
                                         'oi_last': oi_value
                                     }
