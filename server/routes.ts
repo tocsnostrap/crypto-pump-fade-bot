@@ -54,7 +54,15 @@ interface BotConfig {
   max_sl_pct_above_entry?: number;
   use_staged_exits?: boolean;
   staged_exit_levels?: { fib: number; pct: number }[];
+  staged_exit_levels_small?: { fib: number; pct: number }[];
+  staged_exit_levels_large?: { fib: number; pct: number }[];
   tp_fib_levels: number[];
+  enable_early_cut?: boolean;
+  early_cut_minutes?: number;
+  early_cut_max_loss_pct?: number;
+  early_cut_hard_loss_pct?: number;
+  early_cut_timeframe?: string;
+  early_cut_require_bullish?: boolean;
   max_open_trades: number;
   starting_capital: number;
   compound_pct: number;

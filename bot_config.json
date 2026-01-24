@@ -27,6 +27,22 @@
     {"fib": 0.886, "pct": 0.70}
   ],
   "tp_fib_levels": [0.618, 0.786, 0.886],
+  "staged_exit_levels_small": [
+    {"fib": 0.50, "pct": 0.30},
+    {"fib": 0.618, "pct": 0.30},
+    {"fib": 0.786, "pct": 0.40}
+  ],
+  "staged_exit_levels_large": [
+    {"fib": 0.618, "pct": 0.10},
+    {"fib": 0.786, "pct": 0.20},
+    {"fib": 0.886, "pct": 0.70}
+  ],
+  "enable_early_cut": true,
+  "early_cut_minutes": 90,
+  "early_cut_max_loss_pct": 0.025,
+  "early_cut_hard_loss_pct": 0.04,
+  "early_cut_timeframe": "5m",
+  "early_cut_require_bullish": true,
   
   "max_open_trades": 4,
   "starting_capital": 5000,

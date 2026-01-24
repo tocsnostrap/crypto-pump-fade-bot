@@ -49,6 +49,12 @@ DEFAULT_CONFIG = {
         {'fib': 0.886, 'pct': 0.70}     # 70% at 88.6% retrace
     ],
     'tp_fib_levels': [0.618, 0.786, 0.886],  # Fallback if staged exits disabled
+    'enable_early_cut': True,
+    'early_cut_minutes': 90,
+    'early_cut_max_loss_pct': 0.025,
+    'early_cut_hard_loss_pct': 0.04,
+    'early_cut_timeframe': '5m',
+    'early_cut_require_bullish': True,
     
     'max_open_trades': 4,
     'daily_loss_limit_pct': 0.05,
@@ -2140,6 +2146,36 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
                 to_close.append(i)
                 continue
 
+            # Early cut if trade stalls and momentum stays bullish
+            if config.get('enable_early_cut', False):
+                entry_ts = trade_data.get('entry_ts', time.time())
+                elapsed_min = (time.time() - entry_ts) / 60
+                early_cut_minutes = config.get('early_cut_minutes', 90)
+                if elapsed_min >= early_cut_minutes:
+                    max_loss_pct = config.get('early_cut_max_loss_pct', 0.025) * 100
+                    hard_loss_pct = config.get('early_cut_hard_loss_pct', 0.04) * 100
+                    should_cut = pnl_percent <= -hard_loss_pct
+                    require_bullish = config.get('early_cut_require_bullish', True)
+                    bullish_ok = True
+                    if require_bullish:
+                        tf = config.get('early_cut_timeframe', '5m')
+                        ema_fast = int(config.get('ema_fast', 9))
+                        ema_slow = int(config.get('ema_slow', 21))
+                        df_cut = get_ohlcv(ex, trade['sym'], timeframe=tf, limit=max(ema_fast, ema_slow) + 3)
+                        if df_cut is not None and len(df_cut) >= max(ema_fast, ema_slow) + 2:
+                            closes = np.array(df_cut['close'], dtype=np.float64)
+                            fast_val = talib.EMA(closes, timeperiod=ema_fast)[-1]
+                            slow_val = talib.EMA(closes, timeperiod=ema_slow)[-1]
+                            bullish_ok = closes[-1] > fast_val and fast_val > slow_val
+                    if not should_cut and pnl_percent <= -max_loss_pct and bullish_ok:
+                        should_cut = True
+
+                    if should_cut:
+                        exit_price = current_price
+                        _, current_balance, daily_loss = close_trade(ex, trade, 'Early cut', exit_price, current_balance, daily_loss, config)
+                        to_close.append(i)
+                        continue
+
             # === STAGED EXITS (optimized from backtest) ===
             skip_staged = trade_data.get('skip_staged_exits', False)
             if use_staged_exits and not skip_staged:
@@ -2484,6 +2520,7 @@ def process_entry_watchlist(ex_name, ex, tickers, entry_watchlist, open_trades, 
             trade_info['funding_rate_entry'] = watch.get('funding_rate')
             trade_info['rsi_peak'] = watch.get('rsi_peak')
             trade_info['holders_details'] = watch.get('holders_details')
+            trade_info['entry_timeframe'] = config.get('early_cut_timeframe', '5m')
 
             open_trades.append({
                 'ex': ex_name,
