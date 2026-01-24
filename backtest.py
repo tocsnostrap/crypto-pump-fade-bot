@@ -21,7 +21,7 @@ def load_config():
             return json.load(f)
     except:
         return {
-            'min_pump_pct': 55.0,
+            'min_pump_pct': 60.0,
             'max_pump_pct': 250.0,
             'min_volume_usdt': 1000000,
             'funding_min': 0.0001,
@@ -43,7 +43,7 @@ def load_config():
             'leverage_validation_bonus_threshold': 2,
             'risk_pct_per_trade': 0.01,
             'enable_quality_risk_scale': True,
-            'risk_scale_high': 3.5,
+            'risk_scale_high': 3.0,
             'risk_scale_mid': 1.5,
             'risk_scale_low': 0.6,
             'risk_scale_quality_high': 80,
@@ -73,7 +73,7 @@ def load_config():
                 {'fib': 0.786, 'pct': 0.20},
                 {'fib': 0.886, 'pct': 0.70}
             ],
-            'enable_early_cut': True,
+            'enable_early_cut': False,
             'early_cut_minutes': 90,
             'early_cut_max_loss_pct': 0.02,
             'early_cut_hard_loss_pct': 0.03,
@@ -115,8 +115,8 @@ def load_config():
             'pump_small_threshold_pct': 70,
             'require_entry_drawdown': True,
             'entry_drawdown_lookback': 24,
-            'min_drawdown_pct_small': 2.0,
-            'min_drawdown_pct_large': 3.5,
+            'min_drawdown_pct_small': 2.5,
+            'min_drawdown_pct_large': 4.0,
             'min_lower_highs': 2,
             'min_bb_extension_pct': 0.2,
             'enable_rsi_peak_filter': True,

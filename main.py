@@ -11,7 +11,7 @@ import urllib.request
 
 # === DEFAULT CONFIG (can be overridden by bot_config.json) ===
 DEFAULT_CONFIG = {
-    'min_pump_pct': 55.0,
+    'min_pump_pct': 60.0,
     'max_pump_pct': 250.0,              # Allow larger pumps but still filter extremes
     'poll_interval_sec': 300,
     'min_volume_usdt': 1000000,
@@ -29,7 +29,7 @@ DEFAULT_CONFIG = {
     'risk_pct_per_trade': 0.01,
     'reward_risk_min': 1.0,
     'enable_quality_risk_scale': True,
-    'risk_scale_high': 3.5,
+    'risk_scale_high': 3.0,
     'risk_scale_mid': 1.5,
     'risk_scale_low': 0.6,
     'risk_scale_quality_high': 80,
@@ -62,7 +62,7 @@ DEFAULT_CONFIG = {
         {'fib': 0.886, 'pct': 0.70}     # 70% at 88.6% retrace
     ],
     'tp_fib_levels': [0.618, 0.786, 0.886],  # Fallback if staged exits disabled
-    'enable_early_cut': True,
+    'enable_early_cut': False,
     'early_cut_minutes': 90,
     'early_cut_max_loss_pct': 0.02,
     'early_cut_hard_loss_pct': 0.03,
@@ -147,8 +147,8 @@ DEFAULT_CONFIG = {
     'pump_small_threshold_pct': 70,     # Small vs large pump threshold
     'require_entry_drawdown': True,
     'entry_drawdown_lookback': 24,
-    'min_drawdown_pct_small': 2.0,
-    'min_drawdown_pct_large': 3.5,
+    'min_drawdown_pct_small': 2.5,
+    'min_drawdown_pct_large': 4.0,
     'enable_rsi_peak_filter': True,     # Require RSI peak in recent candles
     'rsi_peak_lookback': 12,            # Lookback candles for RSI peak
     'enable_rsi_pullback': True,        # Require RSI to roll over from peak
