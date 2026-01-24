@@ -45,7 +45,7 @@ DEFAULT_CONFIG = {
     'compound_pct': 0.60,
     'starting_capital': 5000.0,
     'paper_mode': True,
-    'trailing_stop_pct': 0.05,
+    'trailing_stop_pct': 0.06,
     'max_hold_hours': 48,
     
     # Realistic paper trading simulation parameters (Gate.io fees)
@@ -72,11 +72,19 @@ DEFAULT_CONFIG = {
     
     'enable_spread_check': True,        # Check for abnormal spreads (manipulation)
     'max_spread_pct': 0.5,              # Max bid/ask spread % allowed
+    'enable_multi_window_pump': True,
+    'multi_window_hours': [1, 4, 12, 24],
+    'ohlcv_max_calls_per_cycle': 25,
     
     # === ENTRY TIMING (early entry with strict filters) ===
     'enable_structure_break': True,     # Wait for micro-structure break
     'structure_break_candles': 3,       # Number of candles to confirm break
     'min_lower_highs': 2,               # Require 2+ lower highs for higher win rate
+    'enable_ema_filter': True,
+    'ema_fast': 9,
+    'ema_slow': 21,
+    'require_ema_breakdown': True,
+    'ema_required_pump_pct': 70,
     
     'enable_blowoff_detection': True,   # Detect blow-off top patterns
     'blowoff_wick_ratio': 2.0,          # Upper wick must be N times body
@@ -599,8 +607,10 @@ def get_ohlcv(ex, symbol, timeframe='15m', limit=20):
 
 # OHLCV cache: {exchange_name: {symbol: {'pct': change, 'ts': timestamp}}}
 ohlcv_cache = {}
+multi_ohlcv_cache = {}
 OHLCV_CACHE_TTL = 3600  # Cache for 1 hour
-OHLCV_MAX_CALLS_PER_CYCLE = 10  # Limit OHLCV calls per cycle to avoid rate limits
+MULTI_OHLCV_CACHE_TTL = 300  # Multi-window cache for 5 min
+ohlcv_max_calls_per_cycle = 10  # Default; can be overridden by config each cycle
 ohlcv_calls_this_cycle = 0
 POSITION_SYNC_INTERVAL_SEC = 300  # Live position reconciliation interval
 
@@ -615,7 +625,7 @@ def get_24h_change_from_ohlcv(ex, ex_name, symbol):
             return cached['pct'], True
     
     # Rate limit check
-    if ohlcv_calls_this_cycle >= OHLCV_MAX_CALLS_PER_CYCLE:
+    if ohlcv_calls_this_cycle >= ohlcv_max_calls_per_cycle:
         return 0, False
     
     try:
@@ -635,6 +645,56 @@ def get_24h_change_from_ohlcv(ex, ex_name, symbol):
     except Exception as e:
         print(f"[{datetime.now()}] OHLCV fallback failed for {symbol}: {e}")
     return 0, False
+
+def get_multi_window_change_from_ohlcv(ex, ex_name, symbol, config):
+    """Calculate percentage change across multiple windows using 1h candles."""
+    global ohlcv_calls_this_cycle
+
+    windows = config.get('multi_window_hours', [1, 4, 12, 24])
+    if not windows:
+        return 0, False, None
+
+    max_window = max(windows)
+    cache_key = f"{ex_name}:{symbol}:{max_window}"
+    cached = multi_ohlcv_cache.get(cache_key)
+    now = time.time()
+    if cached and now - cached.get('ts', 0) < MULTI_OHLCV_CACHE_TTL:
+        return cached.get('pct', 0), cached.get('ok', False), cached.get('details')
+
+    if ohlcv_calls_this_cycle >= ohlcv_max_calls_per_cycle:
+        return 0, False, None
+
+    try:
+        ohlcv_calls_this_cycle += 1
+        limit = max_window + 1
+        ohlcv = ex.fetch_ohlcv(symbol, timeframe='1h', limit=limit)
+        if not ohlcv or len(ohlcv) < max_window + 1:
+            return 0, False, None
+
+        closes = [c[4] for c in ohlcv]
+        newest_close = closes[-1]
+        changes = {}
+        best_pct = 0
+        best_window = None
+
+        for window in windows:
+            idx = -(window + 1)
+            if abs(idx) > len(closes):
+                continue
+            old_close = closes[idx]
+            if old_close and old_close > 0:
+                pct_change = ((newest_close - old_close) / old_close) * 100
+                changes[window] = pct_change
+                if pct_change > best_pct:
+                    best_pct = pct_change
+                    best_window = window
+
+        details = {'changes': changes, 'window_hours': best_window}
+        multi_ohlcv_cache[cache_key] = {'pct': best_pct, 'ok': bool(best_window), 'details': details, 'ts': now}
+        return best_pct, bool(best_window), details
+    except Exception as e:
+        print(f"[{datetime.now()}] Multi-window OHLCV failed for {symbol}: {e}")
+        return 0, False, None
 
 def check_fade_signals(df):
     """Check for reversal (fade) signals indicating potential short entry"""
@@ -1086,6 +1146,31 @@ def check_volume_decline(df, config):
     except Exception as e:
         return False, {'error': str(e)}
 
+def check_ema_breakdown(df, config):
+    """Check for EMA breakdown (close below fast EMA and fast below slow)."""
+    if not config.get('enable_ema_filter', True):
+        return True, {'skipped': True}
+    try:
+        ema_fast = int(config.get('ema_fast', 9))
+        ema_slow = int(config.get('ema_slow', 21))
+        if df is None or len(df) < max(ema_fast, ema_slow) + 2:
+            return False, {'error': 'insufficient_data'}
+        closes = np.array(df['close'], dtype=np.float64)
+        fast_val = talib.EMA(closes, timeperiod=ema_fast)[-1]
+        slow_val = talib.EMA(closes, timeperiod=ema_slow)[-1]
+        last_close = closes[-1]
+        breakdown = last_close < fast_val and fast_val < slow_val
+        return breakdown, {
+            'ema_fast': ema_fast,
+            'ema_slow': ema_slow,
+            'fast': float(fast_val),
+            'slow': float(slow_val),
+            'close': float(last_close),
+            'breakdown': breakdown
+        }
+    except Exception as e:
+        return False, {'error': str(e)}
+
 def check_rsi_peak(df, config):
     """Check if RSI peaked above threshold in recent candles."""
     if not config.get('enable_rsi_peak_filter', True):
@@ -1323,6 +1408,12 @@ def check_entry_timing(ex, symbol, df, config, pump_pct=None, oi_state=None):
     all_details['volume_decline'] = vol_details
     if vol_decline:
         entry_quality += 12
+
+    # 2.5 EMA Breakdown Check (trend shift confirmation)
+    ema_breakdown, ema_details = check_ema_breakdown(df, config)
+    all_details['ema_breakdown'] = ema_details
+    if ema_breakdown:
+        entry_quality += 8
     
     # 3. Lower Highs Check (100% of dumps showed 3+ lower highs)
     lower_highs, lh_details = count_lower_highs(df, config)
@@ -1396,6 +1487,11 @@ def check_entry_timing(ex, symbol, df, config, pump_pct=None, oi_state=None):
 
     if config.get('require_fade_signal', False) and not fade_valid:
         threshold = config.get('fade_signal_required_pump_pct')
+        if threshold is None or pump_pct is None or pump_pct < threshold:
+            should_enter = False
+
+    if config.get('require_ema_breakdown', False) and not ema_breakdown:
+        threshold = config.get('ema_required_pump_pct')
         if threshold is None or pump_pct is None or pump_pct < threshold:
             should_enter = False
 
@@ -2343,6 +2439,7 @@ def process_entry_watchlist(ex_name, ex, tickers, entry_watchlist, open_trades, 
             trade_info['validation_details'] = watch.get('validation_details')
             trade_info['validation_score'] = (watch.get('validation_details') or {}).get('validation_score')
             trade_info['pump_pct'] = watch.get('pct_change')
+            trade_info['pump_window_hours'] = watch.get('pump_window_hours')
             trade_info['funding_rate_entry'] = watch.get('funding_rate')
             trade_info['rsi_peak'] = watch.get('rsi_peak')
             trade_info['holders_details'] = watch.get('holders_details')
@@ -2361,6 +2458,8 @@ def process_entry_watchlist(ex_name, ex, tickers, entry_watchlist, open_trades, 
                     'entry_price': current_price,
                     'pump_high': watch.get('pump_high', current_price),
                     'pump_pct': watch.get('pct_change'),
+                    'pump_window_hours': watch.get('pump_window_hours'),
+                    'change_source': watch.get('change_source'),
                     'funding_rate': watch.get('funding_rate'),
                     'rsi_peak': watch.get('rsi_peak'),
                     'holders': watch.get('holders_details'),
@@ -2417,9 +2516,11 @@ def main():
         try:
             global ohlcv_calls_this_cycle
             ohlcv_calls_this_cycle = 0  # Reset OHLCV rate limit counter each cycle
+            global ohlcv_max_calls_per_cycle
             
             # Reload config each iteration to pick up changes from dashboard
             config = load_config()
+            ohlcv_max_calls_per_cycle = int(config.get('ohlcv_max_calls_per_cycle', ohlcv_max_calls_per_cycle))
             
             current_date = datetime.now().date()
             if current_date != last_daily_reset:
@@ -2571,6 +2672,22 @@ def main():
                                 pct_change = ((current_price - prev['price']) / prev['price']) * 100
                                 change_source = 'stored'
                     
+                    pump_window_hours = 24 if change_source is not None else None
+
+                    # Optional: multi-window pump detection (1h/4h/12h/24h)
+                    multi_details = None
+                    if config.get('enable_multi_window_pump', False):
+                        multi_pct, multi_ok, multi_details = get_multi_window_change_from_ohlcv(
+                            ex, ex_name, symbol, config
+                        )
+                        if multi_ok and multi_pct > pct_change:
+                            pct_change = multi_pct
+                            pump_window_hours = multi_details.get('window_hours')
+                            if pump_window_hours:
+                                change_source = f"{pump_window_hours}h"
+                            else:
+                                change_source = 'multi'
+
                     # Update stored price only if not already tracked or older than 24h
                     if ex_name not in prev_data:
                         prev_data[ex_name] = {}
@@ -2600,11 +2717,12 @@ def main():
                         continue
                     
                     if pct_change >= min_pump:
+                        window_label = f"{pump_window_hours}h" if pump_window_hours else change_source
                         print(f"[{datetime.now()}] PUMP DETECTED! {ex_name} {symbol}")
-                        print(f"  Change: +{pct_change:.1f}% ({change_source}) | Volume: ${volume:,.0f} | Funding: {funding*100:.4f}%")
+                        print(f"  Change: +{pct_change:.1f}% ({window_label}) | Volume: ${volume:,.0f} | Funding: {funding*100:.4f}%")
                         
                         save_signal(ex_name, symbol, 'pump_detected', current_price,
-                                   f"Pump +{pct_change:.1f}% detected, validating...",
+                                   f"Pump +{pct_change:.1f}% ({window_label}) detected, validating...",
                                    change_pct=pct_change, funding_rate=funding)
 
                         # === PUMP VALIDATION PHASE ===
@@ -2652,6 +2770,8 @@ def main():
                                         'pump_high': current_price,
                                         'last_price': current_price,
                                         'pct_change': pct_change,
+                                        'pump_window_hours': pump_window_hours,
+                                        'change_source': change_source,
                                         'validation_details': validation_details,
                                         'funding_rate': funding,
                                         'rsi_peak': peak_val,

@@ -34,6 +34,8 @@ export interface TradeInfo {
   validation_score?: number;
   validation_details?: Record<string, unknown>;
   pump_pct?: number;
+  pump_window_hours?: number;
+  change_source?: string;
   funding_rate_entry?: number;
   funding_rate_current?: number;
   holders_details?: Record<string, unknown> | null;
@@ -105,6 +107,9 @@ export interface BotConfig {
   max_hold_hours?: number;
   enable_bollinger_check?: boolean;
   min_bb_extension_pct?: number;
+  enable_multi_window_pump?: boolean;
+  multi_window_hours?: number[];
+  ohlcv_max_calls_per_cycle?: number;
   enable_structure_break?: boolean;
   structure_break_candles?: number;
   time_decay_minutes?: number;
@@ -112,6 +117,11 @@ export interface BotConfig {
   enable_volume_decline_check?: boolean;
   require_fade_signal?: boolean;
   fade_signal_required_pump_pct?: number;
+  enable_ema_filter?: boolean;
+  ema_fast?: number;
+  ema_slow?: number;
+  require_ema_breakdown?: boolean;
+  ema_required_pump_pct?: number;
   min_fade_signals?: number;
   min_entry_quality_small?: number;
   min_entry_quality_large?: number;

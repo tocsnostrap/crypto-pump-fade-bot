@@ -54,6 +54,9 @@ def load_config():
             'min_validation_score': 1,
             'enable_multi_timeframe': True,
             'mtf_rsi_threshold': 65,
+            'enable_multi_window_pump': True,
+            'multi_window_hours': [1, 4, 12, 24],
+            'ohlcv_max_calls_per_cycle': 25,
             'enable_structure_break': True,
             'structure_break_candles': 3,
             'enable_blowoff_detection': True,
@@ -81,6 +84,7 @@ def load_config():
             'paper_slippage_pct': 0.0015,
             'paper_spread_pct': 0.001,
             'paper_fee_pct': 0.0005,
+            'trailing_stop_pct': 0.06,
             'max_hold_hours': 48,
             'enable_funding_filter': False,
             'enable_holders_filter': False,
@@ -102,6 +106,11 @@ def load_config():
             'funding_adverse_time_cap_hours': 24,
             'funding_trailing_min_pct': 0.03,
             'funding_trailing_tighten_factor': 0.8,
+            'enable_ema_filter': True,
+            'ema_fast': 9,
+            'ema_slow': 21,
+            'require_ema_breakdown': True,
+            'ema_required_pump_pct': 70,
         }
 
 # Initialize exchange
