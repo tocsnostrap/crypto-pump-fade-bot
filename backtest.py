@@ -108,7 +108,7 @@ def load_config():
             'fade_signal_min_confirms_large': 2,
             'min_fade_signals': 1,
             'min_entry_quality': 58,
-            'min_entry_quality_small': 62,
+            'min_entry_quality_small': 61,
             'min_entry_quality_large': 58,
             'min_fade_signals_small': 2,
             'min_fade_signals_large': 1,

@@ -423,7 +423,7 @@ export default function Dashboard() {
       enable_rsi_peak_filter: true,
       rsi_peak_lookback: 12,
       min_entry_quality: 58,
-      min_entry_quality_small: 62,
+      min_entry_quality_small: 61,
       min_entry_quality_large: 58,
       min_fade_signals_small: 2,
       min_fade_signals_large: 1,
