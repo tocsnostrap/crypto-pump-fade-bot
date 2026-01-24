@@ -37,12 +37,14 @@
     {"fib": 0.786, "pct": 0.20},
     {"fib": 0.886, "pct": 0.70}
   ],
-  "enable_early_cut": true,
+  "enable_early_cut": false,
   "early_cut_minutes": 60,
   "early_cut_max_loss_pct": 0.02,
   "early_cut_hard_loss_pct": 0.03,
   "early_cut_timeframe": "5m",
   "early_cut_require_bullish": true,
+  "enable_breakeven_after_first_tp": true,
+  "breakeven_buffer_pct": 0.001,
   
   "max_open_trades": 4,
   "starting_capital": 5000,

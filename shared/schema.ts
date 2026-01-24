@@ -109,6 +109,8 @@ export interface BotConfig {
   early_cut_hard_loss_pct?: number;
   early_cut_timeframe?: string;
   early_cut_require_bullish?: boolean;
+  enable_breakeven_after_first_tp?: boolean;
+  breakeven_buffer_pct?: number;
   max_open_trades: number;
   starting_capital: number;
   compound_pct: number;

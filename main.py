@@ -49,12 +49,14 @@ DEFAULT_CONFIG = {
         {'fib': 0.886, 'pct': 0.70}     # 70% at 88.6% retrace
     ],
     'tp_fib_levels': [0.618, 0.786, 0.886],  # Fallback if staged exits disabled
-    'enable_early_cut': True,
+    'enable_early_cut': False,
     'early_cut_minutes': 60,
     'early_cut_max_loss_pct': 0.02,
     'early_cut_hard_loss_pct': 0.03,
     'early_cut_timeframe': '5m',
     'early_cut_require_bullish': True,
+    'enable_breakeven_after_first_tp': True,
+    'breakeven_buffer_pct': 0.001,
     
     'max_open_trades': 4,
     'daily_loss_limit_pct': 0.05,
@@ -2203,6 +2205,18 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
                         exits_taken.append(fib)
                         open_trades[i]['trade'] = updated_trade
                         open_trades[i]['trade']['exits_taken'] = exits_taken
+
+                        # Move SL to breakeven after first TP
+                        if config.get('enable_breakeven_after_first_tp', False) and len(exits_taken) == 1:
+                            buffer_pct = config.get('breakeven_buffer_pct', 0.001)
+                            new_sl = entry * (1 + buffer_pct)
+                            if new_sl < sl:
+                                open_trades[i]['trade']['sl'] = new_sl
+                                if not paper_mode and trade_data.get('amount', 0) > 0:
+                                    cancel_exchange_order(ex, trade['sym'], trade_data.get('sl_order_id'))
+                                    sl_order = place_exchange_stop_loss(ex, trade['sym'], trade_data['amount'], new_sl)
+                                    open_trades[i]['trade']['sl_order_id'] = sl_order.get('id') if sl_order else None
+                                print(f"[{datetime.now()}] Breakeven SL set for {trade['sym']}: {new_sl:.4f}")
                         
                         if not still_open:
                             to_close.append(i)
