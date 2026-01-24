@@ -42,6 +42,12 @@ interface BotConfig {
   rsi_overbought: number;
   leverage_default: number;
   reward_risk_min?: number;
+  enable_quality_risk_scale?: boolean;
+  risk_scale_high?: number;
+  risk_scale_low?: number;
+  risk_scale_quality_high?: number;
+  risk_scale_quality_low?: number;
+  risk_scale_validation_min?: number;
   enable_dynamic_leverage?: boolean;
   leverage_min?: number;
   leverage_max?: number;

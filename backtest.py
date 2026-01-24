@@ -39,6 +39,12 @@ def load_config():
             'leverage_quality_high': 85,
             'leverage_validation_bonus_threshold': 2,
             'risk_pct_per_trade': 0.01,
+            'enable_quality_risk_scale': True,
+            'risk_scale_high': 1.2,
+            'risk_scale_low': 0.8,
+            'risk_scale_quality_high': 80,
+            'risk_scale_quality_low': 60,
+            'risk_scale_validation_min': 1,
             'reward_risk_min': 1.0,
             'sl_pct_above_entry': 0.12,
             'max_sl_pct_above_entry': 0.06,
@@ -320,7 +326,17 @@ def simulate_exact_trade(df_5m, pump_idx, pump_high, pump_pct, config, capital):
     if sl_distance <= 0:
         return None
 
-    risk_amount = capital * config.get('risk_pct_per_trade', 0.01)
+    risk_multiplier = 1.0
+    if config.get('enable_quality_risk_scale', False):
+        high_q = config.get('risk_scale_quality_high', 80)
+        low_q = config.get('risk_scale_quality_low', 60)
+        if entry_quality is not None:
+            if entry_quality >= high_q:
+                risk_multiplier = config.get('risk_scale_high', 1.2)
+            elif entry_quality <= low_q:
+                risk_multiplier = config.get('risk_scale_low', 0.8)
+
+    risk_amount = capital * config.get('risk_pct_per_trade', 0.01) * risk_multiplier
     position_size = risk_amount / sl_distance
 
     recent_low = find_recent_low(df_5m, entry_idx, lookback=24)

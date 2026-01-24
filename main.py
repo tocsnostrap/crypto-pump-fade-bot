@@ -27,6 +27,12 @@ DEFAULT_CONFIG = {
     'leverage_validation_bonus_threshold': 2,
     'risk_pct_per_trade': 0.01,
     'reward_risk_min': 1.0,
+    'enable_quality_risk_scale': True,
+    'risk_scale_high': 1.2,
+    'risk_scale_low': 0.8,
+    'risk_scale_quality_high': 80,
+    'risk_scale_quality_low': 60,
+    'risk_scale_validation_min': 1,
     'sl_pct_above_entry': 0.12,         # Fallback SL if swing high not available
     'max_sl_pct_above_entry': 0.06,     # Cap swing-high SL distance
     'max_sl_pct_small': 0.05,
@@ -2609,7 +2615,18 @@ def process_entry_watchlist(ex_name, ex, tickers, entry_watchlist, open_trades, 
         # Calculate recent_low from recent candles for TP calculation
         recent_low = df['low'].iloc[-24:].min() if len(df) >= 24 else df['low'].min()
 
-        risk = current_balance * config['risk_pct_per_trade']
+        risk_multiplier = 1.0
+        if config.get('enable_quality_risk_scale', False):
+            high_q = config.get('risk_scale_quality_high', 80)
+            low_q = config.get('risk_scale_quality_low', 60)
+            validation_min = config.get('risk_scale_validation_min', 1)
+            validation_score = (watch.get('validation_details') or {}).get('validation_score', 0)
+            if entry_quality >= high_q and validation_score >= validation_min:
+                risk_multiplier = config.get('risk_scale_high', 1.2)
+            elif entry_quality <= low_q:
+                risk_multiplier = config.get('risk_scale_low', 0.8)
+
+        risk = current_balance * config['risk_pct_per_trade'] * risk_multiplier
         trade_info = enter_short(
             ex,
             ex_name,

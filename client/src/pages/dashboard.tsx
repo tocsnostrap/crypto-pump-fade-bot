@@ -337,6 +337,12 @@ export default function Dashboard() {
     config: {
       paper_mode: true,
       leverage_default: 3,
+      enable_quality_risk_scale: true,
+      risk_scale_high: 1.2,
+      risk_scale_low: 0.8,
+      risk_scale_quality_high: 80,
+      risk_scale_quality_low: 60,
+      risk_scale_validation_min: 1,
       risk_pct_per_trade: 0.01,
       starting_capital: 5000,
       min_pump_pct: 58,
