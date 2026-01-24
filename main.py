@@ -28,7 +28,7 @@ DEFAULT_CONFIG = {
     'risk_pct_per_trade': 0.01,
     'reward_risk_min': 1.0,
     'enable_quality_risk_scale': True,
-    'risk_scale_high': 2.5,
+    'risk_scale_high': 3.0,
     'risk_scale_low': 0.5,
     'risk_scale_quality_high': 80,
     'risk_scale_quality_low': 60,
