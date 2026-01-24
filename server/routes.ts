@@ -53,6 +53,8 @@ interface BotConfig {
   sl_swing_buffer_pct?: number;
   sl_pct_above_entry: number;
   max_sl_pct_above_entry?: number;
+  max_sl_pct_small?: number;
+  max_sl_pct_large?: number;
   use_staged_exits?: boolean;
   staged_exit_levels?: { fib: number; pct: number }[];
   staged_exit_levels_small?: { fib: number; pct: number }[];

@@ -29,6 +29,8 @@ DEFAULT_CONFIG = {
     'reward_risk_min': 1.2,
     'sl_pct_above_entry': 0.12,         # Fallback SL if swing high not available
     'max_sl_pct_above_entry': 0.06,     # Cap swing-high SL distance
+    'max_sl_pct_small': 0.05,
+    'max_sl_pct_large': 0.06,
     'use_swing_high_sl': True,          # Use swing high for stop loss (improved win/loss ratio)
     'sl_swing_buffer_pct': 0.03,        # 3% buffer above swing high for SL
     
@@ -1743,9 +1745,14 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
     use_swing_high = config.get('use_swing_high_sl', True)
     
     # Calculate stop loss - prefer swing high if enabled
+    pump_threshold = config.get('pump_small_threshold_pct', 60)
+    if pump_pct is not None:
+        max_sl_pct = config.get('max_sl_pct_small') if pump_pct < pump_threshold else config.get('max_sl_pct_large')
+    else:
+        max_sl_pct = config.get('max_sl_pct_above_entry')
+
     if use_swing_high:
         sl_price, sl_pct, swing_high = calculate_swing_high_sl(ex, symbol, entry_price, config)
-        max_sl_pct = config.get('max_sl_pct_above_entry')
         if max_sl_pct:
             sl_cap = entry_price * (1 + max_sl_pct)
             if sl_price > sl_cap:
@@ -1768,7 +1775,6 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
         else:
             sl_price = simulated_entry * (1 + sl_pct)
 
-        max_sl_pct = config.get('max_sl_pct_above_entry')
         if max_sl_pct:
             sl_cap = simulated_entry * (1 + max_sl_pct)
             if sl_price > sl_cap:
