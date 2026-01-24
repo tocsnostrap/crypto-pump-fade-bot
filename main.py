@@ -128,9 +128,9 @@ DEFAULT_CONFIG = {
     'time_decay_minutes': 120,          # Skip if no reversal within N minutes
 
     # === ENTRY QUALITY TUNING ===
-    'min_entry_quality': 58,            # Base minimum quality
-    'min_entry_quality_small': 62,      # Stricter for smaller pumps
-    'min_entry_quality_large': 58,      # Looser for larger pumps
+    'min_entry_quality': 57,            # Base minimum quality
+    'min_entry_quality_small': 61,      # Stricter for smaller pumps
+    'min_entry_quality_large': 57,      # Looser for larger pumps
     'min_fade_signals_small': 2,        # Small pump confirmations
     'min_fade_signals_large': 1,        # Large pump confirmations
     'pump_small_threshold_pct': 65,     # Small vs large pump threshold
