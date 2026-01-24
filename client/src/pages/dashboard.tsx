@@ -338,7 +338,7 @@ export default function Dashboard() {
       paper_mode: true,
       leverage_default: 3,
       enable_quality_risk_scale: true,
-      risk_scale_high: 4.0,
+      risk_scale_high: 5.0,
       risk_scale_mid: 1.2,
       risk_scale_low: 0.6,
       risk_scale_quality_high: 80,
