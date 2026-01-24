@@ -131,6 +131,10 @@ DEFAULT_CONFIG = {
     'min_fade_signals_small': 2,        # Small pump confirmations
     'min_fade_signals_large': 1,        # Large pump confirmations
     'pump_small_threshold_pct': 70,     # Small vs large pump threshold
+    'require_entry_drawdown': True,
+    'entry_drawdown_lookback': 24,
+    'min_drawdown_pct_small': 2.0,
+    'min_drawdown_pct_large': 3.0,
     'enable_rsi_peak_filter': True,     # Require RSI peak in recent candles
     'rsi_peak_lookback': 12,            # Lookback candles for RSI peak
     'enable_rsi_pullback': True,        # Require RSI to roll over from peak
@@ -1445,6 +1449,34 @@ def check_entry_timing(ex, symbol, df, config, pump_pct=None, oi_state=None):
     all_details['ema_breakdown'] = ema_details
     if ema_breakdown:
         entry_quality += 8
+
+    # 2.7 Drawdown from recent high (avoid early shorts)
+    drawdown_lookback = int(config.get('entry_drawdown_lookback', 24))
+    drawdown_pct = 0
+    if df is not None and len(df) >= 2:
+        lookback = df.iloc[-drawdown_lookback:] if len(df) >= drawdown_lookback else df
+        recent_high = float(lookback['high'].max())
+        current_close = float(df['close'].iloc[-1])
+        if recent_high > 0:
+            drawdown_pct = (recent_high - current_close) / recent_high * 100
+    min_drawdown = 0.0
+    if pump_pct is not None:
+        threshold = config.get('pump_small_threshold_pct', 60)
+        if pump_pct < threshold:
+            min_drawdown = float(config.get('min_drawdown_pct_small', 2.0))
+        else:
+            min_drawdown = float(config.get('min_drawdown_pct_large', 3.0))
+    else:
+        min_drawdown = float(config.get('min_drawdown_pct_large', 3.0))
+    drawdown_ok = drawdown_pct >= min_drawdown
+    all_details['entry_drawdown'] = {
+        'drawdown_pct': drawdown_pct,
+        'min_required': min_drawdown,
+        'lookback_candles': drawdown_lookback,
+        'ok': drawdown_ok
+    }
+    if drawdown_ok:
+        entry_quality += 6
     
     # 3. Lower Highs Check (100% of dumps showed 3+ lower highs)
     lower_highs, lh_details = count_lower_highs(df, config)
@@ -1533,6 +1565,9 @@ def check_entry_timing(ex, symbol, df, config, pump_pct=None, oi_state=None):
         threshold = config.get('ema_required_pump_pct')
         if threshold is None or pump_pct is None or pump_pct < threshold:
             should_enter = False
+
+    if config.get('require_entry_drawdown', False) and not drawdown_ok:
+        should_enter = False
 
     # Volatility gating
     if not atr_ok:

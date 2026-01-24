@@ -100,6 +100,10 @@ interface BotConfig {
   min_fade_signals_small?: number;
   min_fade_signals_large?: number;
   pump_small_threshold_pct?: number;
+  require_entry_drawdown?: boolean;
+  entry_drawdown_lookback?: number;
+  min_drawdown_pct_small?: number;
+  min_drawdown_pct_large?: number;
   enable_rsi_peak_filter?: boolean;
   rsi_peak_lookback?: number;
   min_entry_quality?: number;
