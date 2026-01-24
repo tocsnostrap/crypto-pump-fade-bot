@@ -58,6 +58,9 @@ DEFAULT_CONFIG = {
     'early_cut_hard_loss_pct': 0.03,
     'early_cut_timeframe': '5m',
     'early_cut_require_bullish': True,
+    'enable_time_stop_tighten': True,
+    'time_stop_minutes': 180,
+    'time_stop_sl_pct': 0.03,
     'enable_breakeven_after_first_tp': True,
     'breakeven_after_tps': 1,
     'breakeven_buffer_pct': 0.001,
@@ -2224,6 +2227,23 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
                 _, current_balance, daily_loss = close_trade(ex, trade, 'SL hit', exit_price, current_balance, daily_loss, config)
                 to_close.append(i)
                 continue
+
+            # Time-based SL tightening
+            if config.get('enable_time_stop_tighten', False):
+                entry_ts = trade_data.get('entry_ts', time.time())
+                elapsed_min = (time.time() - entry_ts) / 60
+                tighten_after = config.get('time_stop_minutes', 180)
+                if elapsed_min >= tighten_after:
+                    tighten_pct = config.get('time_stop_sl_pct', 0.03)
+                    tightened_sl = entry * (1 + tighten_pct)
+                    if tightened_sl < sl:
+                        open_trades[i]['trade']['sl'] = tightened_sl
+                        sl = tightened_sl
+                        if not paper_mode and trade_data.get('amount', 0) > 0:
+                            cancel_exchange_order(ex, trade['sym'], trade_data.get('sl_order_id'))
+                            sl_order = place_exchange_stop_loss(ex, trade['sym'], trade_data['amount'], tightened_sl)
+                            open_trades[i]['trade']['sl_order_id'] = sl_order.get('id') if sl_order else None
+                        print(f"[{datetime.now()}] Time stop tightened for {trade['sym']}: {tightened_sl:.4f}")
 
             # Early cut if trade stalls and momentum stays bullish
             if config.get('enable_early_cut', False):

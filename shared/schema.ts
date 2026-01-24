@@ -112,6 +112,9 @@ export interface BotConfig {
   early_cut_hard_loss_pct?: number;
   early_cut_timeframe?: string;
   early_cut_require_bullish?: boolean;
+  enable_time_stop_tighten?: boolean;
+  time_stop_minutes?: number;
+  time_stop_sl_pct?: number;
   enable_breakeven_after_first_tp?: boolean;
   breakeven_after_tps?: number;
   breakeven_buffer_pct?: number;

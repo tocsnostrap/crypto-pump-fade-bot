@@ -67,6 +67,9 @@ def load_config():
             'early_cut_hard_loss_pct': 0.03,
             'early_cut_timeframe': '5m',
             'early_cut_require_bullish': True,
+            'enable_time_stop_tighten': True,
+            'time_stop_minutes': 180,
+            'time_stop_sl_pct': 0.03,
             'enable_breakeven_after_first_tp': True,
             'breakeven_after_tps': 1,
             'breakeven_buffer_pct': 0.001,
@@ -398,6 +401,15 @@ def simulate_exact_trade(df_5m, pump_idx, pump_high, pump_pct, config, capital):
                 'pnl_pct': (total_profit / (simulated_entry * position_size)) * 100,
                 'is_winner': total_profit > 0
             }
+
+        if config.get('enable_time_stop_tighten', False):
+            elapsed_candles = idx - entry_idx
+            tighten_after = int(config.get('time_stop_minutes', 180) / 5)
+            if elapsed_candles >= tighten_after:
+                tighten_pct = config.get('time_stop_sl_pct', 0.03)
+                tightened_sl = simulated_entry * (1 + tighten_pct)
+                if tightened_sl < sl_price:
+                    sl_price = tightened_sl
 
         for level_idx, level in enumerate(staged_levels):
             fib = level['fib']
