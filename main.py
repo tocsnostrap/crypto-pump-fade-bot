@@ -11,7 +11,7 @@ import urllib.request
 
 # === DEFAULT CONFIG (can be overridden by bot_config.json) ===
 DEFAULT_CONFIG = {
-    'min_pump_pct': 50.0,
+    'min_pump_pct': 55.0,
     'max_pump_pct': 250.0,              # Allow larger pumps but still filter extremes
     'poll_interval_sec': 300,
     'min_volume_usdt': 1000000,
@@ -56,7 +56,7 @@ DEFAULT_CONFIG = {
     'early_cut_timeframe': '5m',
     'early_cut_require_bullish': True,
     'enable_breakeven_after_first_tp': True,
-    'breakeven_after_tps': 2,
+    'breakeven_after_tps': 1,
     'breakeven_buffer_pct': 0.001,
     
     'max_open_trades': 4,
@@ -113,7 +113,7 @@ DEFAULT_CONFIG = {
     'require_fade_signal': True,
     'fade_signal_required_pump_pct': 70,
     'fade_signal_min_confirms': 2,
-    'fade_signal_min_confirms_small': 3,
+    'fade_signal_min_confirms_small': 2,
     'fade_signal_min_confirms_large': 2,
     
     'enable_scale_in': False,           # Scale into position (50/30/20)
@@ -127,7 +127,7 @@ DEFAULT_CONFIG = {
     'min_entry_quality_large': 58,      # Looser for larger pumps
     'min_fade_signals_small': 2,        # Small pump confirmations
     'min_fade_signals_large': 1,        # Large pump confirmations
-    'pump_small_threshold_pct': 60,     # Small vs large pump threshold
+    'pump_small_threshold_pct': 70,     # Small vs large pump threshold
     'enable_rsi_peak_filter': True,     # Require RSI peak in recent candles
     'rsi_peak_lookback': 12,            # Lookback candles for RSI peak
     'enable_rsi_pullback': True,        # Require RSI to roll over from peak

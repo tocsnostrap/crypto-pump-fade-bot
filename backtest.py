@@ -21,7 +21,7 @@ def load_config():
             return json.load(f)
     except:
         return {
-            'min_pump_pct': 50.0,
+            'min_pump_pct': 55.0,
             'max_pump_pct': 250.0,
             'min_volume_usdt': 1000000,
             'rsi_overbought': 73,
@@ -65,7 +65,7 @@ def load_config():
             'early_cut_timeframe': '5m',
             'early_cut_require_bullish': True,
             'enable_breakeven_after_first_tp': True,
-            'breakeven_after_tps': 2,
+            'breakeven_after_tps': 1,
             'breakeven_buffer_pct': 0.001,
             'starting_capital': 5000.0,
             'enable_volume_profile': True,
@@ -85,7 +85,7 @@ def load_config():
             'require_fade_signal': True,
             'fade_signal_required_pump_pct': 70,
             'fade_signal_min_confirms': 2,
-            'fade_signal_min_confirms_small': 3,
+            'fade_signal_min_confirms_small': 2,
             'fade_signal_min_confirms_large': 2,
             'min_fade_signals': 1,
             'min_entry_quality': 58,
@@ -93,7 +93,7 @@ def load_config():
             'min_entry_quality_large': 58,
             'min_fade_signals_small': 2,
             'min_fade_signals_large': 1,
-            'pump_small_threshold_pct': 60,
+            'pump_small_threshold_pct': 70,
             'min_lower_highs': 2,
             'min_bb_extension_pct': 0.3,
             'enable_rsi_peak_filter': True,

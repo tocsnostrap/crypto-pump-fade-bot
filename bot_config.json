@@ -1,6 +1,6 @@
 {
   "paper_mode": true,
-  "min_pump_pct": 50,
+  "min_pump_pct": 55,
   "max_pump_pct": 250,
   "poll_interval_sec": 300,
   "min_volume_usdt": 1000000,
@@ -44,7 +44,7 @@
   "early_cut_timeframe": "5m",
   "early_cut_require_bullish": true,
   "enable_breakeven_after_first_tp": true,
-  "breakeven_after_tps": 2,
+  "breakeven_after_tps": 1,
   "breakeven_buffer_pct": 0.001,
   
   "max_open_trades": 4,
@@ -95,7 +95,7 @@
   "require_fade_signal": true,
   "fade_signal_required_pump_pct": 70,
   "fade_signal_min_confirms": 2,
-  "fade_signal_min_confirms_small": 3,
+  "fade_signal_min_confirms_small": 2,
   "fade_signal_min_confirms_large": 2,
 
   "enable_scale_in": false,
@@ -108,7 +108,7 @@
   "min_entry_quality_large": 58,
   "min_fade_signals_small": 2,
   "min_fade_signals_large": 1,
-  "pump_small_threshold_pct": 60,
+  "pump_small_threshold_pct": 70,
   "enable_rsi_peak_filter": true,
   "rsi_peak_lookback": 12,
   "enable_rsi_pullback": true,
