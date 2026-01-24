@@ -93,6 +93,7 @@ DEFAULT_CONFIG = {
     'enable_volume_decline_check': True,
     'require_fade_signal': True,
     'fade_signal_required_pump_pct': 70,
+    'fade_signal_min_confirms': 2,
     
     'enable_scale_in': False,           # Scale into position (50/30/20)
     'scale_in_levels': [0.5, 0.3, 0.2], # Position size per scale-in
@@ -697,7 +698,7 @@ def get_multi_window_change_from_ohlcv(ex, ex_name, symbol, config):
         print(f"[{datetime.now()}] Multi-window OHLCV failed for {symbol}: {e}")
         return 0, False, None
 
-def check_fade_signals(df):
+def check_fade_signals(df, config=None):
     """Check for reversal (fade) signals indicating potential short entry"""
     if df is None or len(df) < 14:
         return False, 0
@@ -723,7 +724,10 @@ def check_fade_signals(df):
     vol_fade = df['volume'].iloc[-1] < df['volume'].max() * 0.7
 
     confirms = sum([is_bearish_star, rsi_div, macd_cross, vol_fade])
-    return confirms >= 3, rsi
+    min_confirms = 3
+    if config:
+        min_confirms = int(config.get('fade_signal_min_confirms', min_confirms))
+    return confirms >= min_confirms, rsi
 
 def calc_fib_levels(pump_high, recent_low, config):
     """Calculate fibonacci retrace levels for take profit targets"""
@@ -1455,7 +1459,7 @@ def check_entry_timing(ex, symbol, df, config, pump_pct=None, oi_state=None):
             all_details['open_interest'] = {'error': 'missing'}
     
     # 7. Standard Fade Signals (RSI, MACD)
-    fade_valid, rsi = check_fade_signals(df)
+    fade_valid, rsi = check_fade_signals(df, config)
     all_details['fade_signals'] = {'valid': fade_valid, 'rsi': rsi}
     if fade_valid:
         entry_quality += 10

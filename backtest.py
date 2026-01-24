@@ -65,6 +65,7 @@ def load_config():
             'enable_volume_decline_check': True,
             'require_fade_signal': True,
             'fade_signal_required_pump_pct': 70,
+            'fade_signal_min_confirms': 2,
             'min_fade_signals': 1,
             'min_entry_quality': 55,
             'min_entry_quality_small': 60,

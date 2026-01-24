@@ -75,6 +75,7 @@
   "enable_volume_decline_check": true,
   "require_fade_signal": true,
   "fade_signal_required_pump_pct": 70,
+  "fade_signal_min_confirms": 2,
 
   "enable_scale_in": false,
   "scale_in_levels": [0.5, 0.3, 0.2],

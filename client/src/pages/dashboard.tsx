@@ -378,6 +378,7 @@ export default function Dashboard() {
       enable_volume_decline_check: true,
       require_fade_signal: true,
       fade_signal_required_pump_pct: 70,
+      fade_signal_min_confirms: 2,
       enable_rsi_peak_filter: true,
       rsi_peak_lookback: 12,
       min_entry_quality: 55,
