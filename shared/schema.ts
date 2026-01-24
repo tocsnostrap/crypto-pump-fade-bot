@@ -97,6 +97,7 @@ export interface BotConfig {
   use_swing_high_sl?: boolean;
   sl_swing_buffer_pct?: number;
   sl_pct_above_entry: number;
+  max_sl_pct_above_entry?: number;
   use_staged_exits?: boolean;
   staged_exit_levels?: { fib: number; pct: number }[];
   tp_fib_levels: number[];

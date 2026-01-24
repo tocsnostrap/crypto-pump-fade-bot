@@ -27,6 +27,7 @@ DEFAULT_CONFIG = {
     'leverage_validation_bonus_threshold': 2,
     'risk_pct_per_trade': 0.01,
     'sl_pct_above_entry': 0.12,         # Fallback SL if swing high not available
+    'max_sl_pct_above_entry': 0.10,     # Cap swing-high SL distance
     'use_swing_high_sl': True,          # Use swing high for stop loss (improved win/loss ratio)
     'sl_swing_buffer_pct': 0.03,        # 3% buffer above swing high for SL
     
@@ -1700,6 +1701,11 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
     # Calculate stop loss - prefer swing high if enabled
     if use_swing_high:
         sl_price, sl_pct, swing_high = calculate_swing_high_sl(ex, symbol, entry_price, config)
+        max_sl_pct = config.get('max_sl_pct_above_entry')
+        if max_sl_pct:
+            sl_cap = entry_price * (1 + max_sl_pct)
+            if sl_price > sl_cap:
+                sl_price = sl_cap
         print(f"  Swing high: ${swing_high:.4f} -> SL: ${sl_price:.4f} ({sl_pct*100:.1f}% above entry)")
     else:
         sl_pct = config['sl_pct_above_entry']
@@ -1715,6 +1721,12 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
             sl_price = swing_high * (1 + config.get('sl_swing_buffer_pct', 0.02))
         else:
             sl_price = simulated_entry * (1 + sl_pct)
+
+        max_sl_pct = config.get('max_sl_pct_above_entry')
+        if max_sl_pct:
+            sl_cap = simulated_entry * (1 + max_sl_pct)
+            if sl_price > sl_cap:
+                sl_price = sl_cap
         
         # Calculate position size based on risk
         # For shorts: risk = |entry - sl|, so size = risk / |entry - sl|
