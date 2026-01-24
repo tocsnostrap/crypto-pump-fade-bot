@@ -201,7 +201,7 @@ HOLDERS_DATA_FILE = 'token_holders.json'
 
 # Pushover alert configuration
 PUSHOVER_USER_KEY = os.getenv('PUSHOVER_USER_KEY', '').strip()
-PUSHOVER_APP_TOKEN = os.getenv('PUSHOVER_APP_TOKEN', '').strip()
+PUSHOVER_APP_TOKEN = (os.getenv('PUSHOVER_APP_TOKEN') or os.getenv('PUSHOVER_API_TOKEN') or '').strip()
 PUSHOVER_SOUND = os.getenv('PUSHOVER_SOUND', '').strip()
 try:
     PUSHOVER_RATE_LIMIT_SEC = float(os.getenv('PUSHOVER_RATE_LIMIT_SEC', '0') or 0)
