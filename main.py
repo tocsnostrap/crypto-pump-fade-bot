@@ -80,6 +80,9 @@ DEFAULT_CONFIG = {
     
     'enable_blowoff_detection': True,   # Detect blow-off top patterns
     'blowoff_wick_ratio': 2.0,          # Upper wick must be N times body
+
+    'enable_volume_decline_check': True,
+    'require_fade_signal': True,
     
     'enable_scale_in': False,           # Scale into position (50/30/20)
     'scale_in_levels': [0.5, 0.3, 0.2], # Position size per scale-in
@@ -1363,6 +1366,8 @@ def check_entry_timing(ex, symbol, df, config, pump_pct=None, oi_state=None):
     all_details['fade_signals'] = {'valid': fade_valid, 'rsi': rsi}
     if fade_valid:
         entry_quality += 10
+    elif config.get('require_fade_signal', False):
+        all_details['fade_required'] = True
     
     # Count pattern confirmations
     pattern_count = sum([bb_above, vol_decline, lower_highs, struct_break, blowoff, rsi_pullback, fade_valid])
@@ -1387,6 +1392,9 @@ def check_entry_timing(ex, symbol, df, config, pump_pct=None, oi_state=None):
     if not (lower_highs or struct_break):
         should_enter = False
         entry_quality -= 15
+
+    if config.get('require_fade_signal', False) and not fade_valid:
+        should_enter = False
 
     # Volatility gating
     if not atr_ok:

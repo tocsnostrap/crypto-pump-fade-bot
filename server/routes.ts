@@ -65,6 +65,8 @@ interface BotConfig {
   structure_break_candles?: number;
   time_decay_minutes?: number;
   min_lower_highs?: number;
+  enable_volume_decline_check?: boolean;
+  require_fade_signal?: boolean;
   min_fade_signals?: number;
   min_entry_quality_small?: number;
   min_entry_quality_large?: number;

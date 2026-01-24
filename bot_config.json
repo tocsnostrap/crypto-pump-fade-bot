@@ -64,6 +64,7 @@
   "blowoff_wick_ratio": 2.0,
 
   "enable_volume_decline_check": true,
+  "require_fade_signal": true,
 
   "enable_scale_in": false,
   "scale_in_levels": [0.5, 0.3, 0.2],

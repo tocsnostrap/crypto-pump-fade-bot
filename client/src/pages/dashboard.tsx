@@ -365,6 +365,8 @@ export default function Dashboard() {
       time_decay_minutes: 120,
       min_lower_highs: 2,
       min_fade_signals: 2,
+      enable_volume_decline_check: true,
+      require_fade_signal: true,
       enable_rsi_peak_filter: true,
       rsi_peak_lookback: 12,
       min_entry_quality: 60,

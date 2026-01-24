@@ -52,6 +52,8 @@ def load_config():
             'structure_break_candles': 3,
             'enable_blowoff_detection': True,
             'blowoff_wick_ratio': 2.0,
+            'enable_volume_decline_check': True,
+            'require_fade_signal': True,
             'min_fade_signals': 2,
             'min_entry_quality': 60,
             'min_entry_quality_small': 65,
