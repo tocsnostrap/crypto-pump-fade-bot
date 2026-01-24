@@ -27,7 +27,7 @@ DEFAULT_CONFIG = {
     'leverage_validation_bonus_threshold': 2,
     'risk_pct_per_trade': 0.01,
     'sl_pct_above_entry': 0.12,         # Fallback SL if swing high not available
-    'max_sl_pct_above_entry': 0.10,     # Cap swing-high SL distance
+    'max_sl_pct_above_entry': 0.08,     # Cap swing-high SL distance
     'use_swing_high_sl': True,          # Use swing high for stop loss (improved win/loss ratio)
     'sl_swing_buffer_pct': 0.03,        # 3% buffer above swing high for SL
     

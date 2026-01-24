@@ -355,7 +355,7 @@ export default function Dashboard() {
       use_swing_high_sl: true,
       sl_swing_buffer_pct: 0.03,
       sl_pct_above_entry: 0.12,
-      max_sl_pct_above_entry: 0.1,
+      max_sl_pct_above_entry: 0.08,
       use_staged_exits: true,
       staged_exit_levels: [
         { fib: 0.5, pct: 0.3 },
