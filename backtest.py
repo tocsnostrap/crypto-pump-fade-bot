@@ -41,7 +41,12 @@ def load_config():
             'risk_pct_per_trade': 0.01,
             'sl_pct_above_entry': 0.12,
             'sl_swing_buffer_pct': 0.03,
-            'tp_fib_levels': [0.382, 0.5, 0.618],
+            'tp_fib_levels': [0.5, 0.618, 0.786],
+            'staged_exit_levels': [
+                {'fib': 0.50, 'pct': 0.30},
+                {'fib': 0.618, 'pct': 0.30},
+                {'fib': 0.786, 'pct': 0.40}
+            ],
             'starting_capital': 5000.0,
             'enable_volume_profile': True,
             'volume_sustained_candles': 3,
