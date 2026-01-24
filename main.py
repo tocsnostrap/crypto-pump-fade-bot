@@ -28,11 +28,11 @@ DEFAULT_CONFIG = {
     'risk_pct_per_trade': 0.01,
     'reward_risk_min': 1.0,
     'enable_quality_risk_scale': True,
-    'risk_scale_high': 3.0,
-    'risk_scale_low': 0.5,
+    'risk_scale_high': 2.5,
+    'risk_scale_low': 0.6,
     'risk_scale_quality_high': 80,
     'risk_scale_quality_low': 60,
-    'risk_scale_validation_min': 1,
+    'risk_scale_validation_min': 2,
     'sl_pct_above_entry': 0.12,         # Fallback SL if swing high not available
     'max_sl_pct_above_entry': 0.06,     # Cap swing-high SL distance
     'max_sl_pct_small': 0.05,
@@ -91,7 +91,7 @@ DEFAULT_CONFIG = {
     'enable_volume_profile': True,      # Check sustained volume vs single-spike
     'volume_sustained_candles': 3,      # Require elevated volume for N candles
     'volume_spike_threshold': 2.0,      # Single candle volume must not exceed avg * threshold
-    'min_validation_score': 0,          # Allow pumps even if validators missing
+    'min_validation_score': 1,          # Require at least one validation signal
     
     'enable_multi_timeframe': True,     # Check 1h/4h for overextension
     'mtf_rsi_threshold': 65,            # Relaxed for more signals
