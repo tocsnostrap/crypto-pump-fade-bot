@@ -84,6 +84,8 @@ interface BotConfig {
   require_fade_signal?: boolean;
   fade_signal_required_pump_pct?: number;
   fade_signal_min_confirms?: number;
+  fade_signal_min_confirms_small?: number;
+  fade_signal_min_confirms_large?: number;
   enable_ema_filter?: boolean;
   ema_fast?: number;
   ema_slow?: number;
