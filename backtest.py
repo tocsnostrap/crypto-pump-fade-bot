@@ -115,7 +115,7 @@ def load_config():
             'pump_small_threshold_pct': 70,
             'require_entry_drawdown': True,
             'entry_drawdown_lookback': 24,
-            'min_drawdown_pct_small': 2.5,
+            'min_drawdown_pct_small': 2.0,
             'min_drawdown_pct_large': 4.0,
             'min_lower_highs': 2,
             'min_bb_extension_pct': 0.2,
