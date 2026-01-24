@@ -55,7 +55,7 @@ def load_config():
             'sl_pct_above_entry': 0.12,
             'max_sl_pct_above_entry': 0.06,
             'max_sl_pct_small': 0.05,
-            'max_sl_pct_large': 0.06,
+            'max_sl_pct_large': 0.05,
             'sl_swing_buffer_pct': 0.03,
             'tp_fib_levels': [0.618, 0.786, 0.886],
             'staged_exit_levels': [

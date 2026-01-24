@@ -40,7 +40,7 @@ DEFAULT_CONFIG = {
     'sl_pct_above_entry': 0.12,         # Fallback SL if swing high not available
     'max_sl_pct_above_entry': 0.06,     # Cap swing-high SL distance
     'max_sl_pct_small': 0.05,
-    'max_sl_pct_large': 0.06,
+    'max_sl_pct_large': 0.05,
     'use_swing_high_sl': True,          # Use swing high for stop loss (improved win/loss ratio)
     'sl_swing_buffer_pct': 0.03,        # 3% buffer above swing high for SL
     

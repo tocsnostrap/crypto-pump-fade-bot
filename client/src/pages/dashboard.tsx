@@ -371,7 +371,7 @@ export default function Dashboard() {
       sl_pct_above_entry: 0.12,
       max_sl_pct_above_entry: 0.06,
       max_sl_pct_small: 0.05,
-      max_sl_pct_large: 0.06,
+      max_sl_pct_large: 0.05,
       use_staged_exits: true,
       staged_exit_levels: [
         { fib: 0.618, pct: 0.1 },
