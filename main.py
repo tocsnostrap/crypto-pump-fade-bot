@@ -102,8 +102,8 @@ DEFAULT_CONFIG = {
     'enable_ema_filter': True,
     'ema_fast': 9,
     'ema_slow': 21,
-    'require_ema_breakdown': False,
-    'ema_required_pump_pct': 70,
+    'require_ema_breakdown': True,
+    'ema_required_pump_pct': 60,
     
     'enable_blowoff_detection': True,   # Detect blow-off top patterns
     'blowoff_wick_ratio': 2.0,          # Upper wick must be N times body
@@ -119,9 +119,9 @@ DEFAULT_CONFIG = {
     'time_decay_minutes': 120,          # Skip if no reversal within N minutes
 
     # === ENTRY QUALITY TUNING ===
-    'min_entry_quality': 55,            # Base minimum quality
-    'min_entry_quality_small': 60,      # Stricter for smaller pumps
-    'min_entry_quality_large': 55,      # Looser for larger pumps
+    'min_entry_quality': 58,            # Base minimum quality
+    'min_entry_quality_small': 62,      # Stricter for smaller pumps
+    'min_entry_quality_large': 58,      # Looser for larger pumps
     'min_fade_signals_small': 2,        # Small pump confirmations
     'min_fade_signals_large': 1,        # Large pump confirmations
     'pump_small_threshold_pct': 60,     # Small vs large pump threshold

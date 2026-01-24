@@ -85,9 +85,9 @@ def load_config():
             'fade_signal_required_pump_pct': 70,
             'fade_signal_min_confirms': 2,
             'min_fade_signals': 1,
-            'min_entry_quality': 55,
-            'min_entry_quality_small': 60,
-            'min_entry_quality_large': 55,
+            'min_entry_quality': 58,
+            'min_entry_quality_small': 62,
+            'min_entry_quality_large': 58,
             'min_fade_signals_small': 2,
             'min_fade_signals_large': 1,
             'pump_small_threshold_pct': 60,
@@ -129,8 +129,8 @@ def load_config():
             'enable_ema_filter': True,
             'ema_fast': 9,
             'ema_slow': 21,
-            'require_ema_breakdown': False,
-            'ema_required_pump_pct': 70,
+            'require_ema_breakdown': True,
+            'ema_required_pump_pct': 60,
         }
 
 # Initialize exchange
