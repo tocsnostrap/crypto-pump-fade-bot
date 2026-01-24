@@ -74,7 +74,7 @@
   "mtf_rsi_threshold": 65,
 
   "enable_bollinger_check": true,
-  "min_bb_extension_pct": 0.3,
+  "min_bb_extension_pct": 0.2,
 
   "enable_cross_exchange": false,
   "cross_exchange_min_pct": 40,

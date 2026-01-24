@@ -98,7 +98,7 @@ def load_config():
             'min_fade_signals_large': 1,
             'pump_small_threshold_pct': 70,
             'min_lower_highs': 2,
-            'min_bb_extension_pct': 0.3,
+            'min_bb_extension_pct': 0.2,
             'enable_rsi_peak_filter': True,
             'rsi_peak_lookback': 12,
             'enable_rsi_pullback': True,

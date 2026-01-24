@@ -88,7 +88,7 @@ DEFAULT_CONFIG = {
     'mtf_rsi_threshold': 65,            # Relaxed for more signals
     
     'enable_bollinger_check': True,     # Check price above upper BB (74% win rate)
-    'min_bb_extension_pct': 0.3,        # Minimum % above upper BB
+    'min_bb_extension_pct': 0.2,        # Minimum % above upper BB
     
     'enable_cross_exchange': False,     # Require pump visible on multiple exchanges
     'cross_exchange_min_pct': 40,       # Min pump % on second exchange

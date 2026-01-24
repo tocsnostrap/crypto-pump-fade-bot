@@ -386,7 +386,7 @@ export default function Dashboard() {
       breakeven_after_tps: 1,
       breakeven_buffer_pct: 0.001,
       enable_bollinger_check: true,
-      min_bb_extension_pct: 0.3,
+      min_bb_extension_pct: 0.2,
       enable_structure_break: true,
       structure_break_candles: 3,
       time_decay_minutes: 120,
