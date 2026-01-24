@@ -50,9 +50,9 @@ def load_config():
                 {'fib': 0.886, 'pct': 0.70}
             ],
             'staged_exit_levels_small': [
+                {'fib': 0.382, 'pct': 0.40},
                 {'fib': 0.50, 'pct': 0.30},
-                {'fib': 0.618, 'pct': 0.30},
-                {'fib': 0.786, 'pct': 0.40}
+                {'fib': 0.618, 'pct': 0.30}
             ],
             'staged_exit_levels_large': [
                 {'fib': 0.618, 'pct': 0.10},

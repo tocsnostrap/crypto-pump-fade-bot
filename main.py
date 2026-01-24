@@ -40,9 +40,9 @@ DEFAULT_CONFIG = {
         {'fib': 0.886, 'pct': 0.70}     # 70% position at 88.6% retrace
     ],
     'staged_exit_levels_small': [
-        {'fib': 0.50, 'pct': 0.30},     # 30% at 50% retrace (smaller pumps)
-        {'fib': 0.618, 'pct': 0.30},    # 30% at 61.8% retrace
-        {'fib': 0.786, 'pct': 0.40}     # 40% at 78.6% retrace
+        {'fib': 0.382, 'pct': 0.40},    # 40% at 38.2% retrace (smaller pumps)
+        {'fib': 0.50, 'pct': 0.30},     # 30% at 50% retrace
+        {'fib': 0.618, 'pct': 0.30}     # 30% at 61.8% retrace
     ],
     'staged_exit_levels_large': [
         {'fib': 0.618, 'pct': 0.10},    # 10% at 61.8% retrace

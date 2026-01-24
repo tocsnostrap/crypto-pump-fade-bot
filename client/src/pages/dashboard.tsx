@@ -365,9 +365,9 @@ export default function Dashboard() {
       ],
       tp_fib_levels: [0.618, 0.786, 0.886],
       staged_exit_levels_small: [
+        { fib: 0.382, pct: 0.4 },
         { fib: 0.5, pct: 0.3 },
         { fib: 0.618, pct: 0.3 },
-        { fib: 0.786, pct: 0.4 },
       ],
       staged_exit_levels_large: [
         { fib: 0.618, pct: 0.1 },
