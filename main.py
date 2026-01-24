@@ -17,7 +17,7 @@ DEFAULT_CONFIG = {
     'min_volume_usdt': 1000000,
     'funding_min': 0.0001,
     'enable_funding_filter': False,
-    'rsi_overbought': 75,               # RSI peak threshold
+    'rsi_overbought': 73,               # RSI peak threshold
     'leverage_default': 3,
     'enable_dynamic_leverage': True,
     'leverage_min': 3,
@@ -65,7 +65,7 @@ DEFAULT_CONFIG = {
     'mtf_rsi_threshold': 65,            # Relaxed for more signals
     
     'enable_bollinger_check': True,     # Check price above upper BB (74% win rate)
-    'min_bb_extension_pct': 0.5,        # Minimum % above upper BB
+    'min_bb_extension_pct': 0.3,        # Minimum % above upper BB
     
     'enable_cross_exchange': False,     # Require pump visible on multiple exchanges
     'cross_exchange_min_pct': 40,       # Min pump % on second exchange
@@ -99,11 +99,11 @@ DEFAULT_CONFIG = {
     'time_decay_minutes': 120,          # Skip if no reversal within N minutes
 
     # === ENTRY QUALITY TUNING ===
-    'min_entry_quality': 60,            # Base minimum quality
-    'min_entry_quality_small': 65,      # Stricter for smaller pumps
-    'min_entry_quality_large': 60,      # Looser for larger pumps
-    'min_fade_signals_small': 3,        # Small pump confirmations
-    'min_fade_signals_large': 2,        # Large pump confirmations
+    'min_entry_quality': 55,            # Base minimum quality
+    'min_entry_quality_small': 60,      # Stricter for smaller pumps
+    'min_entry_quality_large': 55,      # Looser for larger pumps
+    'min_fade_signals_small': 2,        # Small pump confirmations
+    'min_fade_signals_large': 1,        # Large pump confirmations
     'pump_small_threshold_pct': 60,     # Small vs large pump threshold
     'enable_rsi_peak_filter': True,     # Require RSI peak in recent candles
     'rsi_peak_lookback': 12,            # Lookback candles for RSI peak
@@ -120,7 +120,7 @@ DEFAULT_CONFIG = {
     
     # === LEARNING & LOGGING ===
     'enable_trade_logging': True,       # Log detailed feature vectors
-    'min_fade_signals': 2,              # Base confirmations for entries
+    'min_fade_signals': 1,              # Base confirmations for entries
     # === HOLDERS CONCENTRATION FILTER ===
     'enable_holders_filter': False,
     'require_holders_data': False,
