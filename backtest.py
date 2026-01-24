@@ -21,7 +21,7 @@ def load_config():
             return json.load(f)
     except:
         return {
-            'min_pump_pct': 60.0,
+            'min_pump_pct': 55.0,
             'max_pump_pct': 250.0,
             'min_volume_usdt': 1000000,
             'funding_min': 0.0001,
@@ -44,13 +44,13 @@ def load_config():
             'risk_pct_per_trade': 0.01,
             'enable_quality_risk_scale': True,
             'risk_scale_high': 3.0,
-            'risk_scale_mid': 1.5,
+            'risk_scale_mid': 1.2,
             'risk_scale_low': 0.6,
             'risk_scale_quality_high': 80,
             'risk_scale_quality_low': 60,
             'risk_scale_validation_min': 2,
-            'risk_scale_mid_pump_pct': 60,
-            'risk_scale_high_pump_pct': 75,
+            'risk_scale_mid_pump_pct': 70,
+            'risk_scale_high_pump_pct': 80,
             'reward_risk_min': 1.0,
             'sl_pct_above_entry': 0.12,
             'max_sl_pct_above_entry': 0.06,

@@ -11,7 +11,7 @@ import urllib.request
 
 # === DEFAULT CONFIG (can be overridden by bot_config.json) ===
 DEFAULT_CONFIG = {
-    'min_pump_pct': 60.0,
+    'min_pump_pct': 55.0,
     'max_pump_pct': 250.0,              # Allow larger pumps but still filter extremes
     'poll_interval_sec': 300,
     'min_volume_usdt': 1000000,
@@ -30,13 +30,13 @@ DEFAULT_CONFIG = {
     'reward_risk_min': 1.0,
     'enable_quality_risk_scale': True,
     'risk_scale_high': 3.0,
-    'risk_scale_mid': 1.5,
+    'risk_scale_mid': 1.2,
     'risk_scale_low': 0.6,
     'risk_scale_quality_high': 80,
     'risk_scale_quality_low': 60,
     'risk_scale_validation_min': 2,
-    'risk_scale_mid_pump_pct': 60,
-    'risk_scale_high_pump_pct': 75,
+    'risk_scale_mid_pump_pct': 70,
+    'risk_scale_high_pump_pct': 80,
     'sl_pct_above_entry': 0.12,         # Fallback SL if swing high not available
     'max_sl_pct_above_entry': 0.06,     # Cap swing-high SL distance
     'max_sl_pct_small': 0.05,
