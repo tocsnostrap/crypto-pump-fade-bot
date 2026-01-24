@@ -46,7 +46,7 @@ DEFAULT_CONFIG = {
     'compound_pct': 0.60,
     'starting_capital': 5000.0,
     'paper_mode': True,
-    'trailing_stop_pct': 0.06,
+    'trailing_stop_pct': 0.07,
     'max_hold_hours': 48,
     
     # Realistic paper trading simulation parameters (Gate.io fees)

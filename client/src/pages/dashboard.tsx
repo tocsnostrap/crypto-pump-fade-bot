@@ -342,7 +342,7 @@ export default function Dashboard() {
       min_pump_pct: 50,
       max_pump_pct: 250,
       rsi_overbought: 73,
-      trailing_stop_pct: 0.06,
+      trailing_stop_pct: 0.07,
       enable_multi_window_pump: true,
       multi_window_hours: [1, 4, 12, 24],
       ohlcv_max_calls_per_cycle: 25,
