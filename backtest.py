@@ -303,13 +303,15 @@ def simulate_exact_trade(df_5m, pump_idx, pump_high, pump_pct, config, capital):
     max_hold_candles = int(max_hold_hours * 60 / 5)
 
     entry_idx = None
+    entry_quality = None
     for idx in range(pump_idx + 1, min(pump_idx + time_decay_candles + 1, len(df_5m))):
         df_slice = df_5m.iloc[:idx + 1]
-        should_enter, _, _ = bot.check_entry_timing(
+        should_enter, quality, _ = bot.check_entry_timing(
             None, "", df_slice, config, pump_pct=pump_pct, oi_state=None
         )
         if should_enter:
             entry_idx = idx
+            entry_quality = quality
             break
 
     if entry_idx is None:
