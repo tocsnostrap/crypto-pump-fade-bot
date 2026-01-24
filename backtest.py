@@ -73,10 +73,11 @@ def load_config():
                 {'fib': 0.786, 'pct': 0.20},
                 {'fib': 0.886, 'pct': 0.70}
             ],
-            'enable_early_cut': False,
-            'early_cut_minutes': 60,
+            'enable_early_cut': True,
+            'early_cut_minutes': 90,
             'early_cut_max_loss_pct': 0.02,
             'early_cut_hard_loss_pct': 0.03,
+            'early_cut_pump_pct': 65,
             'early_cut_timeframe': '5m',
             'early_cut_require_bullish': True,
             'enable_time_stop_tighten': False,
@@ -377,44 +378,50 @@ def simulate_exact_trade(df_5m, pump_idx, pump_high, pump_pct, config, capital):
 
         # Early cut logic (mirror live)
         if config.get('enable_early_cut', False):
-            elapsed_candles = idx - entry_idx
-            early_cut_minutes = config.get('early_cut_minutes', 90)
-            early_cut_candles = int(early_cut_minutes / 5)
-            if elapsed_candles >= early_cut_candles:
-                max_loss_pct = config.get('early_cut_max_loss_pct', 0.025) * 100
-                hard_loss_pct = config.get('early_cut_hard_loss_pct', 0.04) * 100
-                pnl_pct = (simulated_entry - close) / simulated_entry * 100 if simulated_entry > 0 else 0
-                should_cut = pnl_pct <= -hard_loss_pct
-                require_bullish = config.get('early_cut_require_bullish', True)
-                bullish_ok = True
-                if require_bullish:
-                    ema_fast = int(config.get('ema_fast', 9))
-                    ema_slow = int(config.get('ema_slow', 21))
-                    df_slice = df_5m.iloc[:idx + 1]
-                    if len(df_slice) >= max(ema_fast, ema_slow) + 2:
-                        closes = np.array(df_slice['close'].values, dtype=np.float64)
-                        fast_val = talib.EMA(closes, timeperiod=ema_fast)[-1]
-                        slow_val = talib.EMA(closes, timeperiod=ema_slow)[-1]
-                        bullish_ok = closes[-1] > fast_val and fast_val > slow_val
-                if not should_cut and pnl_pct <= -max_loss_pct and bullish_ok:
-                    should_cut = True
-                if should_cut:
-                    exit_price, _ = bot.simulate_realistic_exit(close, config)
-                    gross = remaining_amount * (simulated_entry - exit_price)
-                    fees = (simulated_entry + exit_price) * remaining_amount * config.get('paper_fee_pct', 0.0005)
-                    total_profit += gross - fees
-                    total_fees += fees
-                    return {
-                        'entry_price': simulated_entry,
-                        'exit_price': exit_price,
-                        'exit_reason': 'early_cut',
-                        'position_size': position_size,
-                        'gross_pnl': total_profit,
-                        'fees': total_fees,
-                        'net_pnl': total_profit,
-                        'pnl_pct': (total_profit / (simulated_entry * position_size)) * 100,
-                        'is_winner': total_profit > 0
-                    }
+            early_cut_pump_pct = config.get('early_cut_pump_pct')
+            allow_early_cut = True
+            if early_cut_pump_pct is not None and pump_pct is not None:
+                allow_early_cut = pump_pct < early_cut_pump_pct
+
+            if allow_early_cut:
+                elapsed_candles = idx - entry_idx
+                early_cut_minutes = config.get('early_cut_minutes', 90)
+                early_cut_candles = int(early_cut_minutes / 5)
+                if elapsed_candles >= early_cut_candles:
+                    max_loss_pct = config.get('early_cut_max_loss_pct', 0.025) * 100
+                    hard_loss_pct = config.get('early_cut_hard_loss_pct', 0.04) * 100
+                    pnl_pct = (simulated_entry - close) / simulated_entry * 100 if simulated_entry > 0 else 0
+                    should_cut = pnl_pct <= -hard_loss_pct
+                    require_bullish = config.get('early_cut_require_bullish', True)
+                    bullish_ok = True
+                    if require_bullish:
+                        ema_fast = int(config.get('ema_fast', 9))
+                        ema_slow = int(config.get('ema_slow', 21))
+                        df_slice = df_5m.iloc[:idx + 1]
+                        if len(df_slice) >= max(ema_fast, ema_slow) + 2:
+                            closes = np.array(df_slice['close'].values, dtype=np.float64)
+                            fast_val = talib.EMA(closes, timeperiod=ema_fast)[-1]
+                            slow_val = talib.EMA(closes, timeperiod=ema_slow)[-1]
+                            bullish_ok = closes[-1] > fast_val and fast_val > slow_val
+                    if not should_cut and pnl_pct <= -max_loss_pct and bullish_ok:
+                        should_cut = True
+                    if should_cut:
+                        exit_price, _ = bot.simulate_realistic_exit(close, config)
+                        gross = remaining_amount * (simulated_entry - exit_price)
+                        fees = (simulated_entry + exit_price) * remaining_amount * config.get('paper_fee_pct', 0.0005)
+                        total_profit += gross - fees
+                        total_fees += fees
+                        return {
+                            'entry_price': simulated_entry,
+                            'exit_price': exit_price,
+                            'exit_reason': 'early_cut',
+                            'position_size': position_size,
+                            'gross_pnl': total_profit,
+                            'fees': total_fees,
+                            'net_pnl': total_profit,
+                            'pnl_pct': (total_profit / (simulated_entry * position_size)) * 100,
+                            'is_winner': total_profit > 0
+                        }
 
         if high >= sl_price:
             exit_price, _ = bot.simulate_realistic_exit(sl_price, config)

@@ -121,6 +121,7 @@ export interface BotConfig {
   early_cut_minutes?: number;
   early_cut_max_loss_pct?: number;
   early_cut_hard_loss_pct?: number;
+  early_cut_pump_pct?: number;
   early_cut_timeframe?: string;
   early_cut_require_bullish?: boolean;
   enable_time_stop_tighten?: boolean;

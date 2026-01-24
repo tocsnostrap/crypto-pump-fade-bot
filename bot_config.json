@@ -50,10 +50,11 @@
     {"fib": 0.786, "pct": 0.20},
     {"fib": 0.886, "pct": 0.70}
   ],
-  "enable_early_cut": false,
-  "early_cut_minutes": 60,
+  "enable_early_cut": true,
+  "early_cut_minutes": 90,
   "early_cut_max_loss_pct": 0.02,
   "early_cut_hard_loss_pct": 0.03,
+  "early_cut_pump_pct": 65,
   "early_cut_timeframe": "5m",
   "early_cut_require_bullish": true,
   "enable_time_stop_tighten": false,
