@@ -21,7 +21,7 @@ def load_config():
             return json.load(f)
     except:
         return {
-            'min_pump_pct': 55.0,
+            'min_pump_pct': 60.0,
             'max_pump_pct': 250.0,
             'min_volume_usdt': 1000000,
             'funding_min': 0.0001,
@@ -115,7 +115,7 @@ def load_config():
             'pump_small_threshold_pct': 70,
             'require_entry_drawdown': True,
             'entry_drawdown_lookback': 24,
-            'min_drawdown_pct_small': 2.0,
+            'min_drawdown_pct_small': 2.5,
             'min_drawdown_pct_large': 4.0,
             'min_lower_highs': 2,
             'min_bb_extension_pct': 0.2,

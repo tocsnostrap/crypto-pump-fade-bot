@@ -11,7 +11,7 @@ import urllib.request
 
 # === DEFAULT CONFIG (can be overridden by bot_config.json) ===
 DEFAULT_CONFIG = {
-    'min_pump_pct': 55.0,
+    'min_pump_pct': 60.0,
     'max_pump_pct': 250.0,              # Allow larger pumps but still filter extremes
     'poll_interval_sec': 300,
     'min_volume_usdt': 1000000,
@@ -147,7 +147,7 @@ DEFAULT_CONFIG = {
     'pump_small_threshold_pct': 70,     # Small vs large pump threshold
     'require_entry_drawdown': True,
     'entry_drawdown_lookback': 24,
-    'min_drawdown_pct_small': 2.0,
+    'min_drawdown_pct_small': 2.5,
     'min_drawdown_pct_large': 4.0,
     'enable_rsi_peak_filter': True,     # Require RSI peak in recent candles
     'rsi_peak_lookback': 12,            # Lookback candles for RSI peak
