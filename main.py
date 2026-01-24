@@ -28,11 +28,12 @@ DEFAULT_CONFIG = {
     'risk_pct_per_trade': 0.01,
     'reward_risk_min': 1.0,
     'enable_quality_risk_scale': True,
-    'risk_scale_high': 2.5,
+    'risk_scale_high': 3.0,
     'risk_scale_low': 0.6,
     'risk_scale_quality_high': 80,
     'risk_scale_quality_low': 60,
     'risk_scale_validation_min': 2,
+    'risk_scale_min_pump_pct': 60,
     'sl_pct_above_entry': 0.12,         # Fallback SL if swing high not available
     'max_sl_pct_above_entry': 0.06,     # Cap swing-high SL distance
     'max_sl_pct_small': 0.05,
@@ -2621,7 +2622,9 @@ def process_entry_watchlist(ex_name, ex, tickers, entry_watchlist, open_trades, 
             low_q = config.get('risk_scale_quality_low', 60)
             validation_min = config.get('risk_scale_validation_min', 1)
             validation_score = (watch.get('validation_details') or {}).get('validation_score', 0)
-            if entry_quality >= high_q and validation_score >= validation_min:
+            pump_threshold = config.get('risk_scale_min_pump_pct', 0)
+            pump_pct = watch.get('pct_change')
+            if entry_quality >= high_q and validation_score >= validation_min and (pump_pct is None or pump_pct >= pump_threshold):
                 risk_multiplier = config.get('risk_scale_high', 1.2)
             elif entry_quality <= low_q:
                 risk_multiplier = config.get('risk_scale_low', 0.8)

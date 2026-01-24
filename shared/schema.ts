@@ -94,6 +94,7 @@ export interface BotConfig {
   risk_scale_quality_high?: number;
   risk_scale_quality_low?: number;
   risk_scale_validation_min?: number;
+  risk_scale_min_pump_pct?: number;
   enable_dynamic_leverage?: boolean;
   leverage_min?: number;
   leverage_max?: number;

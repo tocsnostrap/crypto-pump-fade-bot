@@ -40,11 +40,12 @@ def load_config():
             'leverage_validation_bonus_threshold': 2,
             'risk_pct_per_trade': 0.01,
             'enable_quality_risk_scale': True,
-            'risk_scale_high': 2.5,
+            'risk_scale_high': 3.0,
             'risk_scale_low': 0.6,
             'risk_scale_quality_high': 80,
             'risk_scale_quality_low': 60,
             'risk_scale_validation_min': 2,
+            'risk_scale_min_pump_pct': 60,
             'reward_risk_min': 1.0,
             'sl_pct_above_entry': 0.12,
             'max_sl_pct_above_entry': 0.06,
@@ -332,8 +333,9 @@ def simulate_exact_trade(df_5m, pump_idx, pump_high, pump_pct, config, capital):
     if config.get('enable_quality_risk_scale', False):
         high_q = config.get('risk_scale_quality_high', 80)
         low_q = config.get('risk_scale_quality_low', 60)
+        min_pump = config.get('risk_scale_min_pump_pct', 0)
         if entry_quality is not None:
-            if entry_quality >= high_q:
+            if entry_quality >= high_q and (pump_pct is None or pump_pct >= min_pump):
                 risk_multiplier = config.get('risk_scale_high', 1.2)
             elif entry_quality <= low_q:
                 risk_multiplier = config.get('risk_scale_low', 0.8)
