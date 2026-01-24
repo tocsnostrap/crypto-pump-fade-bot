@@ -59,9 +59,9 @@ def load_config():
                 {'fib': 0.886, 'pct': 0.70}
             ],
             'enable_early_cut': True,
-            'early_cut_minutes': 90,
-            'early_cut_max_loss_pct': 0.025,
-            'early_cut_hard_loss_pct': 0.04,
+            'early_cut_minutes': 60,
+            'early_cut_max_loss_pct': 0.02,
+            'early_cut_hard_loss_pct': 0.03,
             'early_cut_timeframe': '5m',
             'early_cut_require_bullish': True,
             'starting_capital': 5000.0,

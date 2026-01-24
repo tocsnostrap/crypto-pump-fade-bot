@@ -50,9 +50,9 @@ DEFAULT_CONFIG = {
     ],
     'tp_fib_levels': [0.618, 0.786, 0.886],  # Fallback if staged exits disabled
     'enable_early_cut': True,
-    'early_cut_minutes': 90,
-    'early_cut_max_loss_pct': 0.025,
-    'early_cut_hard_loss_pct': 0.04,
+    'early_cut_minutes': 60,
+    'early_cut_max_loss_pct': 0.02,
+    'early_cut_hard_loss_pct': 0.03,
     'early_cut_timeframe': '5m',
     'early_cut_require_bullish': True,
     
