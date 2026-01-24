@@ -85,6 +85,8 @@ export interface BotConfig {
   min_volume_usdt: number;
   funding_min: number;
   enable_funding_filter?: boolean;
+  funding_filter_pump_pct?: number;
+  enable_funding_filter?: boolean;
   rsi_overbought: number;
   leverage_default: number;
   reward_risk_min?: number;

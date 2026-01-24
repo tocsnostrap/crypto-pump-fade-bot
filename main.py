@@ -16,7 +16,8 @@ DEFAULT_CONFIG = {
     'poll_interval_sec': 300,
     'min_volume_usdt': 1000000,
     'funding_min': 0.0001,
-    'enable_funding_filter': False,
+    'enable_funding_filter': True,
+    'funding_filter_pump_pct': 70,
     'rsi_overbought': 73,               # RSI peak threshold
     'leverage_default': 3,
     'enable_dynamic_leverage': True,
@@ -2843,14 +2844,16 @@ def main():
                     
                     if config.get('enable_funding_filter', False):
                         favorable = is_funding_favorable(funding, config)
-                        if not favorable or abs(funding) < config.get('funding_min', 0.0001):
+                        funding_min = config.get('funding_min', 0.0001)
+                        filter_pump_pct = config.get('funding_filter_pump_pct', config.get('min_pump_pct', 50))
+                        if pct_change < filter_pump_pct and (not favorable or abs(funding) < funding_min):
                             save_signal(
                                 ex_name,
                                 symbol,
                                 'pump_rejected',
                                 current_price,
                                 f"Funding {funding*100:.3f}% below threshold",
-                                change_pct=None,
+                                change_pct=pct_change,
                                 funding_rate=funding
                             )
                             continue
