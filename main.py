@@ -2109,7 +2109,8 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
             # Check Stop Loss
             sl = trade_data.get('sl', entry * 1.12)
             if current_price >= sl:
-                _, current_balance, daily_loss = close_trade(ex, trade, 'SL hit', current_price, current_balance, daily_loss, config)
+                exit_price = sl if paper_mode else current_price
+                _, current_balance, daily_loss = close_trade(ex, trade, 'SL hit', exit_price, current_balance, daily_loss, config)
                 to_close.append(i)
                 continue
 
