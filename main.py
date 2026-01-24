@@ -34,9 +34,9 @@ DEFAULT_CONFIG = {
     # === STAGED EXITS (Optimized from backtest - 7.8% annual return) ===
     'use_staged_exits': True,           # Take partial profits at multiple levels
     'staged_exit_levels': [
-        {'fib': 0.618, 'pct': 0.30},    # 30% position at 61.8% retrace
+        {'fib': 0.618, 'pct': 0.20},    # 20% position at 61.8% retrace
         {'fib': 0.786, 'pct': 0.30},    # 30% position at 78.6% retrace
-        {'fib': 0.886, 'pct': 0.40}     # 40% position at 88.6% retrace
+        {'fib': 0.886, 'pct': 0.50}     # 50% position at 88.6% retrace
     ],
     'tp_fib_levels': [0.618, 0.786, 0.886],  # Fallback if staged exits disabled
     

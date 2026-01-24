@@ -358,9 +358,9 @@ export default function Dashboard() {
       max_sl_pct_above_entry: 0.08,
       use_staged_exits: true,
       staged_exit_levels: [
-        { fib: 0.618, pct: 0.3 },
+        { fib: 0.618, pct: 0.2 },
         { fib: 0.786, pct: 0.3 },
-        { fib: 0.886, pct: 0.4 },
+        { fib: 0.886, pct: 0.5 },
       ],
       tp_fib_levels: [0.618, 0.786, 0.886],
       enable_bollinger_check: true,
