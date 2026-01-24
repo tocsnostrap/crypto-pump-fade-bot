@@ -126,10 +126,10 @@ def load_config():
             'funding_adverse_time_cap_hours': 24,
             'funding_trailing_min_pct': 0.03,
             'funding_trailing_tighten_factor': 0.8,
-            'enable_ema_filter': True,
+            'enable_ema_filter': False,
             'ema_fast': 9,
             'ema_slow': 21,
-            'require_ema_breakdown': True,
+            'require_ema_breakdown': False,
             'ema_required_pump_pct': 60,
         }
 

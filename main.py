@@ -99,10 +99,10 @@ DEFAULT_CONFIG = {
     'enable_structure_break': True,     # Wait for micro-structure break
     'structure_break_candles': 3,       # Number of candles to confirm break
     'min_lower_highs': 2,               # Require 2+ lower highs for higher win rate
-    'enable_ema_filter': True,
+    'enable_ema_filter': False,
     'ema_fast': 9,
     'ema_slow': 21,
-    'require_ema_breakdown': True,
+    'require_ema_breakdown': False,
     'ema_required_pump_pct': 60,
     
     'enable_blowoff_detection': True,   # Detect blow-off top patterns
