@@ -418,7 +418,7 @@ export default function Dashboard() {
       require_fade_signal: true,
       fade_signal_required_pump_pct: 70,
       fade_signal_min_confirms: 2,
-      fade_signal_min_confirms_small: 2,
+      fade_signal_min_confirms_small: 3,
       fade_signal_min_confirms_large: 2,
       enable_rsi_peak_filter: true,
       rsi_peak_lookback: 12,

@@ -104,7 +104,7 @@ def load_config():
             'require_fade_signal': True,
             'fade_signal_required_pump_pct': 70,
             'fade_signal_min_confirms': 2,
-            'fade_signal_min_confirms_small': 2,
+            'fade_signal_min_confirms_small': 3,
             'fade_signal_min_confirms_large': 2,
             'min_fade_signals': 1,
             'min_entry_quality': 58,
