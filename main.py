@@ -26,6 +26,7 @@ DEFAULT_CONFIG = {
     'leverage_quality_high': 85,
     'leverage_validation_bonus_threshold': 2,
     'risk_pct_per_trade': 0.01,
+    'reward_risk_min': 1.2,
     'sl_pct_above_entry': 0.12,         # Fallback SL if swing high not available
     'max_sl_pct_above_entry': 0.06,     # Cap swing-high SL distance
     'use_swing_high_sl': True,          # Use swing high for stop loss (improved win/loss ratio)
@@ -1794,6 +1795,17 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
         # Use actual recent_low from OHLCV data for proper fibonacci calculation
         diff = pump_high - recent_low
         tp_prices = [pump_high - (level['fib'] * diff) for level in staged_exit_levels]
+
+        # Reward/risk sanity check (largest target vs SL)
+        max_target = min(tp_prices) if tp_prices else None
+        if max_target is not None:
+            reward = simulated_entry - max_target
+            if sl_distance > 0:
+                rr = reward / sl_distance
+                min_rr = config.get('reward_risk_min', 1.2)
+                if rr < min_rr:
+                    print(f"[{datetime.now()}] [PAPER] Skip {symbol}: RR {rr:.2f} < {min_rr}")
+                    return None
         
         print(f"[{datetime.now()}] [PAPER] Entering short {symbol}")
         print(f"  Market: ${entry_price:.4f} -> Fill: ${simulated_entry:.4f} (slippage + spread)")
@@ -1845,6 +1857,17 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
         # Use actual recent_low from OHLCV data for proper fibonacci calculation
         diff = pump_high - recent_low
         tp_prices = [pump_high - (level['fib'] * diff) for level in staged_exit_levels]
+
+        max_target = min(tp_prices) if tp_prices else None
+        if max_target is not None:
+            reward = entry_price - max_target
+            sl_distance_live = abs(sl_price - entry_price)
+            if sl_distance_live > 0:
+                rr = reward / sl_distance_live
+                min_rr = config.get('reward_risk_min', 1.2)
+                if rr < min_rr:
+                    print(f"[{datetime.now()}] [LIVE] Skip {symbol}: RR {rr:.2f} < {min_rr}")
+                    return None
         
         print(f"[{datetime.now()}] [LIVE] Entered short {symbol} @ {filled_entry:.4f}, SL ${sl_price:.4f}, order ID: {order['id']}")
         print(f"  TP levels: ${tp_prices[0]:.4f} (38.2%) | ${tp_prices[1]:.4f} (50%) | ${tp_prices[2]:.4f} (61.8%)")

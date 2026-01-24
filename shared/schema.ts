@@ -87,6 +87,7 @@ export interface BotConfig {
   enable_funding_filter?: boolean;
   rsi_overbought: number;
   leverage_default: number;
+  reward_risk_min?: number;
   enable_dynamic_leverage?: boolean;
   leverage_min?: number;
   leverage_max?: number;

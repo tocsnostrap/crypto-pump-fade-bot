@@ -353,6 +353,7 @@ export default function Dashboard() {
       leverage_quality_high: 85,
       leverage_validation_bonus_threshold: 2,
       use_swing_high_sl: true,
+      reward_risk_min: 1.2,
       sl_swing_buffer_pct: 0.03,
       sl_pct_above_entry: 0.12,
       max_sl_pct_above_entry: 0.06,

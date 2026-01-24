@@ -39,6 +39,7 @@ def load_config():
             'leverage_quality_high': 85,
             'leverage_validation_bonus_threshold': 2,
             'risk_pct_per_trade': 0.01,
+            'reward_risk_min': 1.2,
             'sl_pct_above_entry': 0.12,
             'max_sl_pct_above_entry': 0.06,
             'sl_swing_buffer_pct': 0.03,
