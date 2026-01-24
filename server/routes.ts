@@ -44,11 +44,13 @@ interface BotConfig {
   reward_risk_min?: number;
   enable_quality_risk_scale?: boolean;
   risk_scale_high?: number;
+  risk_scale_mid?: number;
   risk_scale_low?: number;
   risk_scale_quality_high?: number;
   risk_scale_quality_low?: number;
   risk_scale_validation_min?: number;
-  risk_scale_min_pump_pct?: number;
+  risk_scale_mid_pump_pct?: number;
+  risk_scale_high_pump_pct?: number;
   enable_dynamic_leverage?: boolean;
   leverage_min?: number;
   leverage_max?: number;
