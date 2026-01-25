@@ -89,13 +89,17 @@ install_deps() {
   echo "[bootstrap] Installing Python dependencies..."
   python3 -m pip install --upgrade pip --quiet
   clean_python_packages
-  python3 -m pip install --upgrade --force-reinstall --no-cache-dir --only-binary=:all: "numpy<2.3" "pandas>=2.0" --quiet
-  python3 -m pip install --upgrade --force-reinstall --no-cache-dir ccxt --quiet
+  python3 -m pip install --upgrade --force-reinstall --no-cache-dir --only-binary=:all: \
+    --index-url https://pypi.org/simple \
+    "numpy<2.3" "pandas>=2.0" --quiet
+  python3 -m pip install --upgrade --force-reinstall --no-cache-dir \
+    --index-url https://pypi.org/simple \
+    ccxt --quiet
 
   # Try TA-Lib first, fall back to pandas-ta
   python3 -m pip install ta-lib --quiet 2>/dev/null || {
     echo "[bootstrap] TA-Lib unavailable, installing pandas-ta fallback..."
-    python3 -m pip install pandas-ta --quiet || echo "[bootstrap] pandas-ta install failed; using compat fallback"
+    python3 -m pip install --index-url https://pypi.org/simple pandas-ta --quiet || echo "[bootstrap] pandas-ta install failed; using compat fallback"
   }
 }
 
@@ -109,7 +113,7 @@ fi
 # Verify technical analysis library
 if ! check_talib; then
   echo "[bootstrap] pandas-ta missing, attempting install..."
-  python3 -m pip install pandas-ta --quiet || echo "[bootstrap] pandas-ta install failed; using compat fallback"
+  python3 -m pip install --index-url https://pypi.org/simple pandas-ta --quiet || echo "[bootstrap] pandas-ta install failed; using compat fallback"
 fi
 
 # Final verification
