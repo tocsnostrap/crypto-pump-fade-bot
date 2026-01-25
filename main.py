@@ -10,6 +10,17 @@ import urllib.parse
 import urllib.request
 import urllib.error
 
+# Import learning system (graceful fallback if not available)
+try:
+    from trade_learning import (
+        TradeJournal, AdaptiveLearner, PatternAnalyzer,
+        generate_trade_lessons, run_learning_cycle
+    )
+    LEARNING_AVAILABLE = True
+except ImportError:
+    LEARNING_AVAILABLE = False
+    print(f"[{datetime.now()}] Warning: trade_learning module not available, learning disabled")
+
 # === DEFAULT CONFIG (can be overridden by bot_config.json) ===
 DEFAULT_CONFIG = {
     'min_pump_pct': 60.0,
@@ -186,7 +197,12 @@ DEFAULT_CONFIG = {
     'funding_time_extension_hours': 12,
     'funding_adverse_time_cap_hours': 24,
     'funding_trailing_min_pct': 0.03,
-    'funding_trailing_tighten_factor': 0.8
+    'funding_trailing_tighten_factor': 0.8,
+    # === ADAPTIVE LEARNING ===
+    'enable_adaptive_learning': True,   # Enable learning analysis
+    'enable_auto_tuning': False,        # Auto-apply suggested changes (careful!)
+    'learning_min_trades': 10,          # Minimum trades before suggesting changes
+    'learning_cycle_hours': 4,          # How often to run learning analysis
 }
 
 # State files
@@ -2048,6 +2064,7 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
                    f"PAPER exit: {reason}, Net P&L ${net_profit:.2f} (fees ${total_fees:.2f})")
 
         if config.get('enable_trade_logging', True):
+            duration_min = (time.time() - trade_data.get('entry_ts', time.time())) / 60
             outcome = {
                 'trade_id': trade_data.get('id'),
                 'exit_price': simulated_exit,
@@ -2056,10 +2073,28 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
                 'fees': total_fees,
                 'funding': funding_payments,
                 'reason': reason,
-                'duration_min': ((time.time() - trade_data.get('entry_ts', time.time())) / 60),
+                'duration_min': duration_min,
                 'max_drawdown_pct': trade_data.get('max_drawdown_pct')
             }
             log_trade_features(sym, ex_name, 'exit', trade_data.get('features', {}), outcome)
+            
+            # Log to trade journal with lessons learned
+            if LEARNING_AVAILABLE:
+                try:
+                    features = trade_data.get('features', {})
+                    lessons = generate_trade_lessons(features, outcome)
+                    journal = TradeJournal()
+                    journal.log_exit(
+                        trade_id=trade_data.get('id'),
+                        exit_price=simulated_exit,
+                        profit=net_profit,
+                        reason=reason,
+                        duration_minutes=duration_min,
+                        lessons=lessons
+                    )
+                    print(f"  Lessons: {'; '.join(lessons[:2])}")
+                except Exception as e:
+                    print(f"[{datetime.now()}] Journal logging error: {e}")
         
         current_balance += net_profit * compound_pct
         daily_loss += min(net_profit, 0)
@@ -2079,6 +2114,7 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
                    f"LIVE exit: {reason}, P&L ${profit:.2f}")
 
         if config.get('enable_trade_logging', True):
+            duration_min = (time.time() - trade_data.get('entry_ts', time.time())) / 60
             outcome = {
                 'trade_id': trade_data.get('id'),
                 'exit_price': current_price,
@@ -2087,10 +2123,28 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
                 'fees': trade_data.get('total_fees', 0),
                 'funding': trade_data.get('funding_payments', 0),
                 'reason': reason,
-                'duration_min': ((time.time() - trade_data.get('entry_ts', time.time())) / 60),
+                'duration_min': duration_min,
                 'max_drawdown_pct': trade_data.get('max_drawdown_pct')
             }
             log_trade_features(sym, ex_name, 'exit', trade_data.get('features', {}), outcome)
+            
+            # Log to trade journal with lessons learned
+            if LEARNING_AVAILABLE:
+                try:
+                    features = trade_data.get('features', {})
+                    lessons = generate_trade_lessons(features, outcome)
+                    journal = TradeJournal()
+                    journal.log_exit(
+                        trade_id=trade_data.get('id'),
+                        exit_price=current_price,
+                        profit=profit,
+                        reason=reason,
+                        duration_minutes=duration_min,
+                        lessons=lessons
+                    )
+                    print(f"  Lessons: {'; '.join(lessons[:2])}")
+                except Exception as e:
+                    print(f"[{datetime.now()}] Journal logging error: {e}")
         current_balance += profit * compound_pct
         daily_loss += min(profit, 0)
         return profit, current_balance, daily_loss
@@ -2749,6 +2803,48 @@ def process_entry_watchlist(ex_name, ex, tickers, entry_watchlist, open_trades, 
                 }
                 trade_info['features'] = combined_features
                 log_trade_features(symbol, ex_name, 'entry', combined_features)
+                
+                # Log to trade journal
+                if LEARNING_AVAILABLE:
+                    try:
+                        # Build reasoning details
+                        entry_signals = []
+                        if entry_details.get('bollinger_bands', {}).get('above_upper'):
+                            entry_signals.append("Price above upper BB")
+                        if entry_details.get('volume_decline', {}).get('is_declining'):
+                            entry_signals.append("Volume declining")
+                        if entry_details.get('lower_highs', {}).get('has_enough'):
+                            entry_signals.append(f"Lower highs: {entry_details.get('lower_highs', {}).get('lower_high_count')}")
+                        if entry_details.get('structure_break', {}).get('has_lower_low'):
+                            entry_signals.append("Structure break confirmed")
+                        if entry_details.get('rsi_pullback', {}).get('pullback', 0) >= 3:
+                            entry_signals.append(f"RSI pullback: {entry_details.get('rsi_pullback', {}).get('pullback', 0):.1f}")
+                        
+                        validation_passed = []
+                        val_details = watch.get('validation_details', {})
+                        if val_details.get('volume_profile', {}).get('is_sustained'):
+                            validation_passed.append("Sustained volume")
+                        if val_details.get('multi_timeframe', {}).get('rsi_1h', 0) >= 65:
+                            validation_passed.append(f"MTF RSI 1h: {val_details.get('multi_timeframe', {}).get('rsi_1h', 0):.1f}")
+                        
+                        reasoning = {
+                            'entry_signals': entry_signals,
+                            'validation_passed': validation_passed,
+                            'confidence_factors': [f"Entry quality: {entry_quality}", f"Pattern count: {entry_details.get('pattern_count', 0)}"],
+                            'risk_factors': [f"Pump: {watch.get('pct_change', 0):.1f}%", f"Funding: {watch.get('funding_rate', 0)*100:.4f}%"]
+                        }
+                        
+                        journal = TradeJournal()
+                        journal.log_entry(
+                            trade_id=trade_info.get('id'),
+                            symbol=symbol,
+                            exchange=ex_name,
+                            entry_price=current_price,
+                            features=combined_features,
+                            reasoning=reasoning
+                        )
+                    except Exception as e:
+                        print(f"[{datetime.now()}] Journal entry logging error: {e}")
 
             del entry_watchlist[ex_name][symbol]
 
@@ -2779,6 +2875,8 @@ def main():
     last_daily_reset = datetime.now().date()
     entry_watchlist = {}
     last_position_sync = 0
+    last_learning_cycle = 0
+    LEARNING_CYCLE_INTERVAL_SEC = 4 * 3600  # Run learning analysis every 4 hours
 
     if not config.get('paper_mode', True):
         for ex_name, ex in exchanges.items():
@@ -3073,6 +3171,39 @@ def main():
             
             mode_str = "PAPER" if config['paper_mode'] else "LIVE"
             print(f"[{datetime.now()}] [{mode_str}] Cycle complete | Balance: ${current_balance:,.2f} | Open: {len(open_trades)} | Daily P&L: ${-daily_loss:.2f}")
+            
+            # Periodic learning cycle
+            if LEARNING_AVAILABLE and config.get('enable_adaptive_learning', True):
+                if time.time() - last_learning_cycle >= LEARNING_CYCLE_INTERVAL_SEC:
+                    try:
+                        print(f"[{datetime.now()}] Running learning analysis...")
+                        learner = AdaptiveLearner()
+                        analysis = learner.analyze_and_suggest()
+                        
+                        if analysis.get("status") == "analyzed":
+                            perf = analysis.get("performance", {})
+                            suggestions = analysis.get("suggestions", [])
+                            
+                            print(f"  Performance (7d): {perf.get('trades', 0)} trades, {perf.get('win_rate', 0):.1f}% win rate, ${perf.get('total_profit', 0):.2f} profit")
+                            
+                            if suggestions:
+                                print(f"  Suggestions: {len(suggestions)} parameter adjustments recommended")
+                                
+                                # Auto-apply if enabled and win rate is below 40%
+                                if config.get('enable_auto_tuning', False) and perf.get('win_rate', 50) < 40:
+                                    apply_result = learner.apply_suggestions(suggestions)
+                                    print(f"  Auto-applied {apply_result.get('applied', 0)} changes (low win rate trigger)")
+                                    send_push_notification(
+                                        "Learning adjustments applied",
+                                        f"Win rate {perf.get('win_rate', 0):.1f}% - applied {apply_result.get('applied', 0)} parameter changes",
+                                        priority=0
+                                    )
+                        elif analysis.get("status") == "insufficient_data":
+                            print(f"  Learning: Need {analysis.get('required', 10)} trades, have {analysis.get('trades', 0)}")
+                        
+                        last_learning_cycle = time.time()
+                    except Exception as e:
+                        print(f"[{datetime.now()}] Learning cycle error: {e}")
             
             time.sleep(config['poll_interval_sec'])
 

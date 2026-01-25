@@ -163,5 +163,10 @@
   "funding_time_extension_hours": 12,
   "funding_adverse_time_cap_hours": 24,
   "funding_trailing_min_pct": 0.03,
-  "funding_trailing_tighten_factor": 0.8
+  "funding_trailing_tighten_factor": 0.8,
+
+  "enable_adaptive_learning": true,
+  "enable_auto_tuning": false,
+  "learning_min_trades": 10,
+  "learning_cycle_hours": 4
 }
