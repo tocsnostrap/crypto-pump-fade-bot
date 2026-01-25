@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   TrendingUp,
   TrendingDown,
@@ -888,6 +889,12 @@ export default function Dashboard() {
           </div>
         )}
 
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="w-full justify-start">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="learning">Learning</TabsTrigger>
+          </TabsList>
+          <TabsContent value="overview" className="space-y-6">
         {/* Key Metrics */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <MetricCard
@@ -1159,13 +1166,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Adaptive Learning Section */}
-        <LearningSection 
-          data={learningData} 
-          onToggle={(enabled) => toggleLearningMutation.mutate(enabled)}
-          isToggling={toggleLearningMutation.isPending}
-        />
-
         {/* Bot Configuration */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
@@ -1241,6 +1241,15 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+          <TabsContent value="learning" className="space-y-6">
+            <LearningSection 
+              data={learningData} 
+              onToggle={(enabled) => toggleLearningMutation.mutate(enabled)}
+              isToggling={toggleLearningMutation.isPending}
+            />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
