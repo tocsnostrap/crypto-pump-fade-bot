@@ -592,5 +592,189 @@ export async function registerRoutes(
     }
   });
 
+  // Learning system endpoints
+  const LEARNING_STATE_FILE = path.join(process.cwd(), "learning_state.json");
+  const TRADE_JOURNAL_FILE = path.join(process.cwd(), "trade_journal.json");
+  const TRADE_FEATURES_FILE = path.join(process.cwd(), "trade_features.json");
+
+  // Get learning state and summary
+  app.get("/api/learning", (_req, res) => {
+    try {
+      const learningState = readJsonFile(LEARNING_STATE_FILE, {
+        learning_enabled: true,
+        last_analysis: null,
+        adjustments_made: [],
+        performance_history: [],
+      });
+
+      const journal = readJsonFile<any[]>(TRADE_JOURNAL_FILE, []);
+      const features = readJsonFile<any[]>(TRADE_FEATURES_FILE, []);
+
+      // Calculate recent performance from journal
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const recentExits = journal.filter((entry: any) => {
+        if (entry.type !== "exit") return false;
+        try {
+          const entryDate = new Date(entry.timestamp);
+          return entryDate > sevenDaysAgo;
+        } catch {
+          return false;
+        }
+      });
+
+      const wins = recentExits.filter((e: any) => e.is_win);
+      const totalProfit = recentExits.reduce((sum: number, e: any) => sum + (e.profit || 0), 0);
+
+      const recentPerformance = {
+        trades: recentExits.length,
+        wins: wins.length,
+        losses: recentExits.length - wins.length,
+        win_rate: recentExits.length > 0 ? (wins.length / recentExits.length) * 100 : 0,
+        total_profit: totalProfit,
+        avg_profit: recentExits.length > 0 ? totalProfit / recentExits.length : 0,
+      };
+
+      // Get recent lessons from journal
+      const recentLessons = journal
+        .filter((e: any) => e.type === "exit" && e.lessons_learned)
+        .slice(-10)
+        .map((e: any) => ({
+          trade_id: e.trade_id,
+          timestamp: e.timestamp,
+          is_win: e.is_win,
+          profit: e.profit,
+          lessons: e.lessons_learned,
+        }))
+        .reverse();
+
+      // Calculate pattern stats from features
+      const entries: Record<string, any> = {};
+      const exits: Record<string, any> = {};
+
+      features.forEach((item: any) => {
+        const tradeId = item.outcome?.trade_id || item.features?.trade_id;
+        if (!tradeId) return;
+        if (item.action === "entry") entries[tradeId] = item;
+        if (item.action === "exit") exits[tradeId] = item;
+      });
+
+      const completedTrades = Object.keys(entries)
+        .filter((id) => exits[id])
+        .map((id) => ({
+          is_win: (exits[id].outcome?.net_profit || 0) > 0,
+          pump_pct: entries[id].features?.pump_pct,
+          entry_quality: entries[id].features?.entry_quality,
+        }));
+
+      const patternStats = {
+        total_analyzed: completedTrades.length,
+        by_pump_size: {} as Record<string, { count: number; win_rate: number }>,
+        by_entry_quality: {} as Record<string, { count: number; win_rate: number }>,
+      };
+
+      // Group by pump size
+      const pumpBuckets = [
+        { label: "60-80%", min: 60, max: 80 },
+        { label: "80-100%", min: 80, max: 100 },
+        { label: "100-150%", min: 100, max: 150 },
+        { label: "150%+", min: 150, max: 999 },
+      ];
+
+      pumpBuckets.forEach(({ label, min, max }) => {
+        const bucket = completedTrades.filter(
+          (t) => t.pump_pct && t.pump_pct >= min && t.pump_pct < max
+        );
+        if (bucket.length > 0) {
+          const bucketWins = bucket.filter((t) => t.is_win).length;
+          patternStats.by_pump_size[label] = {
+            count: bucket.length,
+            win_rate: (bucketWins / bucket.length) * 100,
+          };
+        }
+      });
+
+      // Group by entry quality
+      const qualityBuckets = [
+        { label: "50-60", min: 50, max: 60 },
+        { label: "60-70", min: 60, max: 70 },
+        { label: "70-80", min: 70, max: 80 },
+        { label: "80+", min: 80, max: 200 },
+      ];
+
+      qualityBuckets.forEach(({ label, min, max }) => {
+        const bucket = completedTrades.filter(
+          (t) => t.entry_quality && t.entry_quality >= min && t.entry_quality < max
+        );
+        if (bucket.length > 0) {
+          const bucketWins = bucket.filter((t) => t.is_win).length;
+          patternStats.by_entry_quality[label] = {
+            count: bucket.length,
+            win_rate: (bucketWins / bucket.length) * 100,
+          };
+        }
+      });
+
+      // Performance trend
+      const performanceHistory = learningState.performance_history || [];
+      let trend = "stable";
+      if (performanceHistory.length >= 2) {
+        const recent = performanceHistory.slice(-3);
+        const older = performanceHistory.slice(-6, -3);
+        if (recent.length > 0 && older.length > 0) {
+          const recentAvg =
+            recent.reduce((sum: number, h: any) => sum + (h.win_rate || 0), 0) / recent.length;
+          const olderAvg =
+            older.reduce((sum: number, h: any) => sum + (h.win_rate || 0), 0) / older.length;
+          if (recentAvg > olderAvg + 5) trend = "improving";
+          else if (recentAvg < olderAvg - 5) trend = "declining";
+        }
+      }
+
+      res.json({
+        learning_enabled: learningState.learning_enabled,
+        last_analysis: learningState.last_analysis,
+        recent_performance: recentPerformance,
+        recent_lessons: recentLessons,
+        adjustments_made: (learningState.adjustments_made || []).slice(-10).reverse(),
+        performance_history: performanceHistory.slice(-20),
+        pattern_stats: patternStats,
+        trend,
+      });
+    } catch (err) {
+      console.error("Learning endpoint error:", err);
+      res.status(500).json({ error: "Failed to load learning data" });
+    }
+  });
+
+  // Toggle learning on/off
+  app.post("/api/learning/toggle", requireControlAuth, (req, res) => {
+    try {
+      const { enabled } = req.body;
+      if (typeof enabled !== "boolean") {
+        return res.status(400).json({ error: "enabled must be a boolean" });
+      }
+
+      const learningState = readJsonFile(LEARNING_STATE_FILE, {
+        learning_enabled: true,
+        adjustments_made: [],
+        performance_history: [],
+      });
+
+      learningState.learning_enabled = enabled;
+      writeJsonFile(LEARNING_STATE_FILE, learningState);
+
+      // Also update bot config
+      const config = readJsonFile(CONFIG_FILE, {});
+      config.enable_adaptive_learning = enabled;
+      writeJsonFile(CONFIG_FILE, config);
+
+      res.json({ success: true, learning_enabled: enabled });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to toggle learning" });
+    }
+  });
+
   return httpServer;
 }
