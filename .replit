@@ -6,7 +6,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["glibcLocales", "ta-lib", "nodejs_20", "python311"]
+packages = ["glibcLocales", "ta-lib", "nodejs_20", "python311", "python311Packages.numpy", "python311Packages.pandas"]
 
 [[ports]]
 localPort = 5000
