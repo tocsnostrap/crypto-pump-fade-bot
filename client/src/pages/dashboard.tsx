@@ -334,7 +334,137 @@ export default function Dashboard() {
   }
 
   const { config, status, metrics, open_trades, closed_trades, signals } = data || {
-    config: { paper_mode: true, leverage_default: 3, risk_pct_per_trade: 0.01, starting_capital: 5000 },
+    config: {
+      paper_mode: true,
+      leverage_default: 3,
+      enable_quality_risk_scale: true,
+      risk_scale_high: 5.0,
+      risk_scale_mid: 1.5,
+      risk_scale_low: 0.6,
+      risk_scale_quality_high: 80,
+      risk_scale_quality_low: 60,
+      risk_scale_validation_min: 2,
+      risk_scale_mid_pump_pct: 70,
+      risk_scale_high_pump_pct: 80,
+      risk_pct_per_trade: 0.01,
+      starting_capital: 5000,
+      min_volume_usdt: 1000000,
+      min_pump_pct: 60,
+      max_pump_pct: 250,
+      rsi_overbought: 73,
+      funding_min: 0.0001,
+      enable_funding_filter: true,
+      funding_filter_pump_pct: 70,
+      trailing_stop_pct: 0.08,
+      enable_multi_window_pump: true,
+      multi_window_hours: [1, 4, 12, 24],
+      ohlcv_max_calls_per_cycle: 25,
+      enable_dynamic_leverage: true,
+      leverage_min: 3,
+      leverage_max: 5,
+      leverage_quality_mid: 75,
+      leverage_quality_high: 85,
+      leverage_validation_bonus_threshold: 2,
+      use_swing_high_sl: true,
+      reward_risk_min: 1.0,
+      sl_swing_buffer_pct: 0.03,
+      sl_pct_above_entry: 0.12,
+      max_sl_pct_above_entry: 0.06,
+      max_sl_pct_small: 0.05,
+      max_sl_pct_large: 0.05,
+      use_staged_exits: true,
+      staged_exit_levels: [
+        { fib: 0.618, pct: 0.1 },
+        { fib: 0.786, pct: 0.2 },
+        { fib: 0.886, pct: 0.7 },
+      ],
+      tp_fib_levels: [0.618, 0.786, 0.886],
+      staged_exit_levels_small: [
+        { fib: 0.382, pct: 0.4 },
+        { fib: 0.5, pct: 0.3 },
+        { fib: 0.618, pct: 0.3 },
+      ],
+      staged_exit_levels_large: [
+        { fib: 0.618, pct: 0.1 },
+        { fib: 0.786, pct: 0.2 },
+        { fib: 0.886, pct: 0.7 },
+      ],
+      enable_early_cut: false,
+      early_cut_minutes: 90,
+      early_cut_max_loss_pct: 0.02,
+      early_cut_hard_loss_pct: 0.03,
+      early_cut_pump_pct: 65,
+      early_cut_timeframe: "5m",
+      early_cut_require_bullish: true,
+      enable_time_stop_tighten: false,
+      time_stop_minutes: 180,
+      time_stop_sl_pct: 0.03,
+      enable_breakeven_after_first_tp: true,
+      breakeven_after_tps: 1,
+      breakeven_buffer_pct: 0.001,
+      enable_bollinger_check: true,
+      min_bb_extension_pct: 0.2,
+      enable_structure_break: true,
+      structure_break_candles: 3,
+      time_decay_minutes: 120,
+      min_lower_highs: 2,
+      enable_ema_filter: false,
+      ema_fast: 9,
+      ema_slow: 21,
+      require_ema_breakdown: false,
+      ema_required_pump_pct: 60,
+      min_fade_signals: 1,
+      enable_volume_decline_check: true,
+      require_fade_signal: true,
+      fade_signal_required_pump_pct: 70,
+      fade_signal_min_confirms: 2,
+      fade_signal_min_confirms_small: 2,
+      fade_signal_min_confirms_large: 2,
+      enable_rsi_peak_filter: true,
+      rsi_peak_lookback: 12,
+      min_entry_quality: 58,
+      min_entry_quality_small: 61,
+      min_entry_quality_large: 58,
+      min_fade_signals_small: 2,
+      min_fade_signals_large: 1,
+      pump_small_threshold_pct: 70,
+      require_entry_drawdown: true,
+      entry_drawdown_lookback: 24,
+      min_drawdown_pct_small: 2,
+      min_drawdown_pct_large: 4,
+      enable_rsi_pullback: true,
+      rsi_pullback_points: 3,
+      rsi_pullback_lookback: 6,
+      enable_atr_filter: true,
+      min_atr_pct: 0.4,
+      max_atr_pct: 15,
+      min_validation_score: 1,
+      enable_oi_filter: true,
+      oi_drop_pct: 10,
+      require_oi_data: false,
+      btc_volatility_max_pct: 2,
+      enable_holders_filter: false,
+      require_holders_data: false,
+      holders_max_top1_pct: 25,
+      holders_max_top5_pct: 45,
+      holders_max_top10_pct: 70,
+      holders_cache_file: "token_holders_cache.json",
+      holders_data_file: "token_holders.json",
+      holders_refresh_hours: 24,
+      holders_api_url_template: "",
+      holders_list_keys: ["data", "result", "holders"],
+      holders_percent_keys: ["percentage", "percent", "share", "holdingPercent", "ratio"],
+      token_address_map: {},
+      enable_funding_bias: true,
+      funding_positive_is_favorable: true,
+      funding_hold_threshold: 0.0001,
+      funding_time_extension_hours: 12,
+      funding_adverse_time_cap_hours: 24,
+      funding_trailing_min_pct: 0.03,
+      funding_trailing_tighten_factor: 0.8,
+      enable_funding_filter: false,
+      max_hold_hours: 48,
+    },
     status: { running: false, last_poll: null, exchanges_connected: [], symbols_loaded: {} },
     metrics: {
       total_trades: 0, winning_trades: 0, losing_trades: 0, win_rate: 0,
@@ -348,6 +478,47 @@ export default function Dashboard() {
   };
 
   const isPaperMode = config?.paper_mode ?? true;
+  const pumpRange = `${config?.min_pump_pct ?? 60}% - ${config?.max_pump_pct ?? 200}%`;
+  const stopLossLabel = config?.use_swing_high_sl
+    ? `Swing + ${(((config?.sl_swing_buffer_pct ?? 0.02) * 100).toFixed(0))}%`
+    : `${(((config?.sl_pct_above_entry ?? 0.12) * 100).toFixed(0))}%`;
+  const stagedExitLevels = config?.staged_exit_levels?.length
+    ? config.staged_exit_levels
+    : [
+        { fib: 0.382, pct: 0.5 },
+        { fib: 0.5, pct: 0.3 },
+        { fib: 0.618, pct: 0.2 },
+      ];
+  const stagedExitLabel = stagedExitLevels
+    .map((level) => `${(level.fib * 100).toFixed(1)}% (${Math.round(level.pct * 100)}%)`)
+    .join(", ");
+  const singleExitLabel = (config?.tp_fib_levels?.length ? config.tp_fib_levels : [0.382, 0.5, 0.618])
+    .map((level) => `${(level * 100).toFixed(1)}%`)
+    .join(", ");
+  const exitLabel = config?.use_staged_exits ? `Staged: ${stagedExitLabel}` : `Single: ${singleExitLabel}`;
+  const entryLabel = `RSI peak >= ${(config?.rsi_overbought ?? 70).toFixed(0)} (${config?.rsi_peak_lookback ?? 12} bars)`;
+  const pumpThresholdLabel = `${config?.pump_small_threshold_pct ?? 60}% threshold`;
+  const entryQualityLabel = `Min quality ${config?.min_entry_quality_large ?? config?.min_entry_quality ?? 60} (small ${config?.min_entry_quality_small ?? 65})`;
+  const fadeSignalsLabel = `Signals ${config?.min_fade_signals_large ?? config?.min_fade_signals ?? 2} (small ${config?.min_fade_signals_small ?? 3})`;
+  const validationLabel = `Validation score >= ${config?.min_validation_score ?? 1}`;
+  const oiLabel = (config?.enable_oi_filter ?? false)
+    ? `On (drop ${config?.oi_drop_pct ?? 10}%)`
+    : "Off";
+  const btcVolLabel = `${config?.btc_volatility_max_pct ?? 2}% max`;
+  const bollingerLabel = (config?.enable_bollinger_check ?? true)
+    ? `On (min ext ${(config?.min_bb_extension_pct ?? 0).toFixed(0)}%)`
+    : "Off";
+  const structureLabel = (config?.enable_structure_break ?? true)
+    ? `On (${config?.structure_break_candles ?? 3} candles)`
+    : "Off";
+  const timeDecayLabel = `${config?.time_decay_minutes ?? 120} min`;
+  const lowerHighsLabel = `${config?.min_lower_highs ?? 1}+ lower highs`;
+  const rsiPullbackLabel = (config?.enable_rsi_pullback ?? true)
+    ? `On (${config?.rsi_pullback_points ?? 3} pts / ${config?.rsi_pullback_lookback ?? 6} bars)`
+    : "Off";
+  const atrFilterLabel = (config?.enable_atr_filter ?? true)
+    ? `On (${(config?.min_atr_pct ?? 0).toFixed(1)}% - ${(config?.max_atr_pct ?? 0).toFixed(1)}%)`
+    : "Off";
 
   return (
     <div className="min-h-screen bg-background">
@@ -709,12 +880,12 @@ export default function Dashboard() {
                 <p className="text-lg font-bold font-mono">{((config?.risk_pct_per_trade || 0.01) * 100).toFixed(0)}%</p>
               </div>
               <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">Min Pump</p>
-                <p className="text-lg font-bold font-mono">{config?.min_pump_pct || 60}%</p>
+                <p className="text-xs text-muted-foreground">Pump Range</p>
+                <p className="text-lg font-bold font-mono">{pumpRange}</p>
               </div>
               <div className="p-3 rounded-lg bg-muted/50">
                 <p className="text-xs text-muted-foreground">Stop Loss</p>
-                <p className="text-lg font-bold font-mono">{((config?.sl_pct_above_entry || 0.12) * 100).toFixed(0)}%</p>
+                <p className="text-lg font-bold font-mono">{stopLossLabel}</p>
               </div>
               <div className="p-3 rounded-lg bg-muted/50">
                 <p className="text-xs text-muted-foreground">Compound</p>
@@ -724,6 +895,21 @@ export default function Dashboard() {
                 <p className="text-xs text-muted-foreground">Max Trades</p>
                 <p className="text-lg font-bold font-mono">{config?.max_open_trades || 4}</p>
               </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t text-xs text-muted-foreground space-y-1">
+              <p>Pump Tier: {pumpThresholdLabel}</p>
+              <p>Entry: {entryLabel} | {entryQualityLabel}</p>
+              <p>Fade: {fadeSignalsLabel} | {lowerHighsLabel}</p>
+              <p>RSI Pullback: {rsiPullbackLabel}</p>
+              <p>ATR Filter: {atrFilterLabel}</p>
+              <p>Bollinger: {bollingerLabel}</p>
+              <p>{validationLabel}</p>
+              <p>Open Interest: {oiLabel}</p>
+              <p>BTC Vol Filter: {btcVolLabel}</p>
+              <p>Structure Break: {structureLabel}</p>
+              <p>Time Decay: {timeDecayLabel}</p>
+              <p>Exits: {exitLabel}</p>
             </div>
 
             {status?.exchanges_connected && status.exchanges_connected.length > 0 && (

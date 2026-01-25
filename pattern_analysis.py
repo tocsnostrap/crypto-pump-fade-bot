@@ -7,12 +7,12 @@ Find tokens that pumped 60%+ and then fully retraced, analyze common patterns
 import ccxt
 import pandas as pd
 import numpy as np
-import talib
 import json
 import time
 import os
 from datetime import datetime, timedelta
 from collections import defaultdict
+from talib_compat import talib
 
 def init_exchange():
     api_key = os.environ.get('GATE_API_KEY')

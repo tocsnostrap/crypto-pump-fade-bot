@@ -34,17 +34,124 @@ function requireControlAuth(req: Request, res: Response, next: NextFunction) {
 interface BotConfig {
   paper_mode: boolean;
   min_pump_pct: number;
+  max_pump_pct?: number;
   poll_interval_sec: number;
   min_volume_usdt: number;
   funding_min: number;
+  enable_funding_filter?: boolean;
+  funding_filter_pump_pct?: number;
+  enable_funding_filter?: boolean;
   rsi_overbought: number;
   leverage_default: number;
+  reward_risk_min?: number;
+  enable_quality_risk_scale?: boolean;
+  risk_scale_high?: number;
+  risk_scale_mid?: number;
+  risk_scale_low?: number;
+  risk_scale_quality_high?: number;
+  risk_scale_quality_low?: number;
+  risk_scale_validation_min?: number;
+  risk_scale_mid_pump_pct?: number;
+  risk_scale_high_pump_pct?: number;
+  enable_dynamic_leverage?: boolean;
+  leverage_min?: number;
+  leverage_max?: number;
+  leverage_quality_mid?: number;
+  leverage_quality_high?: number;
+  leverage_validation_bonus_threshold?: number;
   risk_pct_per_trade: number;
+  use_swing_high_sl?: boolean;
+  sl_swing_buffer_pct?: number;
   sl_pct_above_entry: number;
+  max_sl_pct_above_entry?: number;
+  max_sl_pct_small?: number;
+  max_sl_pct_large?: number;
+  use_staged_exits?: boolean;
+  staged_exit_levels?: { fib: number; pct: number }[];
+  staged_exit_levels_small?: { fib: number; pct: number }[];
+  staged_exit_levels_large?: { fib: number; pct: number }[];
   tp_fib_levels: number[];
+  enable_early_cut?: boolean;
+  early_cut_minutes?: number;
+  early_cut_max_loss_pct?: number;
+  early_cut_hard_loss_pct?: number;
+  early_cut_pump_pct?: number;
+  early_cut_timeframe?: string;
+  early_cut_require_bullish?: boolean;
+  enable_time_stop_tighten?: boolean;
+  time_stop_minutes?: number;
+  time_stop_sl_pct?: number;
+  enable_breakeven_after_first_tp?: boolean;
+  breakeven_after_tps?: number;
+  breakeven_buffer_pct?: number;
   max_open_trades: number;
   starting_capital: number;
   compound_pct: number;
+  trailing_stop_pct?: number;
+  max_hold_hours?: number;
+  enable_bollinger_check?: boolean;
+  min_bb_extension_pct?: number;
+  enable_multi_window_pump?: boolean;
+  multi_window_hours?: number[];
+  ohlcv_max_calls_per_cycle?: number;
+  enable_structure_break?: boolean;
+  structure_break_candles?: number;
+  time_decay_minutes?: number;
+  min_lower_highs?: number;
+  enable_volume_decline_check?: boolean;
+  require_fade_signal?: boolean;
+  fade_signal_required_pump_pct?: number;
+  fade_signal_min_confirms?: number;
+  fade_signal_min_confirms_small?: number;
+  fade_signal_min_confirms_large?: number;
+  enable_ema_filter?: boolean;
+  ema_fast?: number;
+  ema_slow?: number;
+  require_ema_breakdown?: boolean;
+  ema_required_pump_pct?: number;
+  min_fade_signals?: number;
+  min_entry_quality_small?: number;
+  min_entry_quality_large?: number;
+  min_fade_signals_small?: number;
+  min_fade_signals_large?: number;
+  pump_small_threshold_pct?: number;
+  require_entry_drawdown?: boolean;
+  entry_drawdown_lookback?: number;
+  min_drawdown_pct_small?: number;
+  min_drawdown_pct_large?: number;
+  enable_rsi_peak_filter?: boolean;
+  rsi_peak_lookback?: number;
+  min_entry_quality?: number;
+  enable_rsi_pullback?: boolean;
+  rsi_pullback_points?: number;
+  rsi_pullback_lookback?: number;
+  enable_atr_filter?: boolean;
+  min_atr_pct?: number;
+  max_atr_pct?: number;
+  min_validation_score?: number;
+  enable_oi_filter?: boolean;
+  oi_drop_pct?: number;
+  require_oi_data?: boolean;
+  btc_volatility_max_pct?: number;
+  enable_holders_filter?: boolean;
+  require_holders_data?: boolean;
+  holders_max_top1_pct?: number;
+  holders_max_top5_pct?: number;
+  holders_max_top10_pct?: number;
+  holders_cache_file?: string;
+  holders_data_file?: string;
+  holders_refresh_hours?: number;
+  holders_api_url_template?: string;
+  holders_list_keys?: string[];
+  holders_percent_keys?: string[];
+  token_address_map?: Record<string, string | { address: string; chain?: string }>;
+  enable_funding_bias?: boolean;
+  funding_positive_is_favorable?: boolean;
+  funding_hold_threshold?: number;
+  funding_time_extension_hours?: number;
+  funding_adverse_time_cap_hours?: number;
+  funding_trailing_min_pct?: number;
+  funding_trailing_tighten_factor?: number;
 }
 
 interface TradeInfo {
@@ -59,7 +166,15 @@ interface TradeInfo {
   sl_order_id?: string | null;
   entry_ts: number;
   entry_quality?: number;
+  validation_score?: number;
   validation_details?: Record<string, unknown>;
+  pump_pct?: number;
+  pump_window_hours?: number;
+  change_source?: string;
+  funding_rate_entry?: number;
+  funding_rate_current?: number;
+  holders_details?: Record<string, unknown> | null;
+  max_drawdown_pct?: number;
   exits_taken?: number[];
 }
 
@@ -165,13 +280,25 @@ function calculateMetrics(
   currentBalance: number,
   startingBalance: number
 ) {
-  const winningTrades = closedTrades.filter((t) => t.profit > 0);
-  const losingTrades = closedTrades.filter((t) => t.profit <= 0);
+  const normalizedTrades = closedTrades.map((trade) => {
+    const profitValue =
+      typeof trade.profit === "number"
+        ? trade.profit
+        : Number.parseFloat(String(trade.profit));
+    return {
+      ...trade,
+      profit_value: Number.isFinite(profitValue) ? profitValue : 0,
+    };
+  });
 
-  const totalProfit = winningTrades.reduce((sum, t) => sum + t.profit, 0);
-  const totalLoss = Math.abs(losingTrades.reduce((sum, t) => sum + t.profit, 0));
-  const netPnl = totalProfit - totalLoss;
-  const winRate = closedTrades.length > 0 ? (winningTrades.length / closedTrades.length) * 100 : 0;
+  const winningTrades = normalizedTrades.filter((t) => t.profit_value > 0);
+  const losingTrades = normalizedTrades.filter((t) => t.profit_value <= 0);
+
+  const totalProfit = winningTrades.reduce((sum, t) => sum + t.profit_value, 0);
+  const totalLossRaw = losingTrades.reduce((sum, t) => sum + t.profit_value, 0);
+  const totalLoss = Math.abs(totalLossRaw);
+  const netPnl = totalProfit + totalLossRaw;
+  const winRate = normalizedTrades.length > 0 ? (winningTrades.length / normalizedTrades.length) * 100 : 0;
   const avgWin = winningTrades.length > 0 ? totalProfit / winningTrades.length : 0;
   const avgLoss = losingTrades.length > 0 ? totalLoss / losingTrades.length : 0;
   const profitFactor = totalLoss > 0 ? totalProfit / totalLoss : totalProfit > 0 ? 999 : 0;
@@ -182,8 +309,8 @@ function calculateMetrics(
   let peak = startingBalance;
   let runningBalance = startingBalance;
 
-  for (const trade of closedTrades) {
-    runningBalance += trade.profit;
+  for (const trade of normalizedTrades) {
+    runningBalance += trade.profit_value;
     if (runningBalance > peak) {
       peak = runningBalance;
     }
@@ -250,16 +377,6 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Simple ping endpoint - responds immediately for deployment health checks
-  // This is checked by Replit to verify the app is running
-  app.get("/", (_req, res) => {
-    res.status(200).send("Pump Fade Trading Bot - OK");
-  });
-
-  app.get("/ping", (_req, res) => {
-    res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
-  });
-
   // Get full dashboard data
   app.get("/api/dashboard", (_req, res) => {
     try {
@@ -425,171 +542,6 @@ export async function registerRoutes(
       res.json(status);
     } catch (err) {
       res.status(500).json({ error: "Failed to get status" });
-    }
-  });
-
-  // Health check endpoint for monitoring
-  // Always returns 200 for deployment health checks - bot status is informational
-  app.get("/api/health", (_req, res) => {
-    try {
-      const pumpState = getPumpState();
-      const status = getBotStatus(pumpState);
-      const balanceData = getBalance();
-      const config = getConfig();
-      
-      // Always return 200 for deployment health checks
-      // Bot running status is informational, not a failure condition
-      res.status(200).json({
-        status: "ok",
-        timestamp: new Date().toISOString(),
-        bot: {
-          running: status.running,
-          last_poll: status.last_poll,
-          mode: config.paper_mode ? "paper" : "live",
-          initialized: status.running,
-        },
-        balance: {
-          current: balanceData.balance || config.starting_capital,
-          starting: config.starting_capital,
-          return_pct: ((balanceData.balance || config.starting_capital - config.starting_capital) / config.starting_capital * 100).toFixed(2),
-        },
-        safety: {
-          emergency_stop: (config as any).emergency_stop || false,
-          min_balance: (config as any).min_balance_usd || 100,
-          max_drawdown: (config as any).max_drawdown_pct || 0.20,
-        },
-        uptime: process.uptime(),
-      });
-    } catch (err) {
-      // Even on error, return 200 with error details
-      // This prevents deployment failures due to missing config files
-      res.status(200).json({ 
-        status: "ok",
-        warning: "Health check data incomplete",
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-      });
-    }
-  });
-
-  // Emergency stop endpoint (requires auth)
-  app.post("/api/emergency-stop", requireControlAuth, (req, res) => {
-    try {
-      const { activate } = req.body;
-      
-      if (typeof activate !== "boolean") {
-        return res.status(400).json({ error: "activate must be a boolean" });
-      }
-      
-      const config = getConfig();
-      (config as any).emergency_stop = activate;
-      writeJsonFile(CONFIG_FILE, config);
-      
-      const action = activate ? "ACTIVATED" : "DEACTIVATED";
-      console.log(`[${new Date().toISOString()}] ⛔ EMERGENCY STOP ${action}`);
-      
-      res.json({ 
-        success: true, 
-        emergency_stop: activate,
-        message: `Emergency stop ${action.toLowerCase()}`
-      });
-    } catch (err) {
-      res.status(500).json({ error: "Failed to toggle emergency stop" });
-    }
-  });
-
-  // Test notifications endpoint
-  app.post("/api/notifications/test", requireControlAuth, async (req, res) => {
-    try {
-      const { spawn } = await import('child_process');
-      
-      // Run Python script to test notifications
-      const python = spawn('python3', ['-c', `
-from notifications import test_notifications, is_any_notification_configured
-import json
-
-if is_any_notification_configured():
-    results = test_notifications()
-    print(json.dumps(results))
-else:
-    print(json.dumps({"error": "No notification channels configured"}))
-`]);
-      
-      let output = '';
-      python.stdout.on('data', (data: Buffer) => {
-        output += data.toString();
-      });
-      
-      python.stderr.on('data', (data: Buffer) => {
-        console.error('Notification test error:', data.toString());
-      });
-      
-      python.on('close', (code: number) => {
-        if (code === 0) {
-          try {
-            const results = JSON.parse(output.trim());
-            res.json({ success: true, results });
-          } catch {
-            res.json({ success: false, error: 'Failed to parse results', output });
-          }
-        } else {
-          res.status(500).json({ success: false, error: 'Test script failed' });
-        }
-      });
-    } catch (err) {
-      res.status(500).json({ error: "Failed to test notifications" });
-    }
-  });
-
-  // Get notification status
-  app.get("/api/notifications/status", (_req, res) => {
-    try {
-      const telegramConfigured = !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID);
-      const discordConfigured = !!process.env.DISCORD_WEBHOOK_URL;
-      
-      res.json({
-        telegram: {
-          configured: telegramConfigured,
-          bot_token: !!process.env.TELEGRAM_BOT_TOKEN,
-          chat_id: !!process.env.TELEGRAM_CHAT_ID,
-        },
-        discord: {
-          configured: discordConfigured,
-          webhook_url: !!process.env.DISCORD_WEBHOOK_URL,
-        },
-        any_configured: telegramConfigured || discordConfigured,
-      });
-    } catch (err) {
-      res.status(500).json({ error: "Failed to check notification status" });
-    }
-  });
-
-  // Get safety state
-  app.get("/api/safety", (_req, res) => {
-    try {
-      const safetyStatePath = path.join(process.cwd(), "safety_state.json");
-      const safetyState = readJsonFile(safetyStatePath, {
-        symbol_cooldowns: {},
-        last_loss_ts: 0,
-        consecutive_losses: 0,
-        weekly_loss: 0,
-        peak_balance: 0,
-        current_drawdown_pct: 0,
-      });
-      
-      const config = getConfig();
-      
-      res.json({
-        ...safetyState,
-        limits: {
-          max_drawdown_pct: config.max_drawdown_pct || 0.20,
-          weekly_loss_limit_pct: config.weekly_loss_limit_pct || 0.10,
-          symbol_cooldown_sec: config.symbol_cooldown_sec || 3600,
-          loss_cooldown_sec: config.loss_cooldown_sec || 300,
-        }
-      });
-    } catch (err) {
-      res.status(500).json({ error: "Failed to get safety state" });
     }
   });
 
