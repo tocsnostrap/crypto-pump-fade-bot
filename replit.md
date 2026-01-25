@@ -33,6 +33,12 @@ The dashboard runs on port 5000 and provides:
 - **Open Positions**: View all current positions with entry price and P&L
 - **Live Signals**: See pump detections, rejections, and entry/exit signals
 - **Trade History**: Complete history of closed trades
+- **Adaptive Learning Tab** (NEW in v1.1.0):
+  - Learning status toggle (enable/disable)
+  - 7-day performance metrics and trend indicator
+  - Pattern analysis showing win rates by pump size and entry quality
+  - Recent lessons learned from completed trades
+  - Parameter adjustment history with timestamps
 - **Bot Configuration**: View current config parameters
 
 ## Configuration
@@ -208,7 +214,34 @@ Tightens trailing stop as trade ages:
 - `GET /api/health` - Health check endpoint (returns 200 if healthy, 503 if not)
 - `GET /api/safety` - Get current safety state (cooldowns, drawdown, etc.)
 - `GET /api/status` - Get bot running status
+- `GET /api/learning` - Get learning state, performance, patterns, lessons
 
 ### Control (requires BOT_CONTROL_TOKEN if set)
 - `POST /api/emergency-stop` - Activate/deactivate emergency stop
 - `POST /api/config/mode` - Toggle paper/live mode
+- `POST /api/learning/toggle` - Enable/disable adaptive learning
+
+## Adaptive Learning System (NEW in v1.1.0)
+
+The bot includes a dynamic learning system that:
+1. **Journals every trade** with detailed entry/exit reasoning
+2. **Analyzes patterns** in winning vs losing trades
+3. **Generates lessons** from each completed trade
+4. **Suggests parameter adjustments** based on performance
+
+### Learning Configuration
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `enable_adaptive_learning` | true | Enable learning analysis |
+| `enable_auto_tuning` | false | Auto-apply suggested changes |
+| `learning_min_trades` | 10 | Min trades before suggestions |
+| `learning_cycle_hours` | 4 | How often to run analysis |
+
+### CLI Commands
+```bash
+python trade_learning.py --analyze     # Run analysis and show suggestions
+python trade_learning.py --apply       # Apply suggested changes
+python trade_learning.py --patterns    # Show win/loss pattern analysis
+python trade_learning.py --performance # Show recent performance
+python trade_learning.py --summary     # Show learning summary
+```

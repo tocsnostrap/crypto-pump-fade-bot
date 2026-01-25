@@ -1,3 +1,5 @@
+# Pump Fade Bot v1.1.0 - Updated Jan 25, 2026
+# New: Adaptive Learning Dashboard Tab
 modules = ["nodejs-20", "web", "postgresql-16", "python-3.11"]
 run = "sh -c 'sh ./script/bootstrap_python.sh && npm run dev'"
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
