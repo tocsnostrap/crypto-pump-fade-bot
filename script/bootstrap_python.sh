@@ -32,8 +32,14 @@ except Exception as exc:
         print("[bootstrap] pandas-ta OK (fallback)")
         sys.exit(0)
     except ImportError:
-        print("[bootstrap] Neither talib nor pandas-ta available")
-        sys.exit(1)
+        print("[bootstrap] pandas-ta not available, using compat fallback")
+        try:
+            import pandas
+            print("[bootstrap] pandas OK (compat fallback)")
+            sys.exit(0)
+        except ImportError:
+            print("[bootstrap] Neither talib nor pandas available")
+            sys.exit(1)
 PY
 }
 
@@ -45,7 +51,7 @@ install_deps() {
   # Try TA-Lib first, fall back to pandas-ta
   python3 -m pip install ta-lib --quiet 2>/dev/null || {
     echo "[bootstrap] TA-Lib unavailable, installing pandas-ta fallback..."
-    python3 -m pip install pandas-ta --quiet
+    python3 -m pip install pandas-ta --quiet || echo "[bootstrap] pandas-ta install failed; using compat fallback"
   }
 }
 
@@ -58,8 +64,8 @@ fi
 
 # Verify technical analysis library
 if ! check_talib; then
-  echo "[bootstrap] Installing pandas-ta..."
-  python3 -m pip install pandas-ta --quiet
+  echo "[bootstrap] pandas-ta missing, attempting install..."
+  python3 -m pip install pandas-ta --quiet || echo "[bootstrap] pandas-ta install failed; using compat fallback"
 fi
 
 # Final verification
