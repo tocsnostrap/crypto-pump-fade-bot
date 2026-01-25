@@ -764,7 +764,6 @@ export default function Dashboard() {
       funding_adverse_time_cap_hours: 24,
       funding_trailing_min_pct: 0.03,
       funding_trailing_tighten_factor: 0.8,
-      enable_funding_filter: false,
       max_hold_hours: 48,
     },
     status: { running: false, last_poll: null, exchanges_connected: [], symbols_loaded: {} },
