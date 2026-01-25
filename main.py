@@ -204,12 +204,31 @@ HOLDERS_DATA_FILE = 'token_holders.json'
 PUSHOVER_USER_KEY = os.getenv('PUSHOVER_USER_KEY', '').strip()
 PUSHOVER_APP_TOKEN = (os.getenv('PUSHOVER_APP_TOKEN') or os.getenv('PUSHOVER_API_TOKEN') or '').strip()
 PUSHOVER_SOUND = os.getenv('PUSHOVER_SOUND', '').strip()
+PUSHOVER_NOTIFY_TYPES = os.getenv('PUSHOVER_NOTIFY_TYPES', '').strip()
 try:
     PUSHOVER_RATE_LIMIT_SEC = float(os.getenv('PUSHOVER_RATE_LIMIT_SEC', '0') or 0)
 except ValueError:
     PUSHOVER_RATE_LIMIT_SEC = 0
 ALERTS_ENABLED = bool(PUSHOVER_USER_KEY and PUSHOVER_APP_TOKEN)
 last_push_ts = 0
+
+if PUSHOVER_NOTIFY_TYPES:
+    if PUSHOVER_NOTIFY_TYPES.strip().lower() == 'all':
+        PUSHOVER_NOTIFY_TYPE_SET = None
+    else:
+        PUSHOVER_NOTIFY_TYPE_SET = {
+            item.strip().lower()
+            for item in PUSHOVER_NOTIFY_TYPES.split(',')
+            if item.strip()
+        }
+else:
+    # Default: only notify on valid filters + trade lifecycle events
+    PUSHOVER_NOTIFY_TYPE_SET = {
+        'fade_watch',
+        'entry_signal',
+        'partial_exit',
+        'exit_signal'
+    }
 
 # Cross-exchange pump cache for confirmation
 cross_exchange_pumps = {}  # {symbol: {'gate': pct, 'bitget': pct, 'ts': timestamp}}
@@ -505,6 +524,13 @@ def send_push_notification(title, message, priority=0):
     except Exception as e:
         print(f"[{datetime.now()}] Error sending push notification: {e}")
 
+def should_notify_signal(signal_type):
+    if not ALERTS_ENABLED:
+        return False
+    if PUSHOVER_NOTIFY_TYPE_SET is None:
+        return True
+    return signal_type in PUSHOVER_NOTIFY_TYPE_SET
+
 def build_alert_message(exchange, symbol, signal_type, price, message, change_pct, funding_rate, rsi):
     extras = []
     if change_pct is not None:
@@ -556,9 +582,10 @@ def save_signal(exchange, symbol, signal_type, price, message, change_pct=None, 
         
         atomic_write_json(SIGNALS_FILE, signals)
 
-        # Send push notification for all signal events
-        title, body = build_alert_message(exchange, symbol, signal_type, price, message, change_pct, funding_rate, rsi)
-        send_push_notification(title, body)
+        # Send push notification only for allowed signal types
+        if should_notify_signal(signal_type):
+            title, body = build_alert_message(exchange, symbol, signal_type, price, message, change_pct, funding_rate, rsi)
+            send_push_notification(title, body)
     except Exception as e:
         print(f"[{datetime.now()}] Error saving signal: {e}")
 
