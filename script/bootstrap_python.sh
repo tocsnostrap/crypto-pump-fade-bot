@@ -3,6 +3,48 @@ set -e
 
 MARKER_FILE=".python_deps_ready"
 
+clean_python_packages() {
+  python3 - <<'PY'
+import glob
+import os
+import shutil
+import site
+
+def site_paths():
+    paths = []
+    try:
+        paths.extend(site.getsitepackages())
+    except Exception:
+        pass
+    user_site = site.getusersitepackages()
+    if user_site:
+        paths.append(user_site)
+    seen = set()
+    result = []
+    for path in paths:
+        if path and os.path.isdir(path) and path not in seen:
+            seen.add(path)
+            result.append(path)
+    return result
+
+targets = []
+for base in site_paths():
+    for name in ("numpy", "pandas", "pandas_ta", "ccxt"):
+        candidate = os.path.join(base, name)
+        if os.path.isdir(candidate):
+            targets.append(candidate)
+    for pattern in ("numpy-*.dist-info", "pandas-*.dist-info", "pandas_ta-*.dist-info", "ccxt-*.dist-info"):
+        targets.extend(glob.glob(os.path.join(base, pattern)))
+
+for target in targets:
+    try:
+        shutil.rmtree(target)
+        print(f"[bootstrap] Removed {target}")
+    except Exception as exc:
+        print(f"[bootstrap] Could not remove {target}: {exc}")
+PY
+}
+
 check_core_deps() {
   python3 - <<'PY'
 import sys
@@ -46,7 +88,9 @@ PY
 install_deps() {
   echo "[bootstrap] Installing Python dependencies..."
   python3 -m pip install --upgrade pip --quiet
-  python3 -m pip install "numpy<2.3" "pandas>=2.0" ccxt --quiet || true
+  clean_python_packages
+  python3 -m pip install --upgrade --force-reinstall --no-cache-dir --only-binary=:all: "numpy<2.3" "pandas>=2.0" --quiet
+  python3 -m pip install --upgrade --force-reinstall --no-cache-dir ccxt --quiet
 
   # Try TA-Lib first, fall back to pandas-ta
   python3 -m pip install ta-lib --quiet 2>/dev/null || {
