@@ -833,7 +833,7 @@ export default function Dashboard() {
                 <BarChart3 className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <h1 className="text-xl font-bold tracking-tight">Pump Fade Bot</h1>
+                <h1 className="text-xl font-bold tracking-tight">Pump Fade Bot <span className="text-xs font-normal text-muted-foreground">v1.1.0</span></h1>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span className={`flex items-center gap-1 ${status?.running ? "text-profit" : "text-muted-foreground"}`}>
                     <span className={`h-2 w-2 rounded-full ${status?.running ? "bg-profit animate-pulse" : "bg-muted-foreground"}`} />
