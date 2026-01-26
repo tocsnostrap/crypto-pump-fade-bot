@@ -11,6 +11,9 @@ const BALANCE_FILE = path.join(process.cwd(), "balance.json");
 const CONFIG_FILE = path.join(process.cwd(), "bot_config.json");
 const SIGNALS_FILE = path.join(process.cwd(), "signals.json");
 const CLOSED_TRADES_FILE = path.join(process.cwd(), "closed_trades.json");
+const TRADE_JOURNAL_FILE = path.join(process.cwd(), "trade_journal.json");
+const TRADE_FEATURES_FILE = path.join(process.cwd(), "trade_features.json");
+const LEARNING_STATE_FILE = path.join(process.cwd(), "learning_state.json");
 
 // Control endpoints require auth token when deployed (optional in dev)
 const BOT_CONTROL_TOKEN = process.env.BOT_CONTROL_TOKEN || "";
@@ -592,11 +595,53 @@ export async function registerRoutes(
     }
   });
 
-  // Learning system endpoints
-  const LEARNING_STATE_FILE = path.join(process.cwd(), "learning_state.json");
-  const TRADE_JOURNAL_FILE = path.join(process.cwd(), "trade_journal.json");
-  const TRADE_FEATURES_FILE = path.join(process.cwd(), "trade_features.json");
+  // Sync state from external bot (optional)
+  app.post("/api/state/sync", requireControlAuth, (req, res) => {
+    try {
+      const {
+        open_trades,
+        closed_trades,
+        signals,
+        balance,
+        pump_state,
+        trade_features,
+        trade_journal,
+        learning_state,
+      } = req.body || {};
 
+      if (Array.isArray(open_trades)) {
+        writeJsonFile(TRADES_FILE, open_trades);
+      }
+      if (Array.isArray(closed_trades)) {
+        writeJsonFile(CLOSED_TRADES_FILE, closed_trades);
+      }
+      if (Array.isArray(signals)) {
+        writeJsonFile(SIGNALS_FILE, signals);
+      }
+      if (balance && typeof balance === "object") {
+        writeJsonFile(BALANCE_FILE, balance);
+      }
+      if (pump_state && typeof pump_state === "object") {
+        writeJsonFile(STATE_FILE, pump_state);
+      }
+      if (Array.isArray(trade_features)) {
+        writeJsonFile(TRADE_FEATURES_FILE, trade_features);
+      }
+      if (Array.isArray(trade_journal)) {
+        writeJsonFile(TRADE_JOURNAL_FILE, trade_journal);
+      }
+      if (learning_state && typeof learning_state === "object") {
+        writeJsonFile(LEARNING_STATE_FILE, learning_state);
+      }
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error("State sync error:", err);
+      res.status(500).json({ error: "Failed to sync state" });
+    }
+  });
+
+  // Learning system endpoints
   // Get learning state and summary
   app.get("/api/learning", (_req, res) => {
     try {

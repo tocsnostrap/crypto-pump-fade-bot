@@ -216,6 +216,15 @@ TRADE_FEATURES_FILE = 'trade_features.json'  # For learning feature vectors
 HOLDERS_CACHE_FILE = 'token_holders_cache.json'
 HOLDERS_DATA_FILE = 'token_holders.json'
 
+# External dashboard sync (optional)
+DASHBOARD_API_URL = os.getenv('DASHBOARD_API_URL', '').strip().rstrip('/')
+BOT_CONTROL_TOKEN = os.getenv('BOT_CONTROL_TOKEN', '').strip()
+try:
+    DASHBOARD_SYNC_INTERVAL_SEC = int(os.getenv('DASHBOARD_SYNC_INTERVAL_SEC', '60') or 60)
+except ValueError:
+    DASHBOARD_SYNC_INTERVAL_SEC = 60
+last_dashboard_sync = 0
+
 # Pushover alert configuration
 PUSHOVER_USER_KEY = os.getenv('PUSHOVER_USER_KEY', '').strip()
 PUSHOVER_APP_TOKEN = (os.getenv('PUSHOVER_APP_TOKEN') or os.getenv('PUSHOVER_API_TOKEN') or '').strip()
@@ -306,6 +315,55 @@ def read_json_file(filepath, default):
             return json.load(f)
     except Exception:
         return default
+
+def post_dashboard_json(path, payload):
+    """Send JSON payload to the external dashboard API."""
+    if not DASHBOARD_API_URL:
+        return False
+    url = f"{DASHBOARD_API_URL}{path}"
+    data = json.dumps(convert_numpy_types(payload)).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    if BOT_CONTROL_TOKEN:
+        headers["Authorization"] = f"Bearer {BOT_CONTROL_TOKEN}"
+    try:
+        req = urllib.request.Request(url, data=data, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            resp.read()
+        return True
+    except Exception as e:
+        print(f"[{datetime.now()}] Dashboard sync error ({path}): {e}")
+        return False
+
+def maybe_sync_dashboard_state(prev_data, open_trades, current_balance):
+    """Periodically sync state to the dashboard when running externally."""
+    global last_dashboard_sync
+    if not DASHBOARD_API_URL:
+        return
+    now = time.time()
+    if now - last_dashboard_sync < DASHBOARD_SYNC_INTERVAL_SEC:
+        return
+    last_dashboard_sync = now
+
+    payload = {
+        "pump_state": prev_data,
+        "open_trades": open_trades,
+        "balance": {"balance": current_balance, "last_updated": str(datetime.now())},
+    }
+
+    # Optional learning data sync for the Learning tab
+    trade_features = read_json_file(TRADE_FEATURES_FILE, None)
+    if isinstance(trade_features, list):
+        payload["trade_features"] = trade_features
+
+    trade_journal = read_json_file("trade_journal.json", None)
+    if isinstance(trade_journal, list):
+        payload["trade_journal"] = trade_journal
+
+    learning_state = read_json_file("learning_state.json", None)
+    if isinstance(learning_state, dict):
+        payload["learning_state"] = learning_state
+
+    post_dashboard_json("/api/state/sync", payload)
 
 def normalize_symbol(symbol):
     if not symbol:
@@ -598,6 +656,9 @@ def save_signal(exchange, symbol, signal_type, price, message, change_pct=None, 
         
         atomic_write_json(SIGNALS_FILE, signals)
 
+        if DASHBOARD_API_URL:
+            post_dashboard_json("/api/signals", signal)
+
         # Send push notification only for allowed signal types
         if should_notify_signal(signal_type):
             title, body = build_alert_message(exchange, symbol, signal_type, price, message, change_pct, funding_rate, rsi)
@@ -628,6 +689,9 @@ def save_closed_trade(ex_name, symbol, entry, exit_price, profit, reason):
         trades.append(trade)
         
         atomic_write_json(CLOSED_TRADES_FILE, trades)
+
+        if DASHBOARD_API_URL:
+            post_dashboard_json("/api/trades/close", trade)
     except Exception as e:
         print(f"[{datetime.now()}] Error saving closed trade: {e}")
 
@@ -703,6 +767,7 @@ def save_state(prev_data, open_trades, current_balance):
     atomic_write_json(STATE_FILE, prev_data)
     atomic_write_json(TRADES_FILE, open_trades)
     atomic_write_json(BALANCE_FILE, {'balance': current_balance, 'last_updated': str(datetime.now())})
+    maybe_sync_dashboard_state(prev_data, open_trades, current_balance)
 
 def get_ohlcv(ex, symbol, timeframe='15m', limit=20):
     """Fetch OHLCV data and return as DataFrame"""
