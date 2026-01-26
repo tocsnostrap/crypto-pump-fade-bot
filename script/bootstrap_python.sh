@@ -4,7 +4,7 @@ set -e
 MARKER_FILE=".python_deps_ready"
 
 is_replit_env() {
-  [[ -n "$REPL_ID" || -n "$REPLIT_DEPLOYMENT" || -n "$REPLIT_DB_URL" || -n "$REPLIT_DEV_DOMAIN" ]]
+  [ -n "$REPL_ID" ] || [ -n "$REPLIT_DEPLOYMENT" ] || [ -n "$REPLIT_DB_URL" ] || [ -n "$REPLIT_DEV_DOMAIN" ]
 }
 
 clean_python_packages() {
