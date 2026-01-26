@@ -41,7 +41,6 @@ interface BotConfig {
   poll_interval_sec: number;
   min_volume_usdt: number;
   funding_min: number;
-  enable_funding_filter?: boolean;
   funding_filter_pump_pct?: number;
   enable_funding_filter?: boolean;
   rsi_overbought: number;
@@ -811,7 +810,7 @@ export async function registerRoutes(
       writeJsonFile(LEARNING_STATE_FILE, learningState);
 
       // Also update bot config
-      const config = readJsonFile(CONFIG_FILE, {});
+      const config: Partial<BotConfig> = readJsonFile<Partial<BotConfig>>(CONFIG_FILE, {});
       config.enable_adaptive_learning = enabled;
       writeJsonFile(CONFIG_FILE, config);
 
