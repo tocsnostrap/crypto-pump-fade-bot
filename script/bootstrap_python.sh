@@ -120,10 +120,12 @@ install_deps() {
   if is_replit_env; then
     echo "[bootstrap] Replit detected; skipping numpy/pandas pip installs."
     if ! check_numpy_pandas; then
-      echo "[bootstrap] Installing numpy/pandas via pip --user..."
-      python3 -m pip install --user --upgrade --no-cache-dir --only-binary=:all: \
-        --index-url https://pypi.org/simple \
-        "numpy<2.3" "pandas>=2.0" --quiet || true
+      # Relying on Nix for numpy/pandas - pip install commented out
+      # echo "[bootstrap] Installing numpy/pandas via pip --user..."
+      # python3 -m pip install --user --upgrade --no-cache-dir --only-binary=:all: \
+      #   --index-url https://pypi.org/simple \
+      #   "numpy<2.3" "pandas>=2.0" --quiet || true
+      echo "[bootstrap] numpy/pandas should be provided by Nix"
     fi
     if ! check_numpy_pandas; then
       echo "[bootstrap] numpy/pandas still missing after install attempt."
