@@ -3,6 +3,10 @@ set -e
 
 MARKER_FILE=".python_deps_ready"
 
+is_replit_env() {
+  [[ -n "$REPL_ID" || -n "$REPLIT_DEPLOYMENT" || -n "$REPLIT_DB_URL" || -n "$REPLIT_DEV_DOMAIN" ]]
+}
+
 clean_python_packages() {
   python3 - <<'PY'
 import glob
@@ -86,6 +90,12 @@ PY
 }
 
 install_deps() {
+  if is_replit_env; then
+    echo "[bootstrap] Replit detected; skipping pip installs."
+    echo "[bootstrap] Use Nix packages in .replit for numpy/pandas/ccxt."
+    return 1
+  fi
+
   echo "[bootstrap] Installing Python dependencies..."
   python3 -m pip install --upgrade pip --quiet
   clean_python_packages
@@ -112,8 +122,12 @@ fi
 
 # Verify technical analysis library
 if ! check_talib; then
-  echo "[bootstrap] pandas-ta missing, attempting install..."
-  python3 -m pip install --index-url https://pypi.org/simple pandas-ta --quiet || echo "[bootstrap] pandas-ta install failed; using compat fallback"
+  if is_replit_env; then
+    echo "[bootstrap] pandas-ta missing; relying on compat fallback."
+  else
+    echo "[bootstrap] pandas-ta missing, attempting install..."
+    python3 -m pip install --index-url https://pypi.org/simple pandas-ta --quiet || echo "[bootstrap] pandas-ta install failed; using compat fallback"
+  fi
 fi
 
 # Final verification
