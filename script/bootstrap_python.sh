@@ -64,6 +64,33 @@ except ImportError as exc:
 PY
 }
 
+check_numpy_pandas() {
+  python3 - <<'PY'
+import sys
+try:
+    import numpy
+    import pandas
+    print("[bootstrap] numpy/pandas OK")
+    sys.exit(0)
+except ImportError as exc:
+    print("[bootstrap] Missing numpy/pandas:", exc)
+    sys.exit(1)
+PY
+}
+
+check_ccxt() {
+  python3 - <<'PY'
+import sys
+try:
+    import ccxt
+    print("[bootstrap] ccxt OK")
+    sys.exit(0)
+except ImportError as exc:
+    print("[bootstrap] Missing ccxt:", exc)
+    sys.exit(1)
+PY
+}
+
 check_talib() {
   python3 - <<'PY'
 import sys
@@ -91,8 +118,19 @@ PY
 
 install_deps() {
   if is_replit_env; then
-    echo "[bootstrap] Replit detected; skipping pip installs."
-    echo "[bootstrap] Use Nix packages in .replit for numpy/pandas/ccxt."
+    echo "[bootstrap] Replit detected; skipping numpy/pandas pip installs."
+    if ! check_numpy_pandas; then
+      echo "[bootstrap] Use Nix packages in .replit for numpy/pandas."
+      return 1
+    fi
+    if ! check_ccxt; then
+      echo "[bootstrap] Installing ccxt via pip --user..."
+      python3 -m pip install --user --upgrade --no-cache-dir ccxt --quiet || true
+    fi
+    if check_ccxt; then
+      return 0
+    fi
+    echo "[bootstrap] ccxt still missing after install attempt."
     return 1
   fi
 
