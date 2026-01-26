@@ -2,7 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
-import { spawn, ChildProcess } from "child_process";
+import { spawn, spawnSync, ChildProcess } from "child_process";
 import * as path from "path";
 
 const app = express();
@@ -13,6 +13,28 @@ let pythonProcess: ChildProcess | null = null;
 let pythonRestartCount = 0;
 const MAX_RESTART_DELAY = 60000; // Max 1 minute between restarts
 
+function resolvePythonBin(): string | null {
+  const candidates = [
+    process.env.PYTHON_BIN,
+    process.env.PYTHON,
+    "python3",
+    "python",
+  ].filter((value): value is string => Boolean(value));
+
+  for (const candidate of candidates) {
+    try {
+      const result = spawnSync(candidate, ["-V"], { stdio: "ignore" });
+      if (!result.error && result.status === 0) {
+        return candidate;
+      }
+    } catch {
+      // Ignore and try next candidate.
+    }
+  }
+
+  return null;
+}
+
 function startPythonBot() {
   // Skip if bot is managed externally (e.g., by start.sh or separate workflow)
   if (process.env.BOT_MANAGED === "1") {
@@ -21,7 +43,12 @@ function startPythonBot() {
   }
   
   const mainPyPath = path.join(process.cwd(), "main.py");
-  const pythonBin = process.env.PYTHON_BIN || "python3";
+  const pythonBin = resolvePythonBin();
+  if (!pythonBin) {
+    console.error("[python-bot] No Python interpreter found in PATH.");
+    console.error("[python-bot] Set PYTHON_BIN to a valid python executable.");
+    return;
+  }
   
   console.log(`[python-bot] Starting Python trading bot with ${pythonBin}...`);
   
