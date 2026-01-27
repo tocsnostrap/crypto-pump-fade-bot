@@ -1,4 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +41,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import type { DashboardData, Signal, OpenTrade, ClosedTrade, TradingMetrics } from "@shared/schema";
+import { io } from "socket.io-client";
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -579,8 +581,8 @@ function LearningSection({ data, onToggle, isToggling }: {
 export default function Dashboard() {
   const { data, isLoading, error, refetch, isFetching } = useQuery<DashboardData>({
     queryKey: ["/api/dashboard"],
-    refetchInterval: 5000,
-    staleTime: 3000,
+    staleTime: 10000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: keysStatus, refetch: refetchKeys } = useQuery<KeysStatus>({
@@ -613,6 +615,16 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/learning"] });
     },
   });
+
+  useEffect(() => {
+    const socket = io();
+    socket.on("dashboard_update", (payload: DashboardData) => {
+      queryClient.setQueryData(["/api/dashboard"], payload);
+    });
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   if (isLoading) {
     return <LoadingSkeleton />;

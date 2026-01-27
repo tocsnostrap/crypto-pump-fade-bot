@@ -4,9 +4,16 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { spawn, spawnSync, ChildProcess } from "child_process";
 import * as path from "path";
+import { Server as SocketIOServer } from "socket.io";
 
 const app = express();
 const httpServer = createServer(app);
+const io = new SocketIOServer(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
 
 // Python bot process management
 let pythonProcess: ChildProcess | null = null;
@@ -165,7 +172,14 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  await registerRoutes(httpServer, app);
+  io.on("connection", (socket) => {
+    log(`socket connected: ${socket.id}`, "socket.io");
+    socket.on("disconnect", () => {
+      log(`socket disconnected: ${socket.id}`, "socket.io");
+    });
+  });
+
+  await registerRoutes(httpServer, app, io);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

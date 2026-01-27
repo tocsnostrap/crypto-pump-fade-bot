@@ -1,5 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+import type { Server as SocketIOServer } from "socket.io";
 import { storage } from "./storage";
 import * as fs from "fs";
 import * as path from "path";
@@ -43,6 +44,7 @@ interface BotConfig {
   funding_min: number;
   funding_filter_pump_pct?: number;
   enable_funding_filter?: boolean;
+  funding_tolerance_pct?: number;
   rsi_overbought: number;
   leverage_default: number;
   reward_risk_min?: number;
@@ -209,12 +211,23 @@ interface Signal {
   message: string;
 }
 
+interface DashboardPayload {
+  config: BotConfig;
+  status: ReturnType<typeof getBotStatus>;
+  metrics: ReturnType<typeof calculateMetrics>;
+  open_trades: OpenTrade[];
+  closed_trades: ClosedTrade[];
+  signals: Signal[];
+  balance_history: { timestamp: string; balance: number }[];
+}
+
 const DEFAULT_CONFIG: BotConfig = {
   paper_mode: true,
   min_pump_pct: 60.0,
   poll_interval_sec: 300,
   min_volume_usdt: 1000000,
   funding_min: 0.0001,
+  funding_tolerance_pct: -0.00005,
   rsi_overbought: 78,
   leverage_default: 3,
   risk_pct_per_trade: 0.01,
@@ -377,36 +390,76 @@ function getBotStatus(pumpState: Record<string, any>) {
 
 export async function registerRoutes(
   httpServer: Server,
-  app: Express
+  app: Express,
+  io?: SocketIOServer
 ): Promise<Server> {
+  const DASHBOARD_CACHE_TTL_MS = 10000;
+  const DASHBOARD_PUSH_INTERVAL_MS = 5000;
+  let dashboardCache: { data: DashboardPayload | null; timestamp: number } = {
+    data: null,
+    timestamp: 0,
+  };
+
+  const buildDashboardData = (): DashboardPayload => {
+    const config = getConfig();
+    const openTrades = getOpenTrades();
+    const closedTrades = getClosedTrades();
+    const balanceData = getBalance();
+    const signals = getSignals();
+    const pumpState = getPumpState();
+
+    const currentBalance = balanceData.balance || config.starting_capital;
+    const metrics = calculateMetrics(
+      openTrades,
+      closedTrades,
+      currentBalance,
+      config.starting_capital
+    );
+    const status = getBotStatus(pumpState);
+
+    return {
+      config,
+      status,
+      metrics,
+      open_trades: openTrades,
+      closed_trades: closedTrades.slice(-50).reverse(),
+      signals: signals.slice(-20).reverse(),
+      balance_history: [],
+    };
+  };
+
+  const getDashboardData = (force = false): DashboardPayload => {
+    const now = Date.now();
+    if (!force && dashboardCache.data && now - dashboardCache.timestamp < DASHBOARD_CACHE_TTL_MS) {
+      return dashboardCache.data;
+    }
+    const data = buildDashboardData();
+    dashboardCache = { data, timestamp: now };
+    return data;
+  };
+
+  const broadcastDashboard = () => {
+    if (!io) return;
+    try {
+      const data = getDashboardData();
+      io.emit("dashboard_update", data);
+    } catch (err) {
+      console.error("Dashboard broadcast error:", err);
+    }
+  };
+
+  if (io) {
+    setInterval(broadcastDashboard, DASHBOARD_PUSH_INTERVAL_MS);
+  }
+
   // Get full dashboard data
   app.get("/api/dashboard", (_req, res) => {
     try {
-      const config = getConfig();
-      const openTrades = getOpenTrades();
-      const closedTrades = getClosedTrades();
-      const balanceData = getBalance();
-      const signals = getSignals();
-      const pumpState = getPumpState();
-
-      const currentBalance = balanceData.balance || config.starting_capital;
-      const metrics = calculateMetrics(
-        openTrades,
-        closedTrades,
-        currentBalance,
-        config.starting_capital
-      );
-      const status = getBotStatus(pumpState);
-
-      res.json({
-        config,
-        status,
-        metrics,
-        open_trades: openTrades,
-        closed_trades: closedTrades.slice(-50).reverse(), // Last 50, newest first
-        signals: signals.slice(-20).reverse(), // Last 20 signals
-        balance_history: [], // Could be populated from historical data
-      });
+      const data = getDashboardData();
+      res.json(data);
+      if (io) {
+        io.emit("dashboard_update", data);
+      }
     } catch (err) {
       console.error("Dashboard error:", err);
       res.status(500).json({ error: "Failed to load dashboard data" });
