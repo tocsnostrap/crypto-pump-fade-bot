@@ -1,5 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+import type { Server as SocketIOServer } from "socket.io";
 import { storage } from "./storage";
 import * as fs from "fs";
 import * as path from "path";
@@ -11,6 +12,9 @@ const BALANCE_FILE = path.join(process.cwd(), "balance.json");
 const CONFIG_FILE = path.join(process.cwd(), "bot_config.json");
 const SIGNALS_FILE = path.join(process.cwd(), "signals.json");
 const CLOSED_TRADES_FILE = path.join(process.cwd(), "closed_trades.json");
+const TRADE_JOURNAL_FILE = path.join(process.cwd(), "trade_journal.json");
+const TRADE_FEATURES_FILE = path.join(process.cwd(), "trade_features.json");
+const LEARNING_STATE_FILE = path.join(process.cwd(), "learning_state.json");
 
 // Control endpoints require auth token when deployed (optional in dev)
 const BOT_CONTROL_TOKEN = process.env.BOT_CONTROL_TOKEN || "";
@@ -38,9 +42,9 @@ interface BotConfig {
   poll_interval_sec: number;
   min_volume_usdt: number;
   funding_min: number;
-  enable_funding_filter?: boolean;
   funding_filter_pump_pct?: number;
   enable_funding_filter?: boolean;
+  funding_tolerance_pct?: number;
   rsi_overbought: number;
   leverage_default: number;
   reward_risk_min?: number;
@@ -152,6 +156,7 @@ interface BotConfig {
   funding_adverse_time_cap_hours?: number;
   funding_trailing_min_pct?: number;
   funding_trailing_tighten_factor?: number;
+  enable_adaptive_learning?: boolean;
 }
 
 interface TradeInfo {
@@ -207,12 +212,23 @@ interface Signal {
   message: string;
 }
 
+interface DashboardPayload {
+  config: BotConfig;
+  status: ReturnType<typeof getBotStatus>;
+  metrics: ReturnType<typeof calculateMetrics>;
+  open_trades: OpenTrade[];
+  closed_trades: ClosedTrade[];
+  signals: Signal[];
+  balance_history: { timestamp: string; balance: number }[];
+}
+
 const DEFAULT_CONFIG: BotConfig = {
   paper_mode: true,
   min_pump_pct: 60.0,
   poll_interval_sec: 300,
   min_volume_usdt: 1000000,
   funding_min: 0.0001,
+  funding_tolerance_pct: -0.00005,
   rsi_overbought: 78,
   leverage_default: 3,
   risk_pct_per_trade: 0.01,
@@ -375,36 +391,76 @@ function getBotStatus(pumpState: Record<string, any>) {
 
 export async function registerRoutes(
   httpServer: Server,
-  app: Express
+  app: Express,
+  io?: SocketIOServer
 ): Promise<Server> {
+  const DASHBOARD_CACHE_TTL_MS = 10000;
+  const DASHBOARD_PUSH_INTERVAL_MS = 5000;
+  let dashboardCache: { data: DashboardPayload | null; timestamp: number } = {
+    data: null,
+    timestamp: 0,
+  };
+
+  const buildDashboardData = (): DashboardPayload => {
+    const config = getConfig();
+    const openTrades = getOpenTrades();
+    const closedTrades = getClosedTrades();
+    const balanceData = getBalance();
+    const signals = getSignals();
+    const pumpState = getPumpState();
+
+    const currentBalance = balanceData.balance || config.starting_capital;
+    const metrics = calculateMetrics(
+      openTrades,
+      closedTrades,
+      currentBalance,
+      config.starting_capital
+    );
+    const status = getBotStatus(pumpState);
+
+    return {
+      config,
+      status,
+      metrics,
+      open_trades: openTrades,
+      closed_trades: closedTrades.slice(-50).reverse(),
+      signals: signals.slice(-20).reverse(),
+      balance_history: [],
+    };
+  };
+
+  const getDashboardData = (force = false): DashboardPayload => {
+    const now = Date.now();
+    if (!force && dashboardCache.data && now - dashboardCache.timestamp < DASHBOARD_CACHE_TTL_MS) {
+      return dashboardCache.data;
+    }
+    const data = buildDashboardData();
+    dashboardCache = { data, timestamp: now };
+    return data;
+  };
+
+  const broadcastDashboard = () => {
+    if (!io) return;
+    try {
+      const data = getDashboardData();
+      io.emit("dashboard_update", data);
+    } catch (err) {
+      console.error("Dashboard broadcast error:", err);
+    }
+  };
+
+  if (io) {
+    setInterval(broadcastDashboard, DASHBOARD_PUSH_INTERVAL_MS);
+  }
+
   // Get full dashboard data
   app.get("/api/dashboard", (_req, res) => {
     try {
-      const config = getConfig();
-      const openTrades = getOpenTrades();
-      const closedTrades = getClosedTrades();
-      const balanceData = getBalance();
-      const signals = getSignals();
-      const pumpState = getPumpState();
-
-      const currentBalance = balanceData.balance || config.starting_capital;
-      const metrics = calculateMetrics(
-        openTrades,
-        closedTrades,
-        currentBalance,
-        config.starting_capital
-      );
-      const status = getBotStatus(pumpState);
-
-      res.json({
-        config,
-        status,
-        metrics,
-        open_trades: openTrades,
-        closed_trades: closedTrades.slice(-50).reverse(), // Last 50, newest first
-        signals: signals.slice(-20).reverse(), // Last 20 signals
-        balance_history: [], // Could be populated from historical data
-      });
+      const data = getDashboardData();
+      res.json(data);
+      if (io) {
+        io.emit("dashboard_update", data);
+      }
     } catch (err) {
       console.error("Dashboard error:", err);
       res.status(500).json({ error: "Failed to load dashboard data" });
@@ -592,11 +648,53 @@ export async function registerRoutes(
     }
   });
 
-  // Learning system endpoints
-  const LEARNING_STATE_FILE = path.join(process.cwd(), "learning_state.json");
-  const TRADE_JOURNAL_FILE = path.join(process.cwd(), "trade_journal.json");
-  const TRADE_FEATURES_FILE = path.join(process.cwd(), "trade_features.json");
+  // Sync state from external bot (optional)
+  app.post("/api/state/sync", requireControlAuth, (req, res) => {
+    try {
+      const {
+        open_trades,
+        closed_trades,
+        signals,
+        balance,
+        pump_state,
+        trade_features,
+        trade_journal,
+        learning_state,
+      } = req.body || {};
 
+      if (Array.isArray(open_trades)) {
+        writeJsonFile(TRADES_FILE, open_trades);
+      }
+      if (Array.isArray(closed_trades)) {
+        writeJsonFile(CLOSED_TRADES_FILE, closed_trades);
+      }
+      if (Array.isArray(signals)) {
+        writeJsonFile(SIGNALS_FILE, signals);
+      }
+      if (balance && typeof balance === "object") {
+        writeJsonFile(BALANCE_FILE, balance);
+      }
+      if (pump_state && typeof pump_state === "object") {
+        writeJsonFile(STATE_FILE, pump_state);
+      }
+      if (Array.isArray(trade_features)) {
+        writeJsonFile(TRADE_FEATURES_FILE, trade_features);
+      }
+      if (Array.isArray(trade_journal)) {
+        writeJsonFile(TRADE_JOURNAL_FILE, trade_journal);
+      }
+      if (learning_state && typeof learning_state === "object") {
+        writeJsonFile(LEARNING_STATE_FILE, learning_state);
+      }
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error("State sync error:", err);
+      res.status(500).json({ error: "Failed to sync state" });
+    }
+  });
+
+  // Learning system endpoints
   // Get learning state and summary
   app.get("/api/learning", (_req, res) => {
     try {
@@ -766,7 +864,7 @@ export async function registerRoutes(
       writeJsonFile(LEARNING_STATE_FILE, learningState);
 
       // Also update bot config
-      const config = readJsonFile(CONFIG_FILE, {});
+      const config: Partial<BotConfig> = readJsonFile<Partial<BotConfig>>(CONFIG_FILE, {});
       config.enable_adaptive_learning = enabled;
       writeJsonFile(CONFIG_FILE, config);
 

@@ -1,4 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   TrendingUp,
   TrendingDown,
@@ -39,6 +41,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import type { DashboardData, Signal, OpenTrade, ClosedTrade, TradingMetrics } from "@shared/schema";
+import { io } from "socket.io-client";
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -578,8 +581,8 @@ function LearningSection({ data, onToggle, isToggling }: {
 export default function Dashboard() {
   const { data, isLoading, error, refetch, isFetching } = useQuery<DashboardData>({
     queryKey: ["/api/dashboard"],
-    refetchInterval: 5000,
-    staleTime: 3000,
+    staleTime: 10000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: keysStatus, refetch: refetchKeys } = useQuery<KeysStatus>({
@@ -612,6 +615,16 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/learning"] });
     },
   });
+
+  useEffect(() => {
+    const socket = io();
+    socket.on("dashboard_update", (payload: DashboardData) => {
+      queryClient.setQueryData(["/api/dashboard"], payload);
+    });
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   if (isLoading) {
     return <LoadingSkeleton />;
@@ -764,7 +777,6 @@ export default function Dashboard() {
       funding_adverse_time_cap_hours: 24,
       funding_trailing_min_pct: 0.03,
       funding_trailing_tighten_factor: 0.8,
-      enable_funding_filter: false,
       max_hold_hours: 48,
     },
     status: { running: false, last_poll: null, exchanges_connected: [], symbols_loaded: {} },
@@ -889,6 +901,12 @@ export default function Dashboard() {
           </div>
         )}
 
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="w-full justify-start">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="learning">Learning</TabsTrigger>
+          </TabsList>
+          <TabsContent value="overview" className="space-y-6">
         {/* Key Metrics */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <MetricCard
@@ -1160,13 +1178,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Adaptive Learning Section */}
-        <LearningSection 
-          data={learningData} 
-          onToggle={(enabled) => toggleLearningMutation.mutate(enabled)}
-          isToggling={toggleLearningMutation.isPending}
-        />
-
         {/* Bot Configuration */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
@@ -1242,6 +1253,15 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+          <TabsContent value="learning" className="space-y-6">
+            <LearningSection 
+              data={learningData} 
+              onToggle={(enabled) => toggleLearningMutation.mutate(enabled)}
+              isToggling={toggleLearningMutation.isPending}
+            />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );

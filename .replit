@@ -6,7 +6,15 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["glibcLocales", "ta-lib", "nodejs_20", "python311"]
+packages = [
+  "glibcLocales",
+  "ta-lib",
+  "nodejs_20",
+  "python311",
+  "python311Packages.numpy",
+  "python311Packages.pandas",
+  "python311Packages.ccxt",
+]
 
 [[ports]]
 localPort = 5000
@@ -14,10 +22,11 @@ externalPort = 80
 
 [env]
 PORT = "5000"
+REPLIT = "1"
 
 [deployment]
 deploymentTarget = "gce"
-run = ["sh", "-c", "./start.sh"]
+run = ["sh", "-c", "sh ./start.sh"]
 build = ["npm", "run", "build"]
 
 [workflows]
@@ -43,3 +52,4 @@ waitForPort = 5000
 
 [agent]
 integrations = ["github:1.0.0"]
+expertMode = true

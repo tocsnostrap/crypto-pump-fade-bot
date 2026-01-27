@@ -7,6 +7,7 @@
   "funding_min": 0.0001,
   "enable_funding_filter": true,
   "funding_filter_pump_pct": 70,
+  "funding_tolerance_pct": -0.00005,
   "rsi_overbought": 73,
   "leverage_default": 3,
   "enable_dynamic_leverage": true,

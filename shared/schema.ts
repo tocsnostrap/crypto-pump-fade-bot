@@ -86,7 +86,7 @@ export interface BotConfig {
   funding_min: number;
   enable_funding_filter?: boolean;
   funding_filter_pump_pct?: number;
-  enable_funding_filter?: boolean;
+  funding_tolerance_pct?: number;
   rsi_overbought: number;
   leverage_default: number;
   reward_risk_min?: number;
@@ -198,6 +198,7 @@ export interface BotConfig {
   funding_adverse_time_cap_hours?: number;
   funding_trailing_min_pct?: number;
   funding_trailing_tighten_factor?: number;
+  enable_adaptive_learning?: boolean;
 }
 
 export interface BotStatus {

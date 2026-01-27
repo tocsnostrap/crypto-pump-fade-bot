@@ -2,16 +2,45 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
-import { spawn, ChildProcess } from "child_process";
+import { spawn, spawnSync, ChildProcess } from "child_process";
 import * as path from "path";
+import { Server as SocketIOServer, type Socket } from "socket.io";
 
 const app = express();
 const httpServer = createServer(app);
+const io = new SocketIOServer(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
 
 // Python bot process management
 let pythonProcess: ChildProcess | null = null;
 let pythonRestartCount = 0;
 const MAX_RESTART_DELAY = 60000; // Max 1 minute between restarts
+
+function resolvePythonBin(): string | null {
+  const candidates = [
+    process.env.PYTHON_BIN,
+    process.env.PYTHON,
+    "python3",
+    "python",
+  ].filter((value): value is string => Boolean(value));
+
+  for (const candidate of candidates) {
+    try {
+      const result = spawnSync(candidate, ["-V"], { stdio: "ignore" });
+      if (!result.error && result.status === 0) {
+        return candidate;
+      }
+    } catch {
+      // Ignore and try next candidate.
+    }
+  }
+
+  return null;
+}
 
 function startPythonBot() {
   // Skip if bot is managed externally (e.g., by start.sh or separate workflow)
@@ -21,7 +50,12 @@ function startPythonBot() {
   }
   
   const mainPyPath = path.join(process.cwd(), "main.py");
-  const pythonBin = process.env.PYTHON_BIN || "python3";
+  const pythonBin = resolvePythonBin();
+  if (!pythonBin) {
+    console.error("[python-bot] No Python interpreter found in PATH.");
+    console.error("[python-bot] Set PYTHON_BIN to a valid python executable.");
+    return;
+  }
   
   console.log(`[python-bot] Starting Python trading bot with ${pythonBin}...`);
   
@@ -138,7 +172,14 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  await registerRoutes(httpServer, app);
+  io.on("connection", (socket: Socket) => {
+    log(`socket connected: ${socket.id}`, "socket.io");
+    socket.on("disconnect", () => {
+      log(`socket disconnected: ${socket.id}`, "socket.io");
+    });
+  });
+
+  await registerRoutes(httpServer, app, io);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

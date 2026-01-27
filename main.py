@@ -5,6 +5,8 @@ import os
 import pandas as pd
 import numpy as np
 from datetime import datetime
+from math import isnan
+from tenacity import retry, stop_after_attempt, wait_exponential
 from talib_compat import talib
 import urllib.parse
 import urllib.request
@@ -30,6 +32,7 @@ DEFAULT_CONFIG = {
     'funding_min': 0.0001,
     'enable_funding_filter': True,
     'funding_filter_pump_pct': 70,
+    'funding_tolerance_pct': -0.00005,  # Allow slight adverse funding before rejection
     'rsi_overbought': 73,               # RSI peak threshold
     'leverage_default': 3,
     'enable_dynamic_leverage': True,
@@ -216,6 +219,15 @@ TRADE_FEATURES_FILE = 'trade_features.json'  # For learning feature vectors
 HOLDERS_CACHE_FILE = 'token_holders_cache.json'
 HOLDERS_DATA_FILE = 'token_holders.json'
 
+# External dashboard sync (optional)
+DASHBOARD_API_URL = os.getenv('DASHBOARD_API_URL', '').strip().rstrip('/')
+BOT_CONTROL_TOKEN = os.getenv('BOT_CONTROL_TOKEN', '').strip()
+try:
+    DASHBOARD_SYNC_INTERVAL_SEC = int(os.getenv('DASHBOARD_SYNC_INTERVAL_SEC', '60') or 60)
+except ValueError:
+    DASHBOARD_SYNC_INTERVAL_SEC = 60
+last_dashboard_sync = 0
+
 # Pushover alert configuration
 PUSHOVER_USER_KEY = os.getenv('PUSHOVER_USER_KEY', '').strip()
 PUSHOVER_APP_TOKEN = (os.getenv('PUSHOVER_APP_TOKEN') or os.getenv('PUSHOVER_API_TOKEN') or '').strip()
@@ -261,6 +273,26 @@ def load_config():
             print(f"[{datetime.now()}] Error loading config: {e}, using defaults")
     return config
 
+class NaNEncoder(json.JSONEncoder):
+    """JSON encoder that replaces NaN with null."""
+    def encode(self, o):
+        return super().encode(replace_nan(o))
+
+def replace_nan(obj):
+    """Replace NaN floats with None for JSON safety."""
+    if isinstance(obj, dict):
+        return {k: replace_nan(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [replace_nan(item) for item in obj]
+    if isinstance(obj, tuple):
+        return [replace_nan(item) for item in obj]
+    if isinstance(obj, np.ndarray):
+        return [replace_nan(item) for item in obj.tolist()]
+    if isinstance(obj, (np.floating, float)):
+        val = float(obj)
+        return None if isnan(val) else val
+    return obj
+
 def convert_numpy_types(obj):
     """Recursively convert numpy types to Python native types for JSON serialization"""
     if isinstance(obj, dict):
@@ -270,11 +302,14 @@ def convert_numpy_types(obj):
     elif isinstance(obj, np.integer):
         return int(obj)
     elif isinstance(obj, np.floating):
-        return float(obj)
+        val = float(obj)
+        return None if isnan(val) else val
     elif isinstance(obj, np.ndarray):
-        return obj.tolist()
+        return [convert_numpy_types(item) for item in obj.tolist()]
     elif isinstance(obj, np.bool_):
         return bool(obj)
+    elif isinstance(obj, float):
+        return None if isnan(obj) else obj
     elif hasattr(obj, 'isoformat'):  # datetime objects
         return obj.isoformat()
     return obj
@@ -283,11 +318,11 @@ def atomic_write_json(filepath, data):
     """Write JSON atomically using temp file + rename"""
     import tempfile
     # Convert numpy types to native Python types
-    data = convert_numpy_types(data)
+    data = replace_nan(convert_numpy_types(data))
     temp_fd, temp_path = tempfile.mkstemp(dir=os.path.dirname(filepath) or '.', suffix='.tmp')
     try:
         with os.fdopen(temp_fd, 'w') as f:
-            json.dump(data, f, indent=2)
+            json.dump(data, f, indent=2, cls=NaNEncoder)
         os.replace(temp_path, filepath)
     except Exception as e:
         print(f"[{datetime.now()}] ERROR writing to {filepath}: {e}")
@@ -304,8 +339,61 @@ def read_json_file(filepath, default):
     try:
         with open(filepath, 'r') as f:
             return json.load(f)
-    except Exception:
+    except (json.JSONDecodeError, FileNotFoundError) as e:
+        print(f"[{datetime.now()}] Warning: could not parse {filepath}: {e}")
         return default
+    except Exception as e:
+        print(f"[{datetime.now()}] Warning: failed to read {filepath}: {e}")
+        return default
+
+def post_dashboard_json(path, payload):
+    """Send JSON payload to the external dashboard API."""
+    if not DASHBOARD_API_URL:
+        return False
+    url = f"{DASHBOARD_API_URL}{path}"
+    data = json.dumps(convert_numpy_types(payload)).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    if BOT_CONTROL_TOKEN:
+        headers["Authorization"] = f"Bearer {BOT_CONTROL_TOKEN}"
+    try:
+        req = urllib.request.Request(url, data=data, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            resp.read()
+        return True
+    except Exception as e:
+        print(f"[{datetime.now()}] Dashboard sync error ({path}): {e}")
+        return False
+
+def maybe_sync_dashboard_state(prev_data, open_trades, current_balance):
+    """Periodically sync state to the dashboard when running externally."""
+    global last_dashboard_sync
+    if not DASHBOARD_API_URL:
+        return
+    now = time.time()
+    if now - last_dashboard_sync < DASHBOARD_SYNC_INTERVAL_SEC:
+        return
+    last_dashboard_sync = now
+
+    payload = {
+        "pump_state": prev_data,
+        "open_trades": open_trades,
+        "balance": {"balance": current_balance, "last_updated": str(datetime.now())},
+    }
+
+    # Optional learning data sync for the Learning tab
+    trade_features = read_json_file(TRADE_FEATURES_FILE, None)
+    if isinstance(trade_features, list):
+        payload["trade_features"] = trade_features
+
+    trade_journal = read_json_file("trade_journal.json", None)
+    if isinstance(trade_journal, list):
+        payload["trade_journal"] = trade_journal
+
+    learning_state = read_json_file("learning_state.json", None)
+    if isinstance(learning_state, dict):
+        payload["learning_state"] = learning_state
+
+    post_dashboard_json("/api/state/sync", payload)
 
 def normalize_symbol(symbol):
     if not symbol:
@@ -475,9 +563,10 @@ def select_leverage(entry_quality, validation_score, config):
 def is_funding_favorable(funding_rate, config):
     if funding_rate is None:
         return None
+    tolerance = float(config.get('funding_tolerance_pct', 0))
     if config.get('funding_positive_is_favorable', True):
-        return funding_rate >= 0
-    return funding_rate <= 0
+        return funding_rate >= tolerance
+    return funding_rate <= -tolerance
 
 def format_price(value):
     """Format a price for alerts safely."""
@@ -573,13 +662,7 @@ def build_alert_message(exchange, symbol, signal_type, price, message, change_pc
 def save_signal(exchange, symbol, signal_type, price, message, change_pct=None, funding_rate=None, rsi=None):
     """Save a signal to the signals file for the dashboard"""
     try:
-        signals = []
-        if os.path.exists(SIGNALS_FILE):
-            try:
-                with open(SIGNALS_FILE, 'r') as f:
-                    signals = json.load(f)
-            except:
-                signals = []
+        signals = read_json_file(SIGNALS_FILE, [])
         
         signal = {
             'id': f"{signal_type}_{symbol}_{int(time.time())}",
@@ -598,6 +681,9 @@ def save_signal(exchange, symbol, signal_type, price, message, change_pct=None, 
         
         atomic_write_json(SIGNALS_FILE, signals)
 
+        if DASHBOARD_API_URL:
+            post_dashboard_json("/api/signals", signal)
+
         # Send push notification only for allowed signal types
         if should_notify_signal(signal_type):
             title, body = build_alert_message(exchange, symbol, signal_type, price, message, change_pct, funding_rate, rsi)
@@ -608,13 +694,7 @@ def save_signal(exchange, symbol, signal_type, price, message, change_pct=None, 
 def save_closed_trade(ex_name, symbol, entry, exit_price, profit, reason):
     """Save a closed trade to the closed trades file"""
     try:
-        trades = []
-        if os.path.exists(CLOSED_TRADES_FILE):
-            try:
-                with open(CLOSED_TRADES_FILE, 'r') as f:
-                    trades = json.load(f)
-            except:
-                trades = []
+        trades = read_json_file(CLOSED_TRADES_FILE, [])
         
         trade = {
             'ex': ex_name,
@@ -628,6 +708,9 @@ def save_closed_trade(ex_name, symbol, entry, exit_price, profit, reason):
         trades.append(trade)
         
         atomic_write_json(CLOSED_TRADES_FILE, trades)
+
+        if DASHBOARD_API_URL:
+            post_dashboard_json("/api/trades/close", trade)
     except Exception as e:
         print(f"[{datetime.now()}] Error saving closed trade: {e}")
 
@@ -635,24 +718,61 @@ def is_symbol_open(open_trades, ex_name, symbol):
     """Check if a symbol already has an open trade for an exchange."""
     return any(t for t in open_trades if t.get('ex') == ex_name and t.get('sym') == symbol)
 
+def build_exchange(ex_name):
+    """Create a configured exchange instance by name."""
+    if ex_name == 'gate':
+        return ccxt.gateio({
+            'apiKey': os.getenv('GATE_API_KEY'),
+            'secret': os.getenv('GATE_SECRET'),
+            'enableRateLimit': True,
+            'options': {'defaultType': 'swap'}
+        })
+    if ex_name == 'bitget':
+        return ccxt.bitget({
+            'apiKey': os.getenv('BITGET_API_KEY'),
+            'secret': os.getenv('BITGET_SECRET'),
+            'password': os.getenv('BITGET_PASSPHRASE'),
+            'enableRateLimit': True,
+            'options': {'defaultType': 'swap'}
+        })
+    raise ValueError(f"Unsupported exchange: {ex_name}")
+
 def init_exchanges():
     """Initialize exchange connections with API keys from environment"""
-    gate = ccxt.gateio({
-        'apiKey': os.getenv('GATE_API_KEY'),
-        'secret': os.getenv('GATE_SECRET'),
-        'enableRateLimit': True,
-        'options': {'defaultType': 'swap'}
-    })
+    return {
+        'gate': build_exchange('gate'),
+        'bitget': build_exchange('bitget')
+    }
 
-    bitget = ccxt.bitget({
-        'apiKey': os.getenv('BITGET_API_KEY'),
-        'secret': os.getenv('BITGET_SECRET'),
-        'password': os.getenv('BITGET_PASSPHRASE'),
-        'enableRateLimit': True,
-        'options': {'defaultType': 'swap'}
-    })
+def ensure_exchange_connection(ex_name, ex):
+    """Verify exchange capabilities and reconnect if needed."""
+    try:
+        if not getattr(ex, "has", {}).get("fetchTicker", True):
+            raise RuntimeError("fetchTicker not supported")
+        if not getattr(ex, "markets", None):
+            ex.load_markets()
+        return ex
+    except Exception as e:
+        print(f"[{datetime.now()}] Reconnecting to {ex_name}: {e}")
+        try:
+            new_ex = build_exchange(ex_name)
+            new_ex.load_markets()
+            return new_ex
+        except Exception as reconnect_err:
+            print(f"[{datetime.now()}] Failed to reconnect {ex_name}: {reconnect_err}")
+            return ex
 
-    return {'gate': gate, 'bitget': bitget}
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
+def fetch_ticker(exchange, symbol):
+    return exchange.fetch_ticker(symbol)
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
+def fetch_tickers(exchange):
+    return exchange.fetch_tickers()
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
+def fetch_ohlcv(exchange, symbol, timeframe='15m', limit=20):
+    return exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
 
 def load_symbols(exchanges):
     """Load all USDT perpetual swap symbols from exchanges"""
@@ -670,31 +790,11 @@ def load_symbols(exchanges):
 
 def load_state(config):
     """Load previous state from JSON files"""
-    prev_data = {}
-    if os.path.exists(STATE_FILE):
-        try:
-            with open(STATE_FILE, 'r') as f:
-                prev_data = json.load(f)
-        except json.JSONDecodeError:
-            prev_data = {}
-
-    open_trades = []
-    if os.path.exists(TRADES_FILE):
-        try:
-            with open(TRADES_FILE, 'r') as f:
-                open_trades = json.load(f)
-        except json.JSONDecodeError:
-            open_trades = []
-
+    prev_data = read_json_file(STATE_FILE, {})
+    open_trades = read_json_file(TRADES_FILE, [])
     starting_capital = config['starting_capital']
-    current_balance = starting_capital
-    if os.path.exists(BALANCE_FILE):
-        try:
-            with open(BALANCE_FILE, 'r') as f:
-                data = json.load(f)
-                current_balance = data.get('balance', starting_capital)
-        except json.JSONDecodeError:
-            current_balance = starting_capital
+    balance_data = read_json_file(BALANCE_FILE, {'balance': starting_capital})
+    current_balance = balance_data.get('balance', starting_capital)
 
     return prev_data, open_trades, current_balance
 
@@ -703,11 +803,12 @@ def save_state(prev_data, open_trades, current_balance):
     atomic_write_json(STATE_FILE, prev_data)
     atomic_write_json(TRADES_FILE, open_trades)
     atomic_write_json(BALANCE_FILE, {'balance': current_balance, 'last_updated': str(datetime.now())})
+    maybe_sync_dashboard_state(prev_data, open_trades, current_balance)
 
 def get_ohlcv(ex, symbol, timeframe='15m', limit=20):
     """Fetch OHLCV data and return as DataFrame"""
     try:
-        ohlcv = ex.fetch_ohlcv(symbol, timeframe, limit=limit)
+        ohlcv = fetch_ohlcv(ex, symbol, timeframe, limit)
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
         return df
@@ -723,6 +824,7 @@ MULTI_OHLCV_CACHE_TTL = 300  # Multi-window cache for 5 min
 ohlcv_max_calls_per_cycle = 10  # Default; can be overridden by config each cycle
 ohlcv_calls_this_cycle = 0
 POSITION_SYNC_INTERVAL_SEC = 300  # Live position reconciliation interval
+CONNECTION_CHECK_INTERVAL_SEC = 300  # Exchange connection validation interval
 
 def get_24h_change_from_ohlcv(ex, ex_name, symbol):
     """Calculate 24h percentage change from OHLCV data as fallback (with caching)"""
@@ -741,7 +843,7 @@ def get_24h_change_from_ohlcv(ex, ex_name, symbol):
     try:
         # Fetch 1h candles for last 25 hours (to ensure we have 24h coverage)
         ohlcv_calls_this_cycle += 1
-        ohlcv = ex.fetch_ohlcv(symbol, timeframe='1h', limit=25)
+        ohlcv = fetch_ohlcv(ex, symbol, timeframe='1h', limit=25)
         if ohlcv and len(ohlcv) >= 24:
             oldest_close = ohlcv[0][4]  # Close price from ~24h ago
             newest_close = ohlcv[-1][4]  # Current close price
@@ -777,7 +879,7 @@ def get_multi_window_change_from_ohlcv(ex, ex_name, symbol, config):
     try:
         ohlcv_calls_this_cycle += 1
         limit = max_window + 1
-        ohlcv = ex.fetch_ohlcv(symbol, timeframe='1h', limit=limit)
+        ohlcv = fetch_ohlcv(ex, symbol, timeframe='1h', limit=limit)
         if not ohlcv or len(ohlcv) < max_window + 1:
             return 0, False, None
 
@@ -806,6 +908,33 @@ def get_multi_window_change_from_ohlcv(ex, ex_name, symbol, config):
         print(f"[{datetime.now()}] Multi-window OHLCV failed for {symbol}: {e}")
         return 0, False, None
 
+def compute_rsi_series(close_values, period=14):
+    """Compute RSI series with a fallback if TA-Lib fails."""
+    if close_values is None or len(close_values) < period:
+        return None
+    try:
+        closes = np.array(close_values, dtype=np.float64)
+        rsi_vals = talib.RSI(closes, timeperiod=period)
+    except Exception as e:
+        print(f"[{datetime.now()}] RSI calc error: {e}")
+        rsi_vals = None
+
+    if rsi_vals is None or len(rsi_vals) == 0 or np.isnan(rsi_vals[-1]):
+        try:
+            series = pd.Series(close_values, dtype="float64")
+            delta = series.diff()
+            up = delta.clip(lower=0)
+            down = -delta.clip(upper=0)
+            ema_up = up.ewm(span=period, adjust=False).mean()
+            ema_down = down.ewm(span=period, adjust=False).mean()
+            rs = ema_up / ema_down.replace(0, np.nan)
+            rsi_series = 100 - (100 / (1 + rs))
+            rsi_vals = rsi_series.values
+        except Exception as e:
+            print(f"[{datetime.now()}] RSI fallback failed: {e}")
+            return None
+    return rsi_vals
+
 def check_fade_signals(df, config=None, min_confirms=None):
     """Check for reversal (fade) signals indicating potential short entry"""
     if df is None or len(df) < 14:
@@ -813,8 +942,11 @@ def check_fade_signals(df, config=None, min_confirms=None):
 
     closes = np.array(df['close'], dtype=np.float64)
     highs = np.array(df['high'], dtype=np.float64)
-    
-    rsi = talib.RSI(closes, timeperiod=14)[-1]
+
+    rsi_vals = compute_rsi_series(closes, period=14)
+    rsi = None
+    if rsi_vals is not None and len(rsi_vals) > 0 and not np.isnan(rsi_vals[-1]):
+        rsi = float(rsi_vals[-1])
     macd, signal, _ = talib.MACD(closes)
     last_macd = macd[-1]
     last_signal = signal[-1]
@@ -825,8 +957,10 @@ def check_fade_signals(df, config=None, min_confirms=None):
     is_bearish_star = (upper_wick > 2 * body) and (last_candle['close'] < last_candle['open'])
 
     price_hh = highs[-1] > highs[-2]
-    rsi_vals = talib.RSI(closes, timeperiod=14)
-    rsi_div = price_hh and (rsi_vals[-1] < rsi_vals[-2])
+    if rsi_vals is None or len(rsi_vals) < 2 or np.isnan(rsi_vals[-1]) or np.isnan(rsi_vals[-2]):
+        rsi_div = False
+    else:
+        rsi_div = price_hh and (rsi_vals[-1] < rsi_vals[-2])
 
     macd_cross = (macd[-2] > signal[-2]) and (last_macd < last_signal)
     vol_fade = df['volume'].iloc[-1] < df['volume'].max() * 0.7
@@ -863,7 +997,7 @@ def analyze_volume_profile(ex, symbol, config):
     
     try:
         # Get 5-minute candles for last 2 hours (24 candles) to match entry timeframe
-        ohlcv = ex.fetch_ohlcv(symbol, timeframe='5m', limit=24)
+        ohlcv = fetch_ohlcv(ex, symbol, timeframe='5m', limit=24)
         if not ohlcv or len(ohlcv) < 12:
             # Strict: reject if insufficient data
             return False, {'error': 'insufficient_data', 'reason': 'need 12+ candles'}
@@ -920,20 +1054,25 @@ def check_multi_timeframe(ex, symbol, config):
     
     try:
         # Check 1h timeframe
-        ohlcv_1h = ex.fetch_ohlcv(symbol, timeframe='1h', limit=20)
+        ohlcv_1h = fetch_ohlcv(ex, symbol, timeframe='1h', limit=20)
         if not ohlcv_1h or len(ohlcv_1h) < 14:
             # Strict: reject if no 1h data
             return False, {'error': 'insufficient_1h_data', 'reason': 'need 14+ 1h candles'}
         
         closes_1h = np.array([c[4] for c in ohlcv_1h], dtype=np.float64)
-        rsi_1h = talib.RSI(closes_1h, timeperiod=14)[-1]
+        rsi_1h_series = compute_rsi_series(closes_1h, period=14)
+        if rsi_1h_series is None or len(rsi_1h_series) == 0 or np.isnan(rsi_1h_series[-1]):
+            return False, {'error': 'rsi_unavailable', 'reason': '1h RSI unavailable'}
+        rsi_1h = float(rsi_1h_series[-1])
         
         # Check 4h timeframe (optional, but adds confidence)
-        ohlcv_4h = ex.fetch_ohlcv(symbol, timeframe='4h', limit=20)
+        ohlcv_4h = fetch_ohlcv(ex, symbol, timeframe='4h', limit=20)
         rsi_4h = None
         if ohlcv_4h and len(ohlcv_4h) >= 14:
             closes_4h = np.array([c[4] for c in ohlcv_4h], dtype=np.float64)
-            rsi_4h = talib.RSI(closes_4h, timeperiod=14)[-1]
+            rsi_4h_series = compute_rsi_series(closes_4h, period=14)
+            if rsi_4h_series is not None and len(rsi_4h_series) > 0 and not np.isnan(rsi_4h_series[-1]):
+                rsi_4h = float(rsi_4h_series[-1])
         
         mtf_threshold = config.get('mtf_rsi_threshold', 70)
         
@@ -1296,12 +1435,18 @@ def check_rsi_peak(df, config):
 
     try:
         closes = np.array(df['close'].values, dtype=np.float64)
-        rsi_vals = talib.RSI(closes, timeperiod=14)
+        rsi_vals = compute_rsi_series(closes, period=14)
+        if rsi_vals is None or len(rsi_vals) == 0:
+            return False, {'error': 'rsi_unavailable'}
         lookback = int(config.get('rsi_peak_lookback', 12))
         if lookback < 2:
             lookback = 2
         recent = rsi_vals[-lookback:]
+        if np.isnan(recent).all():
+            return False, {'error': 'rsi_unavailable'}
         peak = float(np.nanmax(recent))
+        if np.isnan(peak):
+            return False, {'error': 'rsi_unavailable'}
         threshold = float(config.get('rsi_overbought', 70))
         ok = peak >= threshold
         return ok, {
@@ -1341,7 +1486,9 @@ def check_rsi_pullback(df, config):
 
     try:
         closes = np.array(df['close'].values, dtype=np.float64)
-        rsi_vals = talib.RSI(closes, timeperiod=14)
+        rsi_vals = compute_rsi_series(closes, period=14)
+        if rsi_vals is None or len(rsi_vals) == 0:
+            return False, {'error': 'rsi_unavailable'}
         lookback = int(config.get('rsi_pullback_lookback', 6))
         pullback_pts = float(config.get('rsi_pullback_points', 3))
         if lookback < 2:
@@ -1349,7 +1496,9 @@ def check_rsi_pullback(df, config):
 
         recent = rsi_vals[-lookback:]
         recent_peak = float(np.nanmax(recent))
-        current_rsi = float(rsi_vals[-1])
+        current_rsi = float(rsi_vals[-1]) if not np.isnan(rsi_vals[-1]) else None
+        if current_rsi is None or np.isnan(recent_peak):
+            return False, {'error': 'rsi_unavailable'}
         pullback = recent_peak - current_rsi
 
         has_pullback = pullback >= pullback_pts
@@ -1666,16 +1815,7 @@ def check_entry_timing(ex, symbol, df, config, pump_pct=None, oi_state=None):
 
 def sanitize_for_json(obj):
     """Convert numpy types to native Python types for JSON serialization."""
-    if isinstance(obj, dict):
-        return {k: sanitize_for_json(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [sanitize_for_json(v) for v in obj]
-    elif hasattr(obj, 'item'):  # numpy scalar (bool_, int64, float64, etc.)
-        return obj.item()
-    elif isinstance(obj, (bool, int, float, str, type(None))):
-        return obj
-    else:
-        return str(obj)
+    return replace_nan(convert_numpy_types(obj))
 
 def log_trade_features(symbol, ex_name, action, features, outcome=None):
     """
@@ -1684,13 +1824,7 @@ def log_trade_features(symbol, ex_name, action, features, outcome=None):
     Saves detailed features that can be used to train ML models or adjust thresholds.
     """
     try:
-        logs = []
-        if os.path.exists(TRADE_FEATURES_FILE):
-            try:
-                with open(TRADE_FEATURES_FILE, 'r') as f:
-                    logs = json.load(f)
-            except:
-                logs = []
+        logs = read_json_file(TRADE_FEATURES_FILE, [])
         
         entry = {
             'timestamp': datetime.now().isoformat(),
@@ -1796,7 +1930,7 @@ def calculate_swing_high_sl(ex, symbol, entry_price, config):
     """Calculate stop loss based on swing high with buffer"""
     try:
         # Fetch recent candles to find swing high
-        ohlcv = ex.fetch_ohlcv(symbol, timeframe='15m', limit=10)
+        ohlcv = fetch_ohlcv(ex, symbol, timeframe='15m', limit=10)
         if ohlcv and len(ohlcv) >= 5:
             highs = [c[2] for c in ohlcv]
             swing_high = max(highs)
@@ -2280,7 +2414,7 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
             continue
             
         try:
-            ticker = ex.fetch_ticker(trade['sym'])
+            ticker = fetch_ticker(ex, trade['sym'])
             current_price = ticker['last']
             info = ticker.get('info', {})
             funding_rate = None
@@ -2684,7 +2818,7 @@ def process_entry_watchlist(ex_name, ex, tickers, entry_watchlist, open_trades, 
             current_price = tickers[symbol].get('last', current_price)
         else:
             try:
-                current_price = ex.fetch_ticker(symbol)['last']
+                current_price = fetch_ticker(ex, symbol)['last']
             except Exception:
                 continue
 
@@ -2876,6 +3010,7 @@ def main():
     entry_watchlist = {}
     last_position_sync = 0
     last_learning_cycle = 0
+    last_connection_check = 0
     LEARNING_CYCLE_INTERVAL_SEC = 4 * 3600  # Run learning analysis every 4 hours
 
     if not config.get('paper_mode', True):
@@ -2884,7 +3019,7 @@ def main():
 
     print(f"[{datetime.now()}] Current Balance: ${current_balance:,.2f}")
     print(f"[{datetime.now()}] Open Trades: {len(open_trades)}")
-    print(f"[{datetime.now()}] Entering main loop (polling every {config['poll_interval_sec']}s)...")
+    print(f"[{datetime.now()}] Entering main loop (polling every {config['poll_interval_sec']}s, 60s on high BTC volatility)...")
     print("=" * 60)
     send_push_notification(
         "Bot started",
@@ -2900,6 +3035,14 @@ def main():
             # Reload config each iteration to pick up changes from dashboard
             config = load_config()
             ohlcv_max_calls_per_cycle = int(config.get('ohlcv_max_calls_per_cycle', ohlcv_max_calls_per_cycle))
+            poll_interval = int(config.get('poll_interval_sec', 300))
+            high_vol_poll_interval = int(config.get('high_volatility_poll_interval_sec', 60))
+
+            # Periodic exchange connection validation/reconnect
+            if time.time() - last_connection_check >= CONNECTION_CHECK_INTERVAL_SEC:
+                for ex_name, ex in exchanges.items():
+                    exchanges[ex_name] = ensure_exchange_connection(ex_name, ex)
+                last_connection_check = time.time()
             
             current_date = datetime.now().date()
             if current_date != last_daily_reset:
@@ -2915,7 +3058,7 @@ def main():
 
             skip_new_entries = False
             try:
-                btc_ticker = exchanges['gate'].fetch_ticker('BTC/USDT:USDT')
+                btc_ticker = fetch_ticker(exchanges['gate'], 'BTC/USDT:USDT')
                 btc_price = btc_ticker['last']
                 
                 if btc_prev['price'] is None:
@@ -2933,6 +3076,7 @@ def main():
                 btc_vol_max = config.get('btc_volatility_max_pct', 0)
                 if btc_vol_max and abs(btc_pct) >= btc_vol_max:
                     skip_new_entries = True
+                    poll_interval = min(poll_interval, high_vol_poll_interval)
                     
                 if current_balance > 0 and abs(daily_loss / current_balance) >= config['daily_loss_limit_pct']:
                     print(f"[{datetime.now()}] PAUSE: Daily loss limit hit (${daily_loss:.2f}) - waiting 1h")
@@ -2953,8 +3097,11 @@ def main():
                 )
 
                 tickers = None
+                if not getattr(ex, "has", {}).get("fetchTickers", True):
+                    print(f"[{datetime.now()}] {ex_name} does not support fetchTickers - skipping")
+                    continue
                 try:
-                    tickers = ex.fetch_tickers()
+                    tickers = fetch_tickers(ex)
                 except Exception as e:
                     print(f"[{datetime.now()}] Error fetching tickers from {ex_name}: {e}")
 
@@ -3205,7 +3352,7 @@ def main():
                     except Exception as e:
                         print(f"[{datetime.now()}] Learning cycle error: {e}")
             
-            time.sleep(config['poll_interval_sec'])
+            time.sleep(poll_interval)
 
         except KeyboardInterrupt:
             print(f"\n[{datetime.now()}] Shutting down gracefully...")
