@@ -156,6 +156,7 @@ interface BotConfig {
   funding_adverse_time_cap_hours?: number;
   funding_trailing_min_pct?: number;
   funding_trailing_tighten_factor?: number;
+  enable_adaptive_learning?: boolean;
 }
 
 interface TradeInfo {

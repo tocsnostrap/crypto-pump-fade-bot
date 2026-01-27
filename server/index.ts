@@ -4,7 +4,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { spawn, spawnSync, ChildProcess } from "child_process";
 import * as path from "path";
-import { Server as SocketIOServer } from "socket.io";
+import { Server as SocketIOServer, type Socket } from "socket.io";
 
 const app = express();
 const httpServer = createServer(app);
@@ -172,7 +172,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  io.on("connection", (socket) => {
+  io.on("connection", (socket: Socket) => {
     log(`socket connected: ${socket.id}`, "socket.io");
     socket.on("disconnect", () => {
       log(`socket disconnected: ${socket.id}`, "socket.io");
