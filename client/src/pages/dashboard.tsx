@@ -1,4 +1,6 @@
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { io } from "socket.io-client";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -124,6 +126,8 @@ function SignalItem({ signal }: { signal: Signal }) {
     pump_rejected: "bg-loss/10 text-loss border-loss/20",
     entry_signal: "bg-profit/10 text-profit border-profit/20",
     exit_signal: "bg-primary/10 text-primary border-primary/20",
+    partial_exit: "bg-profit/10 text-profit border-profit/20",
+    fade_watch: "bg-muted text-muted-foreground border-muted",
     time_decay: "bg-muted text-muted-foreground border-muted",
   };
 
@@ -132,6 +136,8 @@ function SignalItem({ signal }: { signal: Signal }) {
     pump_rejected: XOctagon,
     entry_signal: TrendingUp,
     exit_signal: TrendingDown,
+    partial_exit: Percent,
+    fade_watch: Sparkles,
     time_decay: Clock,
   };
 
@@ -160,11 +166,21 @@ function SignalItem({ signal }: { signal: Signal }) {
   );
 }
 
-function OpenPositionRow({ trade }: { trade: OpenTrade }) {
+function OpenPositionRow({
+  trade,
+  onClose,
+  isClosing,
+}: {
+  trade: OpenTrade;
+  onClose: (trade: OpenTrade) => void;
+  isClosing: boolean;
+}) {
   const entryPrice = trade.trade.entry;
   const currentPrice = trade.trade.current_price || entryPrice;
   const pnl = trade.trade.unrealized_pnl || 0;
   const pnlPercent = trade.trade.pnl_percent || 0;
+  const tradeId = trade.trade.id;
+  const canClose = Boolean(tradeId);
 
   return (
     <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/30 hover-elevate" data-testid={`position-${trade.sym}`}>
@@ -198,13 +214,32 @@ function OpenPositionRow({ trade }: { trade: OpenTrade }) {
             <p data-testid={`tp3-${trade.sym}`}>TP3 (62%): <span className={`font-mono ${(trade.trade.exits_taken || []).includes(0.618) ? "text-muted-foreground line-through" : "text-profit"}`}>${trade.trade.tp_prices[2].toFixed(4)}</span></p>
           </>
         )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-2"
+          onClick={() => onClose(trade)}
+          disabled={!canClose || isClosing}
+          data-testid={`close-trade-${trade.sym}`}
+        >
+          {isClosing ? "Closing..." : "Close Trade"}
+        </Button>
       </div>
     </div>
   );
 }
 
-function TradeHistoryRow({ trade, index }: { trade: ClosedTrade; index: number }) {
+function TradeHistoryRow({
+  trade,
+  index,
+  partials = [],
+}: {
+  trade: ClosedTrade;
+  index: number;
+  partials?: ClosedTrade[];
+}) {
   const isProfit = trade.profit >= 0;
+  const hasPartials = partials.length > 0;
 
   return (
     <div className="flex items-center gap-4 p-3 rounded-lg hover-elevate" data-testid={`trade-history-${index}`}>
@@ -217,6 +252,25 @@ function TradeHistoryRow({ trade, index }: { trade: ClosedTrade; index: number }
           <Badge variant="outline" className="text-xs">{trade.ex.toUpperCase()}</Badge>
         </div>
         <p className="text-xs text-muted-foreground mt-0.5">{trade.reason}</p>
+        {hasPartials && (
+          <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+            {partials.map((partial, idx) => {
+              const partialPnl = partial.profit ?? 0;
+              const pctClosed = partial.pct_closed !== undefined && partial.pct_closed !== null
+                ? Math.round(partial.pct_closed * 100)
+                : null;
+              const partialLabel = pctClosed !== null ? `Partial ${pctClosed}%` : "Partial exit";
+              return (
+                <div key={partial.id ?? `${trade.sym}-partial-${idx}`} className="flex items-center justify-between gap-2">
+                  <span>{partialLabel} • {partial.reason}</span>
+                  <span className={`font-mono ${partialPnl >= 0 ? "text-profit" : "text-loss"}`}>
+                    {partialPnl >= 0 ? "+" : ""}{formatCurrency(partialPnl)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
       <div className="text-right">
         <p className={`font-mono font-bold ${isProfit ? "text-profit" : "text-loss"}`}>
@@ -613,6 +667,85 @@ export default function Dashboard() {
     },
   });
 
+  const [closingTradeIds, setClosingTradeIds] = useState<Set<string>>(new Set());
+
+  const closeTradeMutation = useMutation({
+    mutationFn: async (trade: OpenTrade) => {
+      if (!trade.trade?.id) {
+        throw new Error("Trade id missing");
+      }
+      const res = await apiRequest("POST", `/api/close_trade/${trade.trade.id}`, {
+        exchange: trade.ex,
+        symbol: trade.sym,
+      });
+      return res.json();
+    },
+    onMutate: (trade) => {
+      if (!trade.trade?.id) return;
+      setClosingTradeIds((prev) => {
+        const next = new Set(prev);
+        next.add(trade.trade.id);
+        return next;
+      });
+    },
+    onSettled: (_data, _error, trade) => {
+      if (!trade?.trade?.id) return;
+      setClosingTradeIds((prev) => {
+        const next = new Set(prev);
+        next.delete(trade.trade.id);
+        return next;
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+    },
+  });
+
+  useEffect(() => {
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+    const socket = io(socketUrl, {
+      transports: ["websocket", "polling"],
+    });
+
+    const handleNewSignal = (signal: Signal) => {
+      const normalized = {
+        ...signal,
+        timestamp: signal.timestamp || new Date().toISOString(),
+      };
+      queryClient.setQueryData<DashboardData>(["/api/dashboard"], (old) => {
+        if (!old) return old;
+        const existing = old.signals || [];
+        const combined = [normalized, ...existing];
+        const seen = new Set<string>();
+        const deduped: Signal[] = [];
+        for (const item of combined) {
+          if (item?.id) {
+            if (seen.has(item.id)) continue;
+            seen.add(item.id);
+          }
+          deduped.push(item);
+        }
+        return {
+          ...old,
+          signals: deduped.slice(0, 50),
+        };
+      });
+    };
+
+    const handleTradeClosed = () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+    };
+
+    socket.on("new_signal", handleNewSignal);
+    socket.on("trade_closed", handleTradeClosed);
+
+    return () => {
+      socket.off("new_signal", handleNewSignal);
+      socket.off("trade_closed", handleTradeClosed);
+      socket.disconnect();
+    };
+  }, []);
+
   if (isLoading) {
     return <LoadingSkeleton />;
   }
@@ -764,7 +897,6 @@ export default function Dashboard() {
       funding_adverse_time_cap_hours: 24,
       funding_trailing_min_pct: 0.03,
       funding_trailing_tighten_factor: 0.8,
-      enable_funding_filter: false,
       max_hold_hours: 48,
     },
     status: { running: false, last_poll: null, exchanges_connected: [], symbols_loaded: {} },
@@ -777,6 +909,30 @@ export default function Dashboard() {
     open_trades: [],
     closed_trades: [],
     signals: [],
+  };
+
+  const tradeHistory = useMemo(
+    () => (closed_trades || []).filter((trade) => trade.type !== "partial"),
+    [closed_trades]
+  );
+
+  const partialsByParent = useMemo(() => {
+    const map = new Map<string, ClosedTrade[]>();
+    (closed_trades || []).forEach((trade) => {
+      if (trade.type === "partial" && trade.parent_id) {
+        const list = map.get(trade.parent_id) || [];
+        list.push(trade);
+        map.set(trade.parent_id, list);
+      }
+    });
+    map.forEach((list) => {
+      list.sort((a, b) => new Date(a.closed_at).getTime() - new Date(b.closed_at).getTime());
+    });
+    return map;
+  }, [closed_trades]);
+
+  const handleCloseTrade = (trade: OpenTrade) => {
+    closeTradeMutation.mutate(trade);
   };
 
   const isPaperMode = config?.paper_mode ?? true;
@@ -978,9 +1134,18 @@ export default function Dashboard() {
                 />
               ) : (
                 <div className="space-y-3">
-                  {open_trades.map((trade, i) => (
-                    <OpenPositionRow key={`${trade.sym}-${i}`} trade={trade} />
-                  ))}
+                  {open_trades.map((trade, i) => {
+                    const tradeId = trade.trade?.id;
+                    const isClosing = tradeId ? closingTradeIds.has(tradeId) : false;
+                    return (
+                      <OpenPositionRow
+                        key={`${trade.sym}-${i}`}
+                        trade={trade}
+                        onClose={handleCloseTrade}
+                        isClosing={isClosing}
+                      />
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -1026,10 +1191,10 @@ export default function Dashboard() {
               <Clock className="h-5 w-5 text-muted-foreground" />
               <CardTitle className="text-lg">Trade History</CardTitle>
             </div>
-            <Badge variant="secondary">{closed_trades?.length || 0} trades</Badge>
+            <Badge variant="secondary">{tradeHistory.length} trades</Badge>
           </CardHeader>
           <CardContent>
-            {!closed_trades || closed_trades.length === 0 ? (
+            {tradeHistory.length === 0 ? (
               <EmptyState
                 title="No Trade History"
                 description="Completed trades will appear here"
@@ -1038,8 +1203,13 @@ export default function Dashboard() {
             ) : (
               <ScrollArea className="h-[300px]">
                 <div className="space-y-2 pr-4">
-                  {closed_trades.slice(0, 20).map((trade, i) => (
-                    <TradeHistoryRow key={i} trade={trade} index={i} />
+                  {tradeHistory.slice(0, 20).map((trade, i) => (
+                    <TradeHistoryRow
+                      key={trade.id ?? i}
+                      trade={trade}
+                      index={i}
+                      partials={trade.id ? partialsByParent.get(trade.id) : []}
+                    />
                   ))}
                 </div>
               </ScrollArea>

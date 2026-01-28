@@ -2,7 +2,7 @@
   "paper_mode": true,
   "min_pump_pct": 60,
   "max_pump_pct": 250,
-  "poll_interval_sec": 300,
+  "poll_interval_sec": 60,
   "min_volume_usdt": 1000000,
   "funding_min": 0.0001,
   "enable_funding_filter": true,

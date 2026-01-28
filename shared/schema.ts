@@ -45,6 +45,7 @@ export interface TradeInfo {
   pnl_percent?: number;
   last_update?: string;
   exits_taken?: number[];
+  realized_pnl?: number;
   reconciled?: boolean;
 }
 
@@ -62,6 +63,13 @@ export interface ClosedTrade {
   profit: number;
   reason: string;
   closed_at: string;
+  id?: string;
+  type?: "close" | "partial";
+  parent_id?: string;
+  pct_closed?: number;
+  fees?: number;
+  funding?: number;
+  qty?: number;
 }
 
 export interface Signal {
@@ -86,7 +94,6 @@ export interface BotConfig {
   funding_min: number;
   enable_funding_filter?: boolean;
   funding_filter_pump_pct?: number;
-  enable_funding_filter?: boolean;
   rsi_overbought: number;
   leverage_default: number;
   reward_risk_min?: number;

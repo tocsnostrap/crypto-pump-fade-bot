@@ -4,9 +4,26 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { spawn, ChildProcess } from "child_process";
 import * as path from "path";
+import { Server as SocketIOServer } from "socket.io";
 
 const app = express();
 const httpServer = createServer(app);
+const io = new SocketIOServer(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
+
+io.on("connection", (socket) => {
+  socket.on("new_signal", (data) => {
+    io.emit("new_signal", data);
+  });
+
+  socket.on("trade_closed", (data) => {
+    io.emit("trade_closed", data);
+  });
+});
 
 // Python bot process management
 let pythonProcess: ChildProcess | null = null;
@@ -138,7 +155,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  await registerRoutes(httpServer, app);
+  await registerRoutes(httpServer, app, io);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

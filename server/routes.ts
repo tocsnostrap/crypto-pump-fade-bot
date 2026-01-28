@@ -1,5 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+import type { Server as SocketIOServer } from "socket.io";
 import { storage } from "./storage";
 import * as fs from "fs";
 import * as path from "path";
@@ -40,7 +41,6 @@ interface BotConfig {
   funding_min: number;
   enable_funding_filter?: boolean;
   funding_filter_pump_pct?: number;
-  enable_funding_filter?: boolean;
   rsi_overbought: number;
   leverage_default: number;
   reward_risk_min?: number;
@@ -175,6 +175,7 @@ interface TradeInfo {
   funding_rate_current?: number;
   holders_details?: Record<string, unknown> | null;
   max_drawdown_pct?: number;
+  realized_pnl?: number;
   exits_taken?: number[];
 }
 
@@ -192,6 +193,13 @@ interface ClosedTrade {
   profit: number;
   reason: string;
   closed_at: string;
+  id?: string;
+  type?: "close" | "partial";
+  parent_id?: string;
+  pct_closed?: number;
+  fees?: number;
+  funding?: number;
+  qty?: number;
 }
 
 interface Signal {
@@ -210,7 +218,7 @@ interface Signal {
 const DEFAULT_CONFIG: BotConfig = {
   paper_mode: true,
   min_pump_pct: 60.0,
-  poll_interval_sec: 300,
+  poll_interval_sec: 60,
   min_volume_usdt: 1000000,
   funding_min: 0.0001,
   rsi_overbought: 78,
@@ -280,7 +288,8 @@ function calculateMetrics(
   currentBalance: number,
   startingBalance: number
 ) {
-  const normalizedTrades = closedTrades.map((trade) => {
+  const fullTrades = closedTrades.filter((trade) => trade.type !== "partial");
+  const normalizedTrades = fullTrades.map((trade) => {
     const profitValue =
       typeof trade.profit === "number"
         ? trade.profit
@@ -321,7 +330,7 @@ function calculateMetrics(
   }
 
   return {
-    total_trades: closedTrades.length,
+    total_trades: fullTrades.length,
     winning_trades: winningTrades.length,
     losing_trades: losingTrades.length,
     win_rate: winRate,
@@ -375,7 +384,8 @@ function getBotStatus(pumpState: Record<string, any>) {
 
 export async function registerRoutes(
   httpServer: Server,
-  app: Express
+  app: Express,
+  io: SocketIOServer
 ): Promise<Server> {
   // Get full dashboard data
   app.get("/api/dashboard", (_req, res) => {
@@ -450,6 +460,28 @@ export async function registerRoutes(
       res.json(trades);
     } catch (err) {
       res.status(500).json({ error: "Failed to load trades" });
+    }
+  });
+
+  // Manual close of an open trade (queues request to Python via Socket.IO)
+  app.post("/api/close_trade/:id", requireControlAuth, (req, res) => {
+    try {
+      const tradeId = req.params.id;
+      if (!tradeId) {
+        return res.status(400).json({ error: "Trade id is required" });
+      }
+
+      io.emit("close_trade", {
+        id: tradeId,
+        exchange: req.body?.exchange,
+        symbol: req.body?.symbol,
+        requested_at: new Date().toISOString(),
+        source: "dashboard",
+      });
+
+      res.json({ success: true, queued: true });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to queue manual close" });
     }
   });
 
@@ -766,7 +798,7 @@ export async function registerRoutes(
       writeJsonFile(LEARNING_STATE_FILE, learningState);
 
       // Also update bot config
-      const config = readJsonFile(CONFIG_FILE, {});
+      const config = readJsonFile<Partial<BotConfig>>(CONFIG_FILE, {});
       config.enable_adaptive_learning = enabled;
       writeJsonFile(CONFIG_FILE, config);
 
