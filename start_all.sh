@@ -13,16 +13,18 @@ echo "=== Pump Fade Trading Bot Production Startup ==="
 echo "Starting at: $(date)"
 echo "PORT: $PORT"
 
+# Cleanup any stale venv from previous runs
+if [ -d ".venv" ]; then
+    echo "Removing stale .venv directory..."
+    rm -rf .venv
+fi
+
 # Bootstrap Python deps if available
 if [ -f "./script/bootstrap_python.sh" ]; then
     bash ./script/bootstrap_python.sh
 fi
 
-VENV_DIR="${VENV_DIR:-.venv}"
-PYTHON_BIN="$VENV_DIR/bin/python"
-if [ ! -x "$PYTHON_BIN" ]; then
-    PYTHON_BIN="python3"
-fi
+PYTHON_BIN="python3"
 echo "Using Python: $PYTHON_BIN"
 
 # Verify build exists
