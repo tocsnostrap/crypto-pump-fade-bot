@@ -9,6 +9,17 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip as ChartTooltip,
+  Legend as ChartLegend,
+} from "chart.js";
+import type { TooltipItem } from "chart.js";
+import { Line } from "react-chartjs-2";
+import {
   Activity,
   AlertTriangle,
   ArrowLeft,
@@ -21,6 +32,8 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ChartTooltip, ChartLegend);
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -50,6 +63,14 @@ function formatDate(timestamp: string | number): string {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+  });
+}
+
+function formatShortDate(timestamp: string | number): string {
+  const date = new Date(typeof timestamp === "number" ? timestamp * 1000 : timestamp);
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
   });
 }
 
@@ -183,6 +204,42 @@ function LearningSection({
   };
 
   const TrendIcon = trendIcons[data.trend] || Activity;
+  const performanceHistory = data.performance_history || [];
+  const winRateChartData = {
+    labels: performanceHistory.map((entry) => formatShortDate(entry.timestamp)),
+    datasets: [
+      {
+        label: "Win Rate",
+        data: performanceHistory.map((entry) => entry.win_rate),
+        borderColor: "hsl(var(--profit))",
+        backgroundColor: "hsla(var(--profit) / 0.2)",
+        tension: 0.35,
+        pointRadius: 2,
+      },
+    ],
+  };
+  const winRateChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (ctx: TooltipItem<"line">) =>
+            `Win Rate: ${(ctx.parsed.y ?? 0).toFixed(1)}%`,
+        },
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        max: 100,
+        ticks: {
+          callback: (value: number | string) => `${value}%`,
+        },
+      },
+    },
+  } as const;
 
   return (
     <div className="space-y-6">
@@ -239,6 +296,29 @@ function LearningSection({
             <p className="text-xs text-muted-foreground mt-4">
               Last analysis: {formatDate(data.last_analysis)}
             </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            <CardTitle className="text-lg">Win Rate Trend</CardTitle>
+          </div>
+          <Badge variant="outline">{performanceHistory.length} cycles</Badge>
+        </CardHeader>
+        <CardContent>
+          {performanceHistory.length < 2 ? (
+            <EmptyState
+              title="No Learning Trend Yet"
+              description="Performance history will populate after multiple learning cycles"
+              icon={TrendingUp}
+            />
+          ) : (
+            <div className="h-[220px]">
+              <Line data={winRateChartData} options={winRateChartOptions} />
+            </div>
           )}
         </CardContent>
       </Card>
