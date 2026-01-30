@@ -1,11 +1,13 @@
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link } from "wouter";
+import { io } from "socket.io-client";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   TrendingUp,
@@ -32,11 +34,7 @@ import {
   XOctagon,
   Settings,
   Brain,
-  Lightbulb,
-  History,
-  BookOpen,
   Sparkles,
-  GraduationCap,
 } from "lucide-react";
 import type { DashboardData, Signal, OpenTrade, ClosedTrade, TradingMetrics } from "@shared/schema";
 
@@ -124,6 +122,8 @@ function SignalItem({ signal }: { signal: Signal }) {
     pump_rejected: "bg-loss/10 text-loss border-loss/20",
     entry_signal: "bg-profit/10 text-profit border-profit/20",
     exit_signal: "bg-primary/10 text-primary border-primary/20",
+    partial_exit: "bg-profit/10 text-profit border-profit/20",
+    fade_watch: "bg-muted text-muted-foreground border-muted",
     time_decay: "bg-muted text-muted-foreground border-muted",
   };
 
@@ -132,6 +132,8 @@ function SignalItem({ signal }: { signal: Signal }) {
     pump_rejected: XOctagon,
     entry_signal: TrendingUp,
     exit_signal: TrendingDown,
+    partial_exit: Percent,
+    fade_watch: Sparkles,
     time_decay: Clock,
   };
 
@@ -160,11 +162,21 @@ function SignalItem({ signal }: { signal: Signal }) {
   );
 }
 
-function OpenPositionRow({ trade }: { trade: OpenTrade }) {
+function OpenPositionRow({
+  trade,
+  onClose,
+  isClosing,
+}: {
+  trade: OpenTrade;
+  onClose: (trade: OpenTrade) => void;
+  isClosing: boolean;
+}) {
   const entryPrice = trade.trade.entry;
   const currentPrice = trade.trade.current_price || entryPrice;
   const pnl = trade.trade.unrealized_pnl || 0;
   const pnlPercent = trade.trade.pnl_percent || 0;
+  const tradeId = trade.trade.id;
+  const canClose = Boolean(tradeId);
 
   return (
     <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/30 hover-elevate" data-testid={`position-${trade.sym}`}>
@@ -198,13 +210,32 @@ function OpenPositionRow({ trade }: { trade: OpenTrade }) {
             <p data-testid={`tp3-${trade.sym}`}>TP3 (62%): <span className={`font-mono ${(trade.trade.exits_taken || []).includes(0.618) ? "text-muted-foreground line-through" : "text-profit"}`}>${trade.trade.tp_prices[2].toFixed(4)}</span></p>
           </>
         )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-2"
+          onClick={() => onClose(trade)}
+          disabled={!canClose || isClosing}
+          data-testid={`close-trade-${trade.sym}`}
+        >
+          {isClosing ? "Closing..." : "Close Trade"}
+        </Button>
       </div>
     </div>
   );
 }
 
-function TradeHistoryRow({ trade, index }: { trade: ClosedTrade; index: number }) {
+function TradeHistoryRow({
+  trade,
+  index,
+  partials = [],
+}: {
+  trade: ClosedTrade;
+  index: number;
+  partials?: ClosedTrade[];
+}) {
   const isProfit = trade.profit >= 0;
+  const hasPartials = partials.length > 0;
 
   return (
     <div className="flex items-center gap-4 p-3 rounded-lg hover-elevate" data-testid={`trade-history-${index}`}>
@@ -217,6 +248,25 @@ function TradeHistoryRow({ trade, index }: { trade: ClosedTrade; index: number }
           <Badge variant="outline" className="text-xs">{trade.ex.toUpperCase()}</Badge>
         </div>
         <p className="text-xs text-muted-foreground mt-0.5">{trade.reason}</p>
+        {hasPartials && (
+          <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+            {partials.map((partial, idx) => {
+              const partialPnl = partial.profit ?? 0;
+              const pctClosed = partial.pct_closed !== undefined && partial.pct_closed !== null
+                ? Math.round(partial.pct_closed * 100)
+                : null;
+              const partialLabel = pctClosed !== null ? `Partial ${pctClosed}%` : "Partial exit";
+              return (
+                <div key={partial.id ?? `${trade.sym}-partial-${idx}`} className="flex items-center justify-between gap-2">
+                  <span>{partialLabel} • {partial.reason}</span>
+                  <span className={`font-mono ${partialPnl >= 0 ? "text-profit" : "text-loss"}`}>
+                    {partialPnl >= 0 ? "+" : ""}{formatCurrency(partialPnl)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
       <div className="text-right">
         <p className={`font-mono font-bold ${isProfit ? "text-profit" : "text-loss"}`}>
@@ -295,286 +345,6 @@ interface KeysStatus {
   any_configured: boolean;
 }
 
-interface LearningData {
-  learning_enabled: boolean;
-  last_analysis: string | null;
-  recent_performance: {
-    trades: number;
-    wins: number;
-    losses: number;
-    win_rate: number;
-    total_profit: number;
-    avg_profit: number;
-  };
-  recent_lessons: Array<{
-    trade_id: string;
-    timestamp: string;
-    is_win: boolean;
-    profit: number;
-    lessons: string[];
-  }>;
-  adjustments_made: Array<{
-    timestamp: string;
-    changes: Array<{
-      parameter: string;
-      old_value: number;
-      new_value: number;
-      reason: string;
-    }>;
-  }>;
-  performance_history: Array<{
-    timestamp: string;
-    win_rate: number;
-    avg_profit: number;
-    trades: number;
-  }>;
-  pattern_stats: {
-    total_analyzed: number;
-    by_pump_size: Record<string, { count: number; win_rate: number }>;
-    by_entry_quality: Record<string, { count: number; win_rate: number }>;
-  };
-  trend: "improving" | "declining" | "stable";
-}
-
-function LearningSection({ data, onToggle, isToggling }: { 
-  data: LearningData | undefined; 
-  onToggle: (enabled: boolean) => void;
-  isToggling: boolean;
-}) {
-  if (!data) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <EmptyState
-            title="Learning Data Unavailable"
-            description="The learning system is initializing..."
-            icon={Brain}
-          />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const trendColors = {
-    improving: "text-profit",
-    declining: "text-loss",
-    stable: "text-muted-foreground",
-  };
-
-  const trendIcons = {
-    improving: TrendingUp,
-    declining: TrendingDown,
-    stable: Activity,
-  };
-
-  const TrendIcon = trendIcons[data.trend] || Activity;
-
-  return (
-    <div className="space-y-6">
-      {/* Learning Header */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
-          <div className="flex items-center gap-2">
-            <Brain className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg">Adaptive Learning</CardTitle>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className={`text-sm ${data.learning_enabled ? "text-profit" : "text-muted-foreground"}`}>
-              {data.learning_enabled ? "Active" : "Paused"}
-            </span>
-            <Switch
-              checked={data.learning_enabled}
-              onCheckedChange={onToggle}
-              disabled={isToggling}
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-3 rounded-lg bg-muted/50">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                <TrendIcon className={`h-3 w-3 ${trendColors[data.trend]}`} />
-                <span>Trend</span>
-              </div>
-              <p className={`text-lg font-bold capitalize ${trendColors[data.trend]}`}>
-                {data.trend}
-              </p>
-            </div>
-            <div className="p-3 rounded-lg bg-muted/50">
-              <p className="text-xs text-muted-foreground mb-1">7-Day Win Rate</p>
-              <p className={`text-lg font-bold ${data.recent_performance.win_rate >= 50 ? "text-profit" : "text-loss"}`}>
-                {data.recent_performance.win_rate.toFixed(1)}%
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {data.recent_performance.wins}W / {data.recent_performance.losses}L
-              </p>
-            </div>
-            <div className="p-3 rounded-lg bg-muted/50">
-              <p className="text-xs text-muted-foreground mb-1">7-Day Profit</p>
-              <p className={`text-lg font-bold ${data.recent_performance.total_profit >= 0 ? "text-profit" : "text-loss"}`}>
-                {formatCurrency(data.recent_performance.total_profit)}
-              </p>
-            </div>
-            <div className="p-3 rounded-lg bg-muted/50">
-              <p className="text-xs text-muted-foreground mb-1">Trades Analyzed</p>
-              <p className="text-lg font-bold">{data.pattern_stats.total_analyzed}</p>
-            </div>
-          </div>
-          {data.last_analysis && (
-            <p className="text-xs text-muted-foreground mt-4">
-              Last analysis: {formatDate(data.last_analysis)}
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Pattern Analysis */}
-        <Card>
-          <CardHeader className="flex flex-row items-center gap-2 pb-4">
-            <Sparkles className="h-5 w-5 text-warning" />
-            <CardTitle className="text-lg">Pattern Analysis</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {data.pattern_stats.total_analyzed === 0 ? (
-              <EmptyState
-                title="No Patterns Yet"
-                description="Complete more trades for pattern analysis"
-                icon={Sparkles}
-              />
-            ) : (
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm font-medium mb-2">Win Rate by Pump Size</p>
-                  <div className="space-y-2">
-                    {Object.entries(data.pattern_stats.by_pump_size).map(([label, stats]) => (
-                      <div key={label} className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">{label}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">({stats.count} trades)</span>
-                          <span className={`font-mono font-bold ${stats.win_rate >= 50 ? "text-profit" : "text-loss"}`}>
-                            {stats.win_rate.toFixed(1)}%
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <Separator />
-                <div>
-                  <p className="text-sm font-medium mb-2">Win Rate by Entry Quality</p>
-                  <div className="space-y-2">
-                    {Object.entries(data.pattern_stats.by_entry_quality).map(([label, stats]) => (
-                      <div key={label} className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Quality {label}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">({stats.count} trades)</span>
-                          <span className={`font-mono font-bold ${stats.win_rate >= 50 ? "text-profit" : "text-loss"}`}>
-                            {stats.win_rate.toFixed(1)}%
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Recent Lessons */}
-        <Card>
-          <CardHeader className="flex flex-row items-center gap-2 pb-4">
-            <Lightbulb className="h-5 w-5 text-warning" />
-            <CardTitle className="text-lg">Recent Lessons</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <ScrollArea className="h-[280px]">
-              <div className="p-4 pt-0 space-y-3">
-                {data.recent_lessons.length === 0 ? (
-                  <EmptyState
-                    title="No Lessons Yet"
-                    description="Lessons will appear as trades complete"
-                    icon={Lightbulb}
-                  />
-                ) : (
-                  data.recent_lessons.map((lesson, idx) => (
-                    <div key={idx} className="p-3 rounded-lg bg-muted/30">
-                      <div className="flex items-center justify-between mb-2">
-                        <Badge className={lesson.is_win ? "bg-profit/10 text-profit" : "bg-loss/10 text-loss"}>
-                          {lesson.is_win ? "WIN" : "LOSS"} {formatCurrency(lesson.profit)}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {formatTime(lesson.timestamp)}
-                        </span>
-                      </div>
-                      <ul className="text-xs text-muted-foreground space-y-1">
-                        {lesson.lessons.slice(0, 3).map((l, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <span className="text-primary">•</span>
-                            {l}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))
-                )}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Parameter Adjustments History */}
-      <Card>
-        <CardHeader className="flex flex-row items-center gap-2 pb-4">
-          <History className="h-5 w-5 text-muted-foreground" />
-          <CardTitle className="text-lg">Parameter Adjustments</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {data.adjustments_made.length === 0 ? (
-            <EmptyState
-              title="No Adjustments Yet"
-              description="The bot will suggest and apply changes based on performance"
-              icon={Settings}
-            />
-          ) : (
-            <ScrollArea className="h-[200px]">
-              <div className="space-y-3">
-                {data.adjustments_made.map((adj, idx) => (
-                  <div key={idx} className="p-3 rounded-lg border">
-                    <div className="flex items-center justify-between mb-2">
-                      <Badge variant="outline">
-                        <Settings className="h-3 w-3 mr-1" />
-                        {adj.changes.length} change{adj.changes.length !== 1 ? "s" : ""}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(adj.timestamp)}
-                      </span>
-                    </div>
-                    <div className="space-y-1">
-                      {adj.changes.map((change, i) => (
-                        <div key={i} className="text-xs">
-                          <span className="font-mono text-primary">{change.parameter}</span>
-                          <span className="text-muted-foreground">: </span>
-                          <span className="text-loss">{change.old_value}</span>
-                          <span className="text-muted-foreground"> → </span>
-                          <span className="text-profit">{change.new_value}</span>
-                          <p className="text-muted-foreground mt-0.5 ml-2">{change.reason}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
 export default function Dashboard() {
   const { data, isLoading, error, refetch, isFetching } = useQuery<DashboardData>({
     queryKey: ["/api/dashboard"],
@@ -587,12 +357,6 @@ export default function Dashboard() {
     refetchInterval: 30000,
   });
 
-  const { data: learningData, refetch: refetchLearning } = useQuery<LearningData>({
-    queryKey: ["/api/learning"],
-    refetchInterval: 30000,
-    staleTime: 10000,
-  });
-
   const toggleModeMutation = useMutation({
     mutationFn: async (paperMode: boolean) => {
       const res = await apiRequest("POST", "/api/config/mode", { paper_mode: paperMode });
@@ -603,15 +367,84 @@ export default function Dashboard() {
     },
   });
 
-  const toggleLearningMutation = useMutation({
-    mutationFn: async (enabled: boolean) => {
-      const res = await apiRequest("POST", "/api/learning/toggle", { enabled });
+  const [closingTradeIds, setClosingTradeIds] = useState<Set<string>>(new Set());
+
+  const closeTradeMutation = useMutation({
+    mutationFn: async (trade: OpenTrade) => {
+      if (!trade.trade?.id) {
+        throw new Error("Trade id missing");
+      }
+      const res = await apiRequest("POST", `/api/close_trade/${trade.trade.id}`, {
+        exchange: trade.ex,
+        symbol: trade.sym,
+      });
       return res.json();
     },
+    onMutate: (trade) => {
+      if (!trade.trade?.id) return;
+      setClosingTradeIds((prev) => {
+        const next = new Set(prev);
+        next.add(trade.trade.id);
+        return next;
+      });
+    },
+    onSettled: (_data, _error, trade) => {
+      if (!trade?.trade?.id) return;
+      setClosingTradeIds((prev) => {
+        const next = new Set(prev);
+        next.delete(trade.trade.id);
+        return next;
+      });
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/learning"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
     },
   });
+
+  useEffect(() => {
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+    const socket = io(socketUrl, {
+      transports: ["websocket", "polling"],
+    });
+
+    const handleNewSignal = (signal: Signal) => {
+      const normalized = {
+        ...signal,
+        timestamp: signal.timestamp || new Date().toISOString(),
+      };
+      queryClient.setQueryData<DashboardData>(["/api/dashboard"], (old: DashboardData | undefined) => {
+        if (!old) return old;
+        const existing = old.signals || [];
+        const combined = [normalized, ...existing];
+        const seen = new Set<string>();
+        const deduped: Signal[] = [];
+        for (const item of combined) {
+          if (item?.id) {
+            if (seen.has(item.id)) continue;
+            seen.add(item.id);
+          }
+          deduped.push(item);
+        }
+        return {
+          ...old,
+          signals: deduped.slice(0, 50),
+        };
+      });
+    };
+
+    const handleTradeClosed = () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+    };
+
+    socket.on("new_signal", handleNewSignal);
+    socket.on("trade_closed", handleTradeClosed);
+
+    return () => {
+      socket.off("new_signal", handleNewSignal);
+      socket.off("trade_closed", handleTradeClosed);
+      socket.disconnect();
+    };
+  }, []);
 
   if (isLoading) {
     return <LoadingSkeleton />;
@@ -764,7 +597,6 @@ export default function Dashboard() {
       funding_adverse_time_cap_hours: 24,
       funding_trailing_min_pct: 0.03,
       funding_trailing_tighten_factor: 0.8,
-      enable_funding_filter: false,
       max_hold_hours: 48,
     },
     status: { running: false, last_poll: null, exchanges_connected: [], symbols_loaded: {} },
@@ -777,6 +609,30 @@ export default function Dashboard() {
     open_trades: [],
     closed_trades: [],
     signals: [],
+  };
+
+  const tradeHistory = useMemo(
+    () => (closed_trades || []).filter((trade) => trade.type !== "partial"),
+    [closed_trades]
+  );
+
+  const partialsByParent = useMemo(() => {
+    const map = new Map<string, ClosedTrade[]>();
+    (closed_trades || []).forEach((trade) => {
+      if (trade.type === "partial" && trade.parent_id) {
+        const list = map.get(trade.parent_id) || [];
+        list.push(trade);
+        map.set(trade.parent_id, list);
+      }
+    });
+    map.forEach((list) => {
+      list.sort((a, b) => new Date(a.closed_at).getTime() - new Date(b.closed_at).getTime());
+    });
+    return map;
+  }, [closed_trades]);
+
+  const handleCloseTrade = (trade: OpenTrade) => {
+    closeTradeMutation.mutate(trade);
   };
 
   const isPaperMode = config?.paper_mode ?? true;
@@ -862,6 +718,13 @@ export default function Dashboard() {
                   <span className={`text-sm font-medium ${isPaperMode ? "text-primary" : "text-muted-foreground"}`}>PAPER</span>
                 </div>
               </div>
+
+              <Button asChild variant="outline" className="gap-2">
+                <Link href="/learning">
+                  <Brain className="h-4 w-4" />
+                  Learning
+                </Link>
+              </Button>
 
               <Button
                 variant="outline"
@@ -978,9 +841,18 @@ export default function Dashboard() {
                 />
               ) : (
                 <div className="space-y-3">
-                  {open_trades.map((trade, i) => (
-                    <OpenPositionRow key={`${trade.sym}-${i}`} trade={trade} />
-                  ))}
+                  {open_trades.map((trade, i) => {
+                    const tradeId = trade.trade?.id;
+                    const isClosing = tradeId ? closingTradeIds.has(tradeId) : false;
+                    return (
+                      <OpenPositionRow
+                        key={`${trade.sym}-${i}`}
+                        trade={trade}
+                        onClose={handleCloseTrade}
+                        isClosing={isClosing}
+                      />
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -1026,10 +898,10 @@ export default function Dashboard() {
               <Clock className="h-5 w-5 text-muted-foreground" />
               <CardTitle className="text-lg">Trade History</CardTitle>
             </div>
-            <Badge variant="secondary">{closed_trades?.length || 0} trades</Badge>
+            <Badge variant="secondary">{tradeHistory.length} trades</Badge>
           </CardHeader>
           <CardContent>
-            {!closed_trades || closed_trades.length === 0 ? (
+            {tradeHistory.length === 0 ? (
               <EmptyState
                 title="No Trade History"
                 description="Completed trades will appear here"
@@ -1038,8 +910,13 @@ export default function Dashboard() {
             ) : (
               <ScrollArea className="h-[300px]">
                 <div className="space-y-2 pr-4">
-                  {closed_trades.slice(0, 20).map((trade, i) => (
-                    <TradeHistoryRow key={i} trade={trade} index={i} />
+                  {tradeHistory.slice(0, 20).map((trade, i) => (
+                    <TradeHistoryRow
+                      key={trade.id ?? i}
+                      trade={trade}
+                      index={i}
+                      partials={trade.id ? partialsByParent.get(trade.id) : []}
+                    />
                   ))}
                 </div>
               </ScrollArea>
@@ -1159,13 +1036,6 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
-
-        {/* Adaptive Learning Section */}
-        <LearningSection 
-          data={learningData} 
-          onToggle={(enabled) => toggleLearningMutation.mutate(enabled)}
-          isToggling={toggleLearningMutation.isPending}
-        />
 
         {/* Bot Configuration */}
         <Card>

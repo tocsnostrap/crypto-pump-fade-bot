@@ -2,10 +2,12 @@ import ccxt
 import time
 import json
 import os
+import threading
 import pandas as pd
 import numpy as np
 from datetime import datetime
 from talib_compat import talib
+import socketio
 import urllib.parse
 import urllib.request
 import urllib.error
@@ -25,7 +27,7 @@ except ImportError:
 DEFAULT_CONFIG = {
     'min_pump_pct': 60.0,
     'max_pump_pct': 250.0,              # Allow larger pumps but still filter extremes
-    'poll_interval_sec': 300,
+    'poll_interval_sec': 60,
     'min_volume_usdt': 1000000,
     'funding_min': 0.0001,
     'enable_funding_filter': True,
@@ -216,6 +218,18 @@ TRADE_FEATURES_FILE = 'trade_features.json'  # For learning feature vectors
 HOLDERS_CACHE_FILE = 'token_holders_cache.json'
 HOLDERS_DATA_FILE = 'token_holders.json'
 
+# Socket.IO settings for live dashboard updates and manual trade control
+SOCKET_IO_URL = os.getenv('SOCKET_IO_URL') or os.getenv('DASHBOARD_SOCKET_URL')
+if not SOCKET_IO_URL:
+    socket_port = os.getenv('PORT', '5000')
+    SOCKET_IO_URL = f"http://localhost:{socket_port}"
+
+SOCKET_RETRY_SECONDS = 15
+sio = socketio.Client(reconnection=True, logger=False, engineio_logger=False)
+_socket_last_attempt = 0.0
+_manual_close_queue = []
+_manual_close_lock = threading.Lock()
+
 # Pushover alert configuration
 PUSHOVER_USER_KEY = os.getenv('PUSHOVER_USER_KEY', '').strip()
 PUSHOVER_APP_TOKEN = (os.getenv('PUSHOVER_APP_TOKEN') or os.getenv('PUSHOVER_API_TOKEN') or '').strip()
@@ -306,6 +320,75 @@ def read_json_file(filepath, default):
             return json.load(f)
     except Exception:
         return default
+
+def queue_manual_close(request):
+    """Queue a manual close request from the dashboard."""
+    if not request:
+        return
+    with _manual_close_lock:
+        _manual_close_queue.append(request)
+
+def pop_manual_close_requests():
+    """Drain queued manual close requests for processing in the main loop."""
+    with _manual_close_lock:
+        if not _manual_close_queue:
+            return []
+        requests = list(_manual_close_queue)
+        _manual_close_queue.clear()
+    return requests
+
+def ensure_socket_connected():
+    """Connect to the Socket.IO server if needed (non-fatal on failure)."""
+    if not SOCKET_IO_URL:
+        return False
+    global _socket_last_attempt
+    if sio.connected:
+        return True
+    now = time.time()
+    if now - _socket_last_attempt < SOCKET_RETRY_SECONDS:
+        return False
+    _socket_last_attempt = now
+    try:
+        sio.connect(SOCKET_IO_URL, transports=['websocket', 'polling'], wait_timeout=2)
+    except Exception as e:
+        print(f"[{datetime.now()}] Socket.IO connect failed: {e}")
+        return False
+    return sio.connected
+
+def emit_socket_event(event_name, payload):
+    """Emit an event to the dashboard if Socket.IO is available."""
+    if not SOCKET_IO_URL:
+        return
+    if not ensure_socket_connected():
+        return
+    try:
+        sio.emit(event_name, payload)
+    except Exception as e:
+        print(f"[{datetime.now()}] Socket.IO emit '{event_name}' failed: {e}")
+
+@sio.event
+def connect():
+    print(f"[{datetime.now()}] Socket.IO connected to dashboard at {SOCKET_IO_URL}")
+
+@sio.event
+def disconnect():
+    print(f"[{datetime.now()}] Socket.IO disconnected from dashboard")
+
+@sio.on('close_trade')
+def on_close_trade(data):
+    """Handle manual close requests from the dashboard."""
+    if not isinstance(data, dict):
+        return
+    trade_id = data.get('id') or data.get('trade_id')
+    if not trade_id:
+        return
+    queue_manual_close({
+        'id': trade_id,
+        'exchange': data.get('exchange'),
+        'symbol': data.get('symbol'),
+        'requested_at': datetime.now().isoformat()
+    })
+    print(f"[{datetime.now()}] Manual close queued for trade {trade_id}")
 
 def normalize_symbol(symbol):
     if not symbol:
@@ -593,10 +676,14 @@ def save_signal(exchange, symbol, signal_type, price, message, change_pct=None, 
             'timestamp': datetime.now().isoformat(),
             'message': message
         }
-        signals.append(signal)
+        signal_payload = convert_numpy_types(signal)
+        signals.append(signal_payload)
         signals = signals[-100:]
         
         atomic_write_json(SIGNALS_FILE, signals)
+
+        # Emit live signal updates to dashboard
+        emit_socket_event('new_signal', signal_payload)
 
         # Send push notification only for allowed signal types
         if should_notify_signal(signal_type):
@@ -605,8 +692,22 @@ def save_signal(exchange, symbol, signal_type, price, message, change_pct=None, 
     except Exception as e:
         print(f"[{datetime.now()}] Error saving signal: {e}")
 
-def save_closed_trade(ex_name, symbol, entry, exit_price, profit, reason):
-    """Save a closed trade to the closed trades file"""
+def save_closed_trade(
+    ex_name,
+    symbol,
+    entry,
+    exit_price,
+    profit,
+    reason,
+    trade_id=None,
+    trade_type='close',
+    parent_id=None,
+    pct_closed=None,
+    fees=None,
+    funding=None,
+    quantity=None
+):
+    """Save a closed trade or partial exit to the closed trades file"""
     try:
         trades = []
         if os.path.exists(CLOSED_TRADES_FILE):
@@ -625,6 +726,20 @@ def save_closed_trade(ex_name, symbol, entry, exit_price, profit, reason):
             'reason': reason,
             'closed_at': datetime.now().isoformat()
         }
+        if trade_id:
+            trade['id'] = trade_id
+        if trade_type:
+            trade['type'] = trade_type
+        if parent_id:
+            trade['parent_id'] = parent_id
+        if pct_closed is not None:
+            trade['pct_closed'] = pct_closed
+        if fees is not None:
+            trade['fees'] = fees
+        if funding is not None:
+            trade['funding'] = funding
+        if quantity is not None:
+            trade['qty'] = quantity
         trades.append(trade)
         
         atomic_write_json(CLOSED_TRADES_FILE, trades)
@@ -2043,34 +2158,59 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
         exit_notional = simulated_exit * amount * contract_size
         exit_fee_cost = exit_notional * config.get('paper_fee_pct', 0.0005)
         
-        # Total fees = entry fee + exit fee
+        # Total fees for this final close = entry fee + final exit fee
         entry_fee = trade_data.get('entry_fee', 0)
         total_fees = entry_fee + exit_fee_cost
+        total_fees_all = trade_data.get('total_fees', entry_fee) + exit_fee_cost
         
         # Funding payments accumulated during the trade
         # Negative = we paid, Positive = we received
         funding_payments = trade_data.get('funding_payments', 0)
         
-        # Net profit = gross profit - fees + funding (funding already has correct sign)
+        # Net profit for remaining position = gross profit - fees + funding
         net_profit = gross_profit - total_fees + funding_payments
+        realized_pnl = trade_data.get('realized_pnl', 0)
+        net_profit_total = net_profit + realized_pnl
         
         print(f"[{datetime.now()}] [PAPER] Closing {sym} - {reason}")
         print(f"  Market: ${current_price:.4f} -> Fill: ${simulated_exit:.4f}")
-        print(f"  Gross P&L: ${gross_profit:.2f} | Fees: ${total_fees:.2f} | Funding: ${funding_payments:.2f}")
-        print(f"  Net P&L: ${net_profit:.2f}")
+        print(f"  Gross P&L: ${gross_profit:.2f} | Fees: ${total_fees_all:.2f} | Funding: ${funding_payments:.2f}")
+        if realized_pnl:
+            print(f"  Realized partials: ${realized_pnl:.2f}")
+        print(f"  Net P&L: ${net_profit_total:.2f}")
         
-        save_closed_trade(ex_name, sym, entry, simulated_exit, net_profit, reason)
+        save_closed_trade(
+            ex_name,
+            sym,
+            entry,
+            simulated_exit,
+            net_profit_total,
+            reason,
+            trade_id=trade_data.get('id'),
+            trade_type='close',
+            fees=total_fees_all,
+            funding=funding_payments
+        )
         save_signal(ex_name, sym, 'exit_signal', simulated_exit,
-                   f"PAPER exit: {reason}, Net P&L ${net_profit:.2f} (fees ${total_fees:.2f})")
+                   f"PAPER exit: {reason}, Net P&L ${net_profit_total:.2f} (fees ${total_fees_all:.2f})")
+
+        emit_socket_event('trade_closed', {
+            'id': trade_data.get('id'),
+            'exchange': ex_name,
+            'symbol': sym,
+            'reason': reason,
+            'profit': net_profit_total,
+            'timestamp': datetime.now().isoformat()
+        })
 
         if config.get('enable_trade_logging', True):
             duration_min = (time.time() - trade_data.get('entry_ts', time.time())) / 60
             outcome = {
                 'trade_id': trade_data.get('id'),
                 'exit_price': simulated_exit,
-                'net_profit': net_profit,
+                'net_profit': net_profit_total,
                 'gross_profit': gross_profit,
-                'fees': total_fees,
+                'fees': total_fees_all,
                 'funding': funding_payments,
                 'reason': reason,
                 'duration_min': duration_min,
@@ -2087,7 +2227,7 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
                     journal.log_exit(
                         trade_id=trade_data.get('id'),
                         exit_price=simulated_exit,
-                        profit=net_profit,
+                        profit=net_profit_total,
                         reason=reason,
                         duration_minutes=duration_min,
                         lessons=lessons
@@ -2098,7 +2238,7 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
         
         current_balance += net_profit * compound_pct
         daily_loss += min(net_profit, 0)
-        return net_profit, current_balance, daily_loss
+        return net_profit_total, current_balance, daily_loss
 
     try:
         amount = trade_data.get('amount', 0)
@@ -2107,18 +2247,40 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
         leverage = trade_data.get('leverage', leverage_default)
         contract_size = trade_data.get('contract_size', 1)
         profit = amount * contract_size * (entry - current_price)
-        print(f"[{datetime.now()}] [LIVE] Closed {sym} - {reason}: P&L ${profit:.2f}")
+        realized_pnl = trade_data.get('realized_pnl', 0)
+        net_profit_total = profit + realized_pnl
+        print(f"[{datetime.now()}] [LIVE] Closed {sym} - {reason}: P&L ${net_profit_total:.2f}")
         cancel_exchange_order(ex, sym, trade_data.get('sl_order_id'))
-        save_closed_trade(ex_name, sym, entry, current_price, profit, reason)
+        save_closed_trade(
+            ex_name,
+            sym,
+            entry,
+            current_price,
+            net_profit_total,
+            reason,
+            trade_id=trade_data.get('id'),
+            trade_type='close',
+            fees=trade_data.get('total_fees', 0),
+            funding=trade_data.get('funding_payments', 0)
+        )
         save_signal(ex_name, sym, 'exit_signal', current_price,
-                   f"LIVE exit: {reason}, P&L ${profit:.2f}")
+                   f"LIVE exit: {reason}, P&L ${net_profit_total:.2f}")
+
+        emit_socket_event('trade_closed', {
+            'id': trade_data.get('id'),
+            'exchange': ex_name,
+            'symbol': sym,
+            'reason': reason,
+            'profit': net_profit_total,
+            'timestamp': datetime.now().isoformat()
+        })
 
         if config.get('enable_trade_logging', True):
             duration_min = (time.time() - trade_data.get('entry_ts', time.time())) / 60
             outcome = {
                 'trade_id': trade_data.get('id'),
                 'exit_price': current_price,
-                'net_profit': profit,
+                'net_profit': net_profit_total,
                 'gross_profit': profit,
                 'fees': trade_data.get('total_fees', 0),
                 'funding': trade_data.get('funding_payments', 0),
@@ -2137,7 +2299,7 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
                     journal.log_exit(
                         trade_id=trade_data.get('id'),
                         exit_price=current_price,
-                        profit=profit,
+                        profit=net_profit_total,
                         reason=reason,
                         duration_minutes=duration_min,
                         lessons=lessons
@@ -2147,7 +2309,7 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
                     print(f"[{datetime.now()}] Journal logging error: {e}")
         current_balance += profit * compound_pct
         daily_loss += min(profit, 0)
-        return profit, current_balance, daily_loss
+        return net_profit_total, current_balance, daily_loss
     except Exception as e:
         print(f"[{datetime.now()}] Error closing trade: {e}")
         return 0, current_balance, daily_loss
@@ -2194,6 +2356,24 @@ def close_partial_trade(ex, trade, pct_to_close, reason, current_price, current_
         save_signal(ex_name, sym, 'partial_exit', simulated_exit,
                    f"Partial {pct_to_close*100:.0f}% exit: {reason}, P&L ${net_profit:.2f}")
 
+        trade_id = trade_data.get('id')
+        partial_id = f"{trade_id}_partial_{int(time.time())}" if trade_id else f"partial_{int(time.time())}"
+        save_closed_trade(
+            ex_name,
+            sym,
+            entry,
+            simulated_exit,
+            net_profit,
+            reason,
+            trade_id=partial_id,
+            trade_type='partial',
+            parent_id=trade_id,
+            pct_closed=pct_to_close,
+            fees=exit_fee_cost,
+            funding=partial_funding,
+            quantity=amount_to_close
+        )
+
         if config.get('enable_trade_logging', True):
             outcome = {
                 'trade_id': trade_data.get('id'),
@@ -2210,6 +2390,8 @@ def close_partial_trade(ex, trade, pct_to_close, reason, current_price, current_
         
         current_balance += net_profit * compound_pct
         daily_loss += min(net_profit, 0)
+
+        trade_data['realized_pnl'] = trade_data.get('realized_pnl', 0) + net_profit
         
         # Update trade with remaining amount
         trade_data['amount'] = remaining_amount
@@ -2232,6 +2414,23 @@ def close_partial_trade(ex, trade, pct_to_close, reason, current_price, current_
         save_signal(ex_name, sym, 'partial_exit', current_price,
                    f"Partial {pct_to_close*100:.0f}% exit: {reason}, P&L ${profit:.2f}")
 
+        trade_id = trade_data.get('id')
+        partial_id = f"{trade_id}_partial_{int(time.time())}" if trade_id else f"partial_{int(time.time())}"
+        save_closed_trade(
+            ex_name,
+            sym,
+            entry,
+            current_price,
+            profit,
+            reason,
+            trade_id=partial_id,
+            trade_type='partial',
+            parent_id=trade_id,
+            pct_closed=pct_to_close,
+            funding=trade_data.get('funding_payments', 0) * pct_to_close,
+            quantity=amount_to_close
+        )
+
         if config.get('enable_trade_logging', True):
             outcome = {
                 'trade_id': trade_data.get('id'),
@@ -2248,6 +2447,8 @@ def close_partial_trade(ex, trade, pct_to_close, reason, current_price, current_
         
         current_balance += profit * compound_pct
         daily_loss += min(profit, 0)
+
+        trade_data['realized_pnl'] = trade_data.get('realized_pnl', 0) + profit
         
         trade_data['amount'] = total_amount - amount_to_close
 
@@ -2260,6 +2461,65 @@ def close_partial_trade(ex, trade, pct_to_close, reason, current_price, current_
     except Exception as e:
         print(f"[{datetime.now()}] Error partial close: {e}")
         return 0, current_balance, daily_loss, trade_data, True
+
+def process_manual_close_requests(exchanges, open_trades, current_balance, daily_loss, config):
+    """Handle queued manual trade close requests from the dashboard."""
+    requests = pop_manual_close_requests()
+    if not requests:
+        return open_trades, current_balance, daily_loss
+
+    for request in requests:
+        trade_id = request.get('id')
+        ex_name = request.get('exchange')
+        symbol = request.get('symbol')
+        if not trade_id and not (ex_name and symbol):
+            continue
+
+        trade_index = None
+        if trade_id:
+            for idx, trade in enumerate(open_trades):
+                trade_data = trade.get('trade', trade)
+                if trade_data.get('id') == trade_id:
+                    trade_index = idx
+                    break
+        if trade_index is None and ex_name and symbol:
+            for idx, trade in enumerate(open_trades):
+                if trade.get('ex') == ex_name and trade.get('sym') == symbol:
+                    trade_index = idx
+                    break
+
+        if trade_index is None:
+            print(f"[{datetime.now()}] Manual close: trade not found ({trade_id or f'{ex_name} {symbol}'})")
+            continue
+
+        trade = open_trades[trade_index]
+        ex_name = trade.get('ex')
+        symbol = trade.get('sym')
+        trade_data = trade.get('trade', trade)
+        exchange = exchanges.get(ex_name)
+        if not exchange:
+            print(f"[{datetime.now()}] Manual close: exchange not available ({ex_name})")
+            continue
+
+        try:
+            ticker = exchange.fetch_ticker(symbol)
+            current_price = ticker.get('last') or trade_data.get('entry', 0)
+        except Exception as e:
+            current_price = trade_data.get('entry', 0)
+            print(f"[{datetime.now()}] Manual close price fallback for {symbol}: {e}")
+
+        _, current_balance, daily_loss = close_trade(
+            exchange,
+            trade,
+            'Manual close',
+            current_price,
+            current_balance,
+            daily_loss,
+            config
+        )
+        del open_trades[trade_index]
+
+    return open_trades, current_balance, daily_loss
 
 def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config):
     """Manage open trades: check SL, staged TP, trailing stop, time exit, and funding payments"""
@@ -2890,6 +3150,7 @@ def main():
         "Bot started",
         f"Mode: {'PAPER' if config['paper_mode'] else 'LIVE'} | Balance: ${current_balance:,.2f} | Open trades: {len(open_trades)}"
     )
+    ensure_socket_connected()
 
     while True:
         try:
@@ -2900,12 +3161,23 @@ def main():
             # Reload config each iteration to pick up changes from dashboard
             config = load_config()
             ohlcv_max_calls_per_cycle = int(config.get('ohlcv_max_calls_per_cycle', ohlcv_max_calls_per_cycle))
+
+            ensure_socket_connected()
             
             current_date = datetime.now().date()
             if current_date != last_daily_reset:
                 daily_loss = 0.0
                 last_daily_reset = current_date
                 print(f"[{datetime.now()}] Daily loss reset for new day")
+
+            # Process manual close requests from the dashboard
+            open_trades, current_balance, daily_loss = process_manual_close_requests(
+                exchanges,
+                open_trades,
+                current_balance,
+                daily_loss,
+                config
+            )
 
             # Periodic reconciliation of live positions
             if not config.get('paper_mode', True) and (time.time() - last_position_sync >= POSITION_SYNC_INTERVAL_SEC):

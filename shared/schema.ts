@@ -55,6 +55,7 @@ export interface OpenTrade {
 }
 
 export interface ClosedTrade {
+  id?: string;
   ex: string;
   sym: string;
   entry: number;
@@ -62,13 +63,16 @@ export interface ClosedTrade {
   profit: number;
   reason: string;
   closed_at: string;
+  type?: "partial" | "full" | "manual" | "auto";
+  parent_id?: string;
+  pct_closed?: number;
 }
 
 export interface Signal {
   id: string;
   exchange: string;
   symbol: string;
-  type: 'pump_detected' | 'pump_rejected' | 'entry_signal' | 'exit_signal' | 'time_decay' | 'partial_exit' | 'fade_watch';
+  type: "pump_detected" | "pump_rejected" | "entry_signal" | "exit_signal" | "time_decay" | "partial_exit" | "fade_watch";
   price: number;
   change_pct?: number;
   funding_rate?: number;
@@ -86,7 +90,6 @@ export interface BotConfig {
   funding_min: number;
   enable_funding_filter?: boolean;
   funding_filter_pump_pct?: number;
-  enable_funding_filter?: boolean;
   rsi_overbought: number;
   leverage_default: number;
   reward_risk_min?: number;
@@ -231,5 +234,4 @@ export interface DashboardData {
   open_trades: OpenTrade[];
   closed_trades: ClosedTrade[];
   signals: Signal[];
-  balance_history: { timestamp: string; balance: number }[];
 }

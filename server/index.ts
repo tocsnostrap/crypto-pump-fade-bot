@@ -2,87 +2,9 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
-import { spawn, ChildProcess } from "child_process";
-import * as path from "path";
 
 const app = express();
 const httpServer = createServer(app);
-
-// Python bot process management
-let pythonProcess: ChildProcess | null = null;
-let pythonRestartCount = 0;
-const MAX_RESTART_DELAY = 60000; // Max 1 minute between restarts
-
-function startPythonBot() {
-  // Skip if bot is managed externally (e.g., by start.sh or separate workflow)
-  if (process.env.BOT_MANAGED === "1") {
-    console.log(`[python-bot] Bot managed externally (BOT_MANAGED=1), skipping spawn`);
-    return;
-  }
-  
-  const mainPyPath = path.join(process.cwd(), "main.py");
-  const pythonBin = process.env.PYTHON_BIN || "python3";
-  
-  console.log(`[python-bot] Starting Python trading bot with ${pythonBin}...`);
-  
-  pythonProcess = spawn(pythonBin, [mainPyPath], {
-    cwd: process.cwd(),
-    env: process.env,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-
-  pythonProcess.stdout?.on("data", (data) => {
-    const lines = data.toString().split("\n").filter((l: string) => l.trim());
-    lines.forEach((line: string) => console.log(`[python-bot] ${line}`));
-  });
-
-  pythonProcess.stderr?.on("data", (data) => {
-    const lines = data.toString().split("\n").filter((l: string) => l.trim());
-    lines.forEach((line: string) => console.error(`[python-bot] ERROR: ${line}`));
-  });
-
-  pythonProcess.on("exit", (code, signal) => {
-    console.log(`[python-bot] Process exited with code ${code}, signal ${signal}`);
-    pythonProcess = null;
-    
-    // Auto-restart with exponential backoff
-    const delay = Math.min(5000 * Math.pow(2, pythonRestartCount), MAX_RESTART_DELAY);
-    pythonRestartCount++;
-    
-    console.log(`[python-bot] Restarting in ${delay / 1000} seconds... (attempt ${pythonRestartCount})`);
-    setTimeout(() => {
-      startPythonBot();
-    }, delay);
-  });
-
-  pythonProcess.on("error", (err) => {
-    console.error(`[python-bot] Failed to start: ${err.message}`);
-  });
-
-  // Reset restart count after successful run of 5 minutes
-  setTimeout(() => {
-    if (pythonProcess) {
-      pythonRestartCount = 0;
-    }
-  }, 300000);
-}
-
-// Cleanup on exit
-process.on("SIGINT", () => {
-  console.log("[python-bot] Shutting down...");
-  if (pythonProcess) {
-    pythonProcess.kill("SIGTERM");
-  }
-  process.exit(0);
-});
-
-process.on("SIGTERM", () => {
-  console.log("[python-bot] Shutting down...");
-  if (pythonProcess) {
-    pythonProcess.kill("SIGTERM");
-  }
-  process.exit(0);
-});
 
 declare module "http" {
   interface IncomingMessage {
@@ -176,9 +98,6 @@ app.use((req, res, next) => {
     },
     () => {
       log(`serving on port ${port}`);
-      
-      // Start Python trading bot after server is ready
-      startPythonBot();
     },
   );
 })();
