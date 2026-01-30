@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { ChangeEvent } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { io } from "socket.io-client";
@@ -6,9 +7,22 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip as ChartTooltip,
+  Legend as ChartLegend,
+} from "chart.js";
+import { Line } from "react-chartjs-2";
 import {
   TrendingUp,
   TrendingDown,
@@ -34,9 +48,13 @@ import {
   XOctagon,
   Settings,
   Brain,
+  Lightbulb,
+  History,
   Sparkles,
 } from "lucide-react";
-import type { DashboardData, Signal, OpenTrade, ClosedTrade, TradingMetrics } from "@shared/schema";
+import type { BotConfig, DashboardData, Signal, OpenTrade, ClosedTrade, TradingMetrics } from "@shared/schema";
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ChartTooltip, ChartLegend);
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -66,6 +84,14 @@ function formatDate(timestamp: string | number): string {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+  });
+}
+
+function formatShortDate(timestamp: string | number): string {
+  const date = new Date(typeof timestamp === "number" ? timestamp * 1000 : timestamp);
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
   });
 }
 
@@ -149,7 +175,7 @@ function SignalItem({ signal }: { signal: Signal }) {
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-sm font-medium">{signal.symbol}</span>
           <Badge variant="outline" className="text-xs uppercase">{signal.exchange}</Badge>
-          {signal.change_pct && (
+          {signal.change_pct !== undefined && signal.change_pct !== null && (
             <Badge className={signal.change_pct >= 0 ? "bg-profit/10 text-profit" : "bg-loss/10 text-loss"}>
               {formatPercent(signal.change_pct)}
             </Badge>
@@ -236,6 +262,9 @@ function TradeHistoryRow({
 }) {
   const isProfit = trade.profit >= 0;
   const hasPartials = partials.length > 0;
+  const partialPnlTotal = partials.reduce((sum, partial) => sum + (partial.profit ?? 0), 0);
+  const netPnl = hasPartials ? trade.profit + partialPnlTotal : trade.profit;
+  const netIsProfit = netPnl >= 0;
 
   return (
     <div className="flex items-center gap-4 p-3 rounded-lg hover-elevate" data-testid={`trade-history-${index}`}>
@@ -269,9 +298,12 @@ function TradeHistoryRow({
         )}
       </div>
       <div className="text-right">
-        <p className={`font-mono font-bold ${isProfit ? "text-profit" : "text-loss"}`}>
-          {isProfit ? "+" : ""}{formatCurrency(trade.profit)}
+        <p className={`font-mono font-bold ${netIsProfit ? "text-profit" : "text-loss"}`}>
+          {netIsProfit ? "+" : ""}{formatCurrency(netPnl)}
         </p>
+        {hasPartials && (
+          <p className="text-[10px] text-muted-foreground">Net P&amp;L</p>
+        )}
         <p className="text-xs text-muted-foreground">{formatDate(trade.closed_at)}</p>
       </div>
     </div>
@@ -345,6 +377,361 @@ interface KeysStatus {
   any_configured: boolean;
 }
 
+interface LearningData {
+  learning_enabled: boolean;
+  last_analysis: string | null;
+  recent_performance: {
+    trades: number;
+    wins: number;
+    losses: number;
+    win_rate: number;
+    total_profit: number;
+    avg_profit: number;
+  };
+  recent_lessons: Array<{
+    trade_id: string;
+    timestamp: string;
+    is_win: boolean;
+    profit: number;
+    lessons: string[];
+  }>;
+  adjustments_made: Array<{
+    timestamp: string;
+    changes: Array<{
+      parameter: string;
+      old_value: number;
+      new_value: number;
+      reason: string;
+    }>;
+  }>;
+  performance_history: Array<{
+    timestamp: string;
+    win_rate: number;
+    avg_profit: number;
+    trades: number;
+  }>;
+  pattern_stats: {
+    total_analyzed: number;
+    by_pump_size: Record<string, { count: number; win_rate: number }>;
+    by_entry_quality: Record<string, { count: number; win_rate: number }>;
+  };
+  trend: "improving" | "declining" | "stable";
+}
+
+function LearningSection({
+  data,
+  onToggle,
+  isToggling,
+  onApplyAdjustment,
+  isApplying,
+}: {
+  data: LearningData | undefined;
+  onToggle: (enabled: boolean) => void;
+  isToggling: boolean;
+  onApplyAdjustment: (changes: Array<{ parameter: string; new_value: number }>) => void;
+  isApplying: boolean;
+}) {
+  if (!data) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <EmptyState
+            title="Learning Data Unavailable"
+            description="The learning system is initializing..."
+            icon={Brain}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const trendColors = {
+    improving: "text-profit",
+    declining: "text-loss",
+    stable: "text-muted-foreground",
+  };
+
+  const trendIcons = {
+    improving: TrendingUp,
+    declining: TrendingDown,
+    stable: Activity,
+  };
+
+  const TrendIcon = trendIcons[data.trend] || Activity;
+  const performanceHistory = data.performance_history || [];
+  const latestAdjustment = data.adjustments_made[0];
+  const winRateChartData = {
+    labels: performanceHistory.map((entry) => formatShortDate(entry.timestamp)),
+    datasets: [
+      {
+        label: "Win Rate",
+        data: performanceHistory.map((entry) => entry.win_rate),
+        borderColor: "hsl(var(--profit))",
+        backgroundColor: "hsla(var(--profit) / 0.2)",
+        tension: 0.35,
+        pointRadius: 2,
+      },
+    ],
+  };
+  const winRateChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (ctx: { parsed: { y: number } }) => `Win Rate: ${ctx.parsed.y.toFixed(1)}%`,
+        },
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        max: 100,
+        ticks: {
+          callback: (value: number | string) => `${value}%`,
+        },
+      },
+    },
+  } as const;
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
+          <div className="flex items-center gap-2">
+            <Brain className="h-5 w-5 text-primary" />
+            <CardTitle className="text-lg">Adaptive Learning</CardTitle>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className={`text-sm ${data.learning_enabled ? "text-profit" : "text-muted-foreground"}`}>
+              {data.learning_enabled ? "Active" : "Paused"}
+            </span>
+            <Switch
+              checked={data.learning_enabled}
+              onCheckedChange={onToggle}
+              disabled={isToggling}
+            />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-3 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                <TrendIcon className={`h-3 w-3 ${trendColors[data.trend]}`} />
+                <span>Trend</span>
+              </div>
+              <p className={`text-lg font-bold capitalize ${trendColors[data.trend]}`}>
+                {data.trend}
+              </p>
+            </div>
+            <div className="p-3 rounded-lg bg-muted/50">
+              <p className="text-xs text-muted-foreground mb-1">7-Day Win Rate</p>
+              <p className={`text-lg font-bold ${data.recent_performance.win_rate >= 50 ? "text-profit" : "text-loss"}`}>
+                {data.recent_performance.win_rate.toFixed(1)}%
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {data.recent_performance.wins}W / {data.recent_performance.losses}L
+              </p>
+            </div>
+            <div className="p-3 rounded-lg bg-muted/50">
+              <p className="text-xs text-muted-foreground mb-1">7-Day Profit</p>
+              <p className={`text-lg font-bold ${data.recent_performance.total_profit >= 0 ? "text-profit" : "text-loss"}`}>
+                {formatCurrency(data.recent_performance.total_profit)}
+              </p>
+            </div>
+            <div className="p-3 rounded-lg bg-muted/50">
+              <p className="text-xs text-muted-foreground mb-1">Trades Analyzed</p>
+              <p className="text-lg font-bold">{data.pattern_stats.total_analyzed}</p>
+            </div>
+          </div>
+          {data.last_analysis && (
+            <p className="text-xs text-muted-foreground mt-4">
+              Last analysis: {formatDate(data.last_analysis)}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            <CardTitle className="text-lg">Win Rate Trend</CardTitle>
+          </div>
+          <Badge variant="outline">{performanceHistory.length} cycles</Badge>
+        </CardHeader>
+        <CardContent>
+          {performanceHistory.length < 2 ? (
+            <EmptyState
+              title="No Learning Trend Yet"
+              description="Performance history will populate after multiple learning cycles"
+              icon={TrendingUp}
+            />
+          ) : (
+            <div className="h-[220px]">
+              <Line data={winRateChartData} options={winRateChartOptions} />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center gap-2 pb-4">
+            <Sparkles className="h-5 w-5 text-warning" />
+            <CardTitle className="text-lg">Pattern Analysis</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {data.pattern_stats.total_analyzed === 0 ? (
+              <EmptyState
+                title="No Patterns Yet"
+                description="Complete more trades for pattern analysis"
+                icon={Sparkles}
+              />
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm font-medium mb-2">Win Rate by Pump Size</p>
+                  <div className="space-y-2">
+                    {Object.entries(data.pattern_stats.by_pump_size).map(([label, stats]) => (
+                      <div key={label} className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">{label}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">({stats.count} trades)</span>
+                          <span className={`font-mono font-bold ${stats.win_rate >= 50 ? "text-profit" : "text-loss"}`}>
+                            {stats.win_rate.toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <Separator />
+                <div>
+                  <p className="text-sm font-medium mb-2">Win Rate by Entry Quality</p>
+                  <div className="space-y-2">
+                    {Object.entries(data.pattern_stats.by_entry_quality).map(([label, stats]) => (
+                      <div key={label} className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Quality {label}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">({stats.count} trades)</span>
+                          <span className={`font-mono font-bold ${stats.win_rate >= 50 ? "text-profit" : "text-loss"}`}>
+                            {stats.win_rate.toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center gap-2 pb-4">
+            <Lightbulb className="h-5 w-5 text-warning" />
+            <CardTitle className="text-lg">Recent Lessons</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <ScrollArea className="h-[280px]">
+              <div className="p-4 pt-0 space-y-3">
+                {data.recent_lessons.length === 0 ? (
+                  <EmptyState
+                    title="No Lessons Yet"
+                    description="Lessons will appear as trades complete"
+                    icon={Lightbulb}
+                  />
+                ) : (
+                  data.recent_lessons.map((lesson, idx) => (
+                    <div key={idx} className="p-3 rounded-lg bg-muted/30">
+                      <div className="flex items-center justify-between mb-2">
+                        <Badge className={lesson.is_win ? "bg-profit/10 text-profit" : "bg-loss/10 text-loss"}>
+                          {lesson.is_win ? "WIN" : "LOSS"} {formatCurrency(lesson.profit)}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {formatTime(lesson.timestamp)}
+                        </span>
+                      </div>
+                      <ul className="text-xs text-muted-foreground space-y-1">
+                        {lesson.lessons.slice(0, 3).map((l, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <span className="text-primary">•</span>
+                            {l}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
+          <div className="flex items-center gap-2">
+            <History className="h-5 w-5 text-muted-foreground" />
+            <CardTitle className="text-lg">Parameter Adjustments</CardTitle>
+          </div>
+          {latestAdjustment && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onApplyAdjustment(latestAdjustment.changes)}
+              disabled={isApplying}
+            >
+              {isApplying ? "Applying..." : "Apply Adjustment"}
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          {data.adjustments_made.length === 0 ? (
+            <EmptyState
+              title="No Adjustments Yet"
+              description="The bot will suggest and apply changes based on performance"
+              icon={Settings}
+            />
+          ) : (
+            <ScrollArea className="h-[200px]">
+              <div className="space-y-3">
+                {data.adjustments_made.map((adj, idx) => (
+                  <div key={idx} className="p-3 rounded-lg border">
+                    <div className="flex items-center justify-between mb-2">
+                      <Badge variant="outline">
+                        <Settings className="h-3 w-3 mr-1" />
+                        {adj.changes.length} change{adj.changes.length !== 1 ? "s" : ""}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDate(adj.timestamp)}
+                      </span>
+                    </div>
+                    <div className="space-y-1">
+                      {adj.changes.map((change, i) => (
+                        <div key={i} className="text-xs">
+                          <span className="font-mono text-primary">{change.parameter}</span>
+                          <span className="text-muted-foreground">: </span>
+                          <span className="text-loss">{change.old_value}</span>
+                          <span className="text-muted-foreground"> → </span>
+                          <span className="text-profit">{change.new_value}</span>
+                          <p className="text-muted-foreground mt-0.5 ml-2">{change.reason}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { data, isLoading, error, refetch, isFetching } = useQuery<DashboardData>({
     queryKey: ["/api/dashboard"],
@@ -357,6 +744,12 @@ export default function Dashboard() {
     refetchInterval: 30000,
   });
 
+  const { data: learningData } = useQuery<LearningData>({
+    queryKey: ["/api/learning"],
+    refetchInterval: 30000,
+    staleTime: 10000,
+  });
+
   const toggleModeMutation = useMutation({
     mutationFn: async (paperMode: boolean) => {
       const res = await apiRequest("POST", "/api/config/mode", { paper_mode: paperMode });
@@ -367,7 +760,64 @@ export default function Dashboard() {
     },
   });
 
+  const toggleBotMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const endpoint = enabled ? "/api/bot/start" : "/api/bot/stop";
+      const res = await apiRequest("POST", endpoint);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+    },
+  });
+
+  const updateConfigMutation = useMutation({
+    mutationFn: async (payload: Partial<BotConfig>) => {
+      const res = await apiRequest("POST", "/api/config", payload);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+    },
+  });
+
+  const toggleLearningMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const res = await apiRequest("POST", "/api/learning/toggle", { enabled });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/learning"] });
+    },
+  });
+
+  const applyAdjustmentMutation = useMutation({
+    mutationFn: async (changes: Array<{ parameter: string; new_value: number }>) => {
+      const res = await apiRequest("POST", "/api/learning/apply", { changes });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/learning"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+    },
+  });
+
   const [closingTradeIds, setClosingTradeIds] = useState<Set<string>>(new Set());
+  const [configDraft, setConfigDraft] = useState<{
+    min_pump_pct: number | "";
+    max_pump_pct: number | "";
+    risk_pct_per_trade: number | "";
+    max_open_trades: number | "";
+    leverage_default: number | "";
+    poll_interval_sec: number | "";
+  }>({
+    min_pump_pct: 60,
+    max_pump_pct: 200,
+    risk_pct_per_trade: 1,
+    max_open_trades: 4,
+    leverage_default: 3,
+    poll_interval_sec: 60,
+  });
 
   const closeTradeMutation = useMutation({
     mutationFn: async (trade: OpenTrade) => {
@@ -611,6 +1061,27 @@ export default function Dashboard() {
     signals: [],
   };
 
+  const botEnabled = config?.bot_enabled ?? true;
+
+  useEffect(() => {
+    if (!config) return;
+    setConfigDraft({
+      min_pump_pct: config.min_pump_pct ?? 60,
+      max_pump_pct: config.max_pump_pct ?? 200,
+      risk_pct_per_trade: (config.risk_pct_per_trade ?? 0.01) * 100,
+      max_open_trades: config.max_open_trades ?? 4,
+      leverage_default: config.leverage_default ?? 3,
+      poll_interval_sec: config.poll_interval_sec ?? 60,
+    });
+  }, [
+    config?.min_pump_pct,
+    config?.max_pump_pct,
+    config?.risk_pct_per_trade,
+    config?.max_open_trades,
+    config?.leverage_default,
+    config?.poll_interval_sec,
+  ]);
+
   const tradeHistory = useMemo(
     () => (closed_trades || []).filter((trade) => trade.type !== "partial"),
     [closed_trades]
@@ -633,6 +1104,52 @@ export default function Dashboard() {
 
   const handleCloseTrade = (trade: OpenTrade) => {
     closeTradeMutation.mutate(trade);
+  };
+
+  const handleConfigChange =
+    (key: keyof typeof configDraft) => (event: ChangeEvent<HTMLInputElement>) => {
+      const rawValue = event.target.value;
+      setConfigDraft((prev) => ({
+        ...prev,
+        [key]: rawValue === "" ? "" : Number(rawValue),
+      }));
+    };
+
+  const handleConfigSave = () => {
+    const payload: Partial<BotConfig> = {};
+    if (typeof configDraft.min_pump_pct === "number" && Number.isFinite(configDraft.min_pump_pct)) {
+      payload.min_pump_pct = configDraft.min_pump_pct;
+    }
+    if (typeof configDraft.max_pump_pct === "number" && Number.isFinite(configDraft.max_pump_pct)) {
+      payload.max_pump_pct = configDraft.max_pump_pct;
+    }
+    if (
+      typeof configDraft.risk_pct_per_trade === "number" &&
+      Number.isFinite(configDraft.risk_pct_per_trade)
+    ) {
+      payload.risk_pct_per_trade = configDraft.risk_pct_per_trade / 100;
+    }
+    if (
+      typeof configDraft.max_open_trades === "number" &&
+      Number.isFinite(configDraft.max_open_trades)
+    ) {
+      payload.max_open_trades = configDraft.max_open_trades;
+    }
+    if (
+      typeof configDraft.leverage_default === "number" &&
+      Number.isFinite(configDraft.leverage_default)
+    ) {
+      payload.leverage_default = configDraft.leverage_default;
+    }
+    if (
+      typeof configDraft.poll_interval_sec === "number" &&
+      Number.isFinite(configDraft.poll_interval_sec)
+    ) {
+      payload.poll_interval_sec = configDraft.poll_interval_sec;
+    }
+    if (Object.keys(payload).length > 0) {
+      updateConfigMutation.mutate(payload);
+    }
   };
 
   const isPaperMode = config?.paper_mode ?? true;
@@ -751,6 +1268,131 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+
+        {/* Bot Controls */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
+              <div className="flex items-center gap-2">
+                <Power className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">Bot Controls</CardTitle>
+              </div>
+              <Badge variant={botEnabled ? "default" : "secondary"} className={botEnabled ? "bg-profit" : ""}>
+                {botEnabled ? "Enabled" : "Paused"}
+              </Badge>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Engine</span>
+                <span className={status?.running ? "text-profit" : "text-muted-foreground"}>
+                  {status?.running ? "Running" : "Stopped"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Mode</span>
+                <span>{isPaperMode ? "Paper" : "Live"}</span>
+              </div>
+              <Button
+                variant={botEnabled ? "destructive" : "default"}
+                onClick={() => toggleBotMutation.mutate(!botEnabled)}
+                disabled={toggleBotMutation.isPending}
+              >
+                {toggleBotMutation.isPending
+                  ? "Updating..."
+                  : botEnabled
+                    ? "Stop Bot"
+                    : "Start Bot"}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Pausing stops new entries while still managing open trades.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="lg:col-span-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
+              <div className="flex items-center gap-2">
+                <Settings className="h-5 w-5 text-muted-foreground" />
+                <CardTitle className="text-lg">Quick Config</CardTitle>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleConfigSave}
+                disabled={updateConfigMutation.isPending}
+              >
+                {updateConfigMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <Label htmlFor="minPump">Min Pump %</Label>
+                  <Input
+                    id="minPump"
+                    type="number"
+                    step="1"
+                    value={configDraft.min_pump_pct}
+                    onChange={handleConfigChange("min_pump_pct")}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="maxPump">Max Pump %</Label>
+                  <Input
+                    id="maxPump"
+                    type="number"
+                    step="1"
+                    value={configDraft.max_pump_pct}
+                    onChange={handleConfigChange("max_pump_pct")}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="riskPct">Risk / Trade %</Label>
+                  <Input
+                    id="riskPct"
+                    type="number"
+                    step="0.1"
+                    value={configDraft.risk_pct_per_trade}
+                    onChange={handleConfigChange("risk_pct_per_trade")}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="maxTrades">Max Open Trades</Label>
+                  <Input
+                    id="maxTrades"
+                    type="number"
+                    step="1"
+                    value={configDraft.max_open_trades}
+                    onChange={handleConfigChange("max_open_trades")}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="leverage">Default Leverage</Label>
+                  <Input
+                    id="leverage"
+                    type="number"
+                    step="1"
+                    value={configDraft.leverage_default}
+                    onChange={handleConfigChange("leverage_default")}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="pollInterval">Poll Interval (sec)</Label>
+                  <Input
+                    id="pollInterval"
+                    type="number"
+                    step="5"
+                    value={configDraft.poll_interval_sec}
+                    onChange={handleConfigChange("poll_interval_sec")}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-3">
+                Changes are applied immediately to bot_config.json for the next polling cycle.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Key Metrics */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -1036,6 +1678,15 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
+
+        {/* Adaptive Learning Section */}
+        <LearningSection
+          data={learningData}
+          onToggle={(enabled) => toggleLearningMutation.mutate(enabled)}
+          isToggling={toggleLearningMutation.isPending}
+          onApplyAdjustment={(changes) => applyAdjustmentMutation.mutate(changes)}
+          isApplying={applyAdjustmentMutation.isPending}
+        />
 
         {/* Bot Configuration */}
         <Card>

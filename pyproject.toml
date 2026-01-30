@@ -9,4 +9,5 @@ dependencies = [
     "pandas>=2.3.3",
     "python-socketio>=5.16.0",
     "ta-lib>=0.6.8",
+    "websocket-client>=1.8.0",
 ]

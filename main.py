@@ -25,6 +25,7 @@ except ImportError:
 
 # === DEFAULT CONFIG (can be overridden by bot_config.json) ===
 DEFAULT_CONFIG = {
+    'bot_enabled': True,
     'min_pump_pct': 60.0,
     'max_pump_pct': 250.0,              # Allow larger pumps but still filter extremes
     'poll_interval_sec': 60,
@@ -217,6 +218,14 @@ CLOSED_TRADES_FILE = 'closed_trades.json'
 TRADE_FEATURES_FILE = 'trade_features.json'  # For learning feature vectors
 HOLDERS_CACHE_FILE = 'token_holders_cache.json'
 HOLDERS_DATA_FILE = 'token_holders.json'
+
+# Ensure websocket-client is available for Socket.IO websocket transport
+try:
+    import websocket  # type: ignore
+    WEBSOCKET_AVAILABLE = True
+except ImportError:
+    WEBSOCKET_AVAILABLE = False
+    print(f"[{datetime.now()}] Warning: websocket-client not installed, Socket.IO may fall back to polling")
 
 # Socket.IO settings for live dashboard updates and manual trade control
 SOCKET_IO_URL = os.getenv('SOCKET_IO_URL') or os.getenv('DASHBOARD_SOCKET_URL')
@@ -3161,8 +3170,10 @@ def main():
             # Reload config each iteration to pick up changes from dashboard
             config = load_config()
             ohlcv_max_calls_per_cycle = int(config.get('ohlcv_max_calls_per_cycle', ohlcv_max_calls_per_cycle))
+            bot_enabled = config.get('bot_enabled', True)
 
             ensure_socket_connected()
+            emit_socket_event('bot_status', {'enabled': bot_enabled})
             
             current_date = datetime.now().date()
             if current_date != last_daily_reset:
@@ -3179,13 +3190,17 @@ def main():
                 config
             )
 
+            if not bot_enabled and not open_trades:
+                time.sleep(config.get('poll_interval_sec', 60))
+                continue
+
             # Periodic reconciliation of live positions
             if not config.get('paper_mode', True) and (time.time() - last_position_sync >= POSITION_SYNC_INTERVAL_SEC):
                 for ex_name, ex in exchanges.items():
                     open_trades = sync_live_positions(ex_name, ex, open_trades, config)
                 last_position_sync = time.time()
 
-            skip_new_entries = False
+            skip_new_entries = not bot_enabled
             try:
                 btc_ticker = exchanges['gate'].fetch_ticker('BTC/USDT:USDT')
                 btc_price = btc_ticker['last']

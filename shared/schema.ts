@@ -82,6 +82,7 @@ export interface Signal {
 }
 
 export interface BotConfig {
+  bot_enabled?: boolean;
   paper_mode: boolean;
   min_pump_pct: number;
   max_pump_pct?: number;
