@@ -172,10 +172,14 @@ function LearningSection({
   data,
   onToggle,
   isToggling,
+  onApplyAdjustment,
+  isApplying,
 }: {
   data: LearningData | undefined;
   onToggle: (enabled: boolean) => void;
   isToggling: boolean;
+  onApplyAdjustment: (changes: Array<{ parameter: string; new_value: number }>) => void;
+  isApplying: boolean;
 }) {
   if (!data) {
     return (
@@ -205,6 +209,7 @@ function LearningSection({
 
   const TrendIcon = trendIcons[data.trend] || Activity;
   const performanceHistory = data.performance_history || [];
+  const latestAdjustment = data.adjustments_made[0];
   const winRateChartData = {
     labels: performanceHistory.map((entry) => formatShortDate(entry.timestamp)),
     datasets: [
@@ -422,9 +427,21 @@ function LearningSection({
 
       {/* Parameter Adjustments History */}
       <Card>
-        <CardHeader className="flex flex-row items-center gap-2 pb-4">
-          <History className="h-5 w-5 text-muted-foreground" />
-          <CardTitle className="text-lg">Parameter Adjustments</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
+          <div className="flex items-center gap-2">
+            <History className="h-5 w-5 text-muted-foreground" />
+            <CardTitle className="text-lg">Parameter Adjustments</CardTitle>
+          </div>
+          {latestAdjustment && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onApplyAdjustment(latestAdjustment.changes)}
+              disabled={isApplying}
+            >
+              {isApplying ? "Applying..." : "Apply Adjustment"}
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           {data.adjustments_made.length === 0 ? (
@@ -484,6 +501,17 @@ export default function LearningPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/learning"] });
+    },
+  });
+
+  const applyAdjustmentMutation = useMutation({
+    mutationFn: async (changes: Array<{ parameter: string; new_value: number }>) => {
+      const res = await apiRequest("POST", "/api/learning/apply", { changes });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/learning"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
     },
   });
 
@@ -566,6 +594,8 @@ export default function LearningPage() {
           data={data}
           onToggle={(enabled) => toggleLearningMutation.mutate(enabled)}
           isToggling={toggleLearningMutation.isPending}
+          onApplyAdjustment={(changes) => applyAdjustmentMutation.mutate(changes)}
+          isApplying={applyAdjustmentMutation.isPending}
         />
       </main>
     </div>
