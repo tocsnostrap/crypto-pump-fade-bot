@@ -22,6 +22,7 @@ import {
   Tooltip as ChartTooltip,
   Legend as ChartLegend,
 } from "chart.js";
+import type { TooltipItem } from "chart.js";
 import { Line } from "react-chartjs-2";
 import {
   TrendingUp,
@@ -480,7 +481,8 @@ function LearningSection({
       legend: { display: false },
       tooltip: {
         callbacks: {
-          label: (ctx: { parsed: { y: number } }) => `Win Rate: ${ctx.parsed.y.toFixed(1)}%`,
+          label: (ctx: TooltipItem<"line">) =>
+            `Win Rate: ${(ctx.parsed.y ?? 0).toFixed(1)}%`,
         },
       },
     },
