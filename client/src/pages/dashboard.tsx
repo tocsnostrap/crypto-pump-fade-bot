@@ -898,28 +898,6 @@ export default function Dashboard() {
     };
   }, []);
 
-  if (isLoading) {
-    return <LoadingSkeleton />;
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="p-6 text-center">
-            <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
-            <h2 className="text-lg font-semibold mb-2">Connection Error</h2>
-            <p className="text-sm text-muted-foreground mb-4">Unable to connect to the trading bot. Make sure the bot is running.</p>
-            <Button onClick={() => refetch()} data-testid="button-retry">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   const { config, status, metrics, open_trades, closed_trades, signals } = data || {
     config: {
       paper_mode: true,
@@ -1196,6 +1174,28 @@ export default function Dashboard() {
   const atrFilterLabel = (config?.enable_atr_filter ?? true)
     ? `On (${(config?.min_atr_pct ?? 0).toFixed(1)}% - ${(config?.max_atr_pct ?? 0).toFixed(1)}%)`
     : "Off";
+
+  if (isLoading) {
+    return <LoadingSkeleton />;
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="p-6 text-center">
+            <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <h2 className="text-lg font-semibold mb-2">Connection Error</h2>
+            <p className="text-sm text-muted-foreground mb-4">Unable to connect to the trading bot. Make sure the bot is running.</p>
+            <Button onClick={() => refetch()} data-testid="button-retry">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
