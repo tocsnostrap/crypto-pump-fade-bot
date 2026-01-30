@@ -58,7 +58,19 @@ function readJsonFile<T>(filePath: string, defaultValue: T): T {
   try {
     if (fs.existsSync(filePath)) {
       const data = fs.readFileSync(filePath, "utf-8");
-      return JSON.parse(data) as T;
+      try {
+        return JSON.parse(data) as T;
+      } catch (error) {
+        const sanitized = data
+          .replace(/:\s*(NaN|-?Infinity)/g, ": null")
+          .replace(/([\[,]\s*)(NaN|-?Infinity)/g, "$1null");
+        try {
+          return JSON.parse(sanitized) as T;
+        } catch (sanitizedError) {
+          console.error(`Error parsing ${filePath} after sanitizing:`, sanitizedError);
+          return defaultValue;
+        }
+      }
     }
   } catch (err) {
     console.error(`Error reading ${filePath}:`, err);

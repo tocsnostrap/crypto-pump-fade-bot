@@ -5,6 +5,7 @@ import os
 import threading
 import pandas as pd
 import numpy as np
+import math
 from datetime import datetime
 from talib_compat import talib
 import socketio
@@ -293,7 +294,10 @@ def convert_numpy_types(obj):
     elif isinstance(obj, np.integer):
         return int(obj)
     elif isinstance(obj, np.floating):
-        return float(obj)
+        value = float(obj)
+        return value if math.isfinite(value) else None
+    elif isinstance(obj, float):
+        return obj if math.isfinite(obj) else None
     elif isinstance(obj, np.ndarray):
         return obj.tolist()
     elif isinstance(obj, np.bool_):
