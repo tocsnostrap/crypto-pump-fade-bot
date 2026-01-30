@@ -152,6 +152,9 @@ interface BotConfig {
   funding_trailing_min_pct?: number;
   funding_trailing_tighten_factor?: number;
   enable_adaptive_learning?: boolean;
+  enable_auto_tuning?: boolean;
+  learning_min_trades?: number;
+  learning_cycle_hours?: number;
 }
 
 interface TradeInfo {
@@ -665,6 +668,7 @@ export async function registerRoutes(
   // Get learning state and summary
   app.get("/api/learning", (_req, res) => {
     try {
+      const config = getConfig();
       const learningState = readJsonFile(LEARNING_STATE_FILE, {
         learning_enabled: true,
         last_analysis: null,
@@ -797,6 +801,24 @@ export async function registerRoutes(
         }
       }
 
+      let nextAnalysis: string | null = null;
+      if (learningState.last_analysis && config.learning_cycle_hours) {
+        const lastAnalysis = new Date(normalizeTimestamp(learningState.last_analysis));
+        if (!Number.isNaN(lastAnalysis.getTime())) {
+          nextAnalysis = new Date(
+            lastAnalysis.getTime() + config.learning_cycle_hours * 60 * 60 * 1000
+          ).toISOString();
+        }
+      }
+
+      const learningConfig = {
+        adaptive_learning: config.enable_adaptive_learning ?? learningState.learning_enabled,
+        auto_tuning: config.enable_auto_tuning ?? false,
+        learning_cycle_hours: config.learning_cycle_hours ?? null,
+        learning_min_trades: config.learning_min_trades ?? null,
+        next_analysis: nextAnalysis,
+      };
+
       res.json({
         learning_enabled: learningState.learning_enabled,
         last_analysis: learningState.last_analysis,
@@ -806,6 +828,8 @@ export async function registerRoutes(
         performance_history: performanceHistory.slice(-20),
         pattern_stats: patternStats,
         trend,
+        journal_entries: journal.slice(-50).reverse(),
+        learning_config: learningConfig,
       });
     } catch (err) {
       console.error("Learning endpoint error:", err);
