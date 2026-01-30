@@ -8,6 +8,23 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import {
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart as RechartsPieChart,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
   TrendingUp,
   TrendingDown,
   Activity,
@@ -34,9 +51,7 @@ import {
   Brain,
   Lightbulb,
   History,
-  BookOpen,
   Sparkles,
-  GraduationCap,
 } from "lucide-react";
 import type { DashboardData, Signal, OpenTrade, ClosedTrade, TradingMetrics } from "@shared/schema";
 
@@ -69,6 +84,23 @@ function formatDate(timestamp: string | number): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatShortDate(timestamp: string | number): string {
+  const date = new Date(typeof timestamp === "number" ? timestamp * 1000 : timestamp);
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatCompactCurrency(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 function MetricCard({
@@ -125,6 +157,8 @@ function SignalItem({ signal }: { signal: Signal }) {
     entry_signal: "bg-profit/10 text-profit border-profit/20",
     exit_signal: "bg-primary/10 text-primary border-primary/20",
     time_decay: "bg-muted text-muted-foreground border-muted",
+    partial_exit: "bg-primary/10 text-primary border-primary/20",
+    fade_watch: "bg-warning/10 text-warning border-warning/20",
   };
 
   const typeIcons: Record<string, typeof Zap> = {
@@ -133,6 +167,8 @@ function SignalItem({ signal }: { signal: Signal }) {
     entry_signal: TrendingUp,
     exit_signal: TrendingDown,
     time_decay: Clock,
+    partial_exit: Percent,
+    fade_watch: AlertTriangle,
   };
 
   const Icon = typeIcons[signal.type] || Activity;
@@ -147,13 +183,28 @@ function SignalItem({ signal }: { signal: Signal }) {
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-sm font-medium">{signal.symbol}</span>
           <Badge variant="outline" className="text-xs uppercase">{signal.exchange}</Badge>
-          {signal.change_pct && (
+          {signal.change_pct !== undefined && signal.change_pct !== null && (
             <Badge className={signal.change_pct >= 0 ? "bg-profit/10 text-profit" : "bg-loss/10 text-loss"}>
               {formatPercent(signal.change_pct)}
             </Badge>
           )}
         </div>
         <p className="text-sm text-muted-foreground mt-1">{signal.message}</p>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-1">
+          <span className="font-mono text-foreground">
+            {Number.isFinite(signal.price) ? `$${signal.price.toFixed(4)}` : "—"}
+          </span>
+          {signal.funding_rate !== undefined && signal.funding_rate !== null && (
+            <Badge variant="outline" className="text-xs">
+              Funding {(signal.funding_rate * 100).toFixed(2)}%
+            </Badge>
+          )}
+          {signal.rsi !== undefined && signal.rsi !== null && (
+            <Badge variant="outline" className="text-xs">
+              RSI {signal.rsi.toFixed(1)}
+            </Badge>
+          )}
+        </div>
         <p className="text-xs text-muted-foreground mt-1">{formatTime(signal.timestamp)}</p>
       </div>
     </div>
@@ -635,7 +686,7 @@ export default function Dashboard() {
     );
   }
 
-  const { config, status, metrics, open_trades, closed_trades, signals } = data || {
+  const { config, status, metrics, open_trades, closed_trades, signals, balance_history } = data || {
     config: {
       paper_mode: true,
       leverage_default: 3,
@@ -764,7 +815,6 @@ export default function Dashboard() {
       funding_adverse_time_cap_hours: 24,
       funding_trailing_min_pct: 0.03,
       funding_trailing_tighten_factor: 0.8,
-      enable_funding_filter: false,
       max_hold_hours: 48,
     },
     status: { running: false, last_poll: null, exchanges_connected: [], symbols_loaded: {} },
@@ -777,6 +827,7 @@ export default function Dashboard() {
     open_trades: [],
     closed_trades: [],
     signals: [],
+    balance_history: [],
   };
 
   const isPaperMode = config?.paper_mode ?? true;
@@ -821,6 +872,38 @@ export default function Dashboard() {
   const atrFilterLabel = (config?.enable_atr_filter ?? true)
     ? `On (${(config?.min_atr_pct ?? 0).toFixed(1)}% - ${(config?.max_atr_pct ?? 0).toFixed(1)}%)`
     : "Off";
+
+  const balanceHistory = (balance_history || [])
+    .slice()
+    .sort((a, b) => {
+      const aTime = new Date(a.timestamp).getTime();
+      const bTime = new Date(b.timestamp).getTime();
+      return (Number.isFinite(aTime) ? aTime : 0) - (Number.isFinite(bTime) ? bTime : 0);
+    });
+  const balanceChartData = balanceHistory.slice(-60);
+
+  const winLossData = [
+    { name: "wins", value: metrics?.winning_trades || 0 },
+    { name: "losses", value: metrics?.losing_trades || 0 },
+  ];
+  const totalWinLossTrades = winLossData.reduce((sum, entry) => sum + entry.value, 0);
+
+  const balanceChartConfig = {
+    balance: {
+      label: "Balance",
+      color: "hsl(var(--chart-1))",
+    },
+  };
+  const winLossChartConfig = {
+    wins: {
+      label: "Wins",
+      color: "hsl(var(--profit))",
+    },
+    losses: {
+      label: "Losses",
+      color: "hsl(var(--loss))",
+    },
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -954,6 +1037,114 @@ export default function Dashboard() {
             icon={AlertTriangle}
             trend="down"
           />
+        </div>
+
+        {/* Performance Overview */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="lg:col-span-2">
+            <CardHeader className="flex flex-row items-center gap-2 pb-4">
+              <BarChart3 className="h-5 w-5 text-primary" />
+              <CardTitle className="text-lg">Balance History</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {balanceChartData.length < 2 ? (
+                <EmptyState
+                  title="No Balance History"
+                  description="Balance history will appear after trades close"
+                  icon={BarChart3}
+                />
+              ) : (
+                <ChartContainer config={balanceChartConfig} className="h-[260px] w-full">
+                  <LineChart data={balanceChartData} margin={{ left: 12, right: 12 }}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis
+                      dataKey="timestamp"
+                      tickFormatter={formatShortDate}
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                    />
+                    <YAxis
+                      tickFormatter={(value) => formatCompactCurrency(Number(value))}
+                      tickLine={false}
+                      axisLine={false}
+                      width={64}
+                    />
+                    <ChartTooltip
+                      cursor={false}
+                      content={
+                        <ChartTooltipContent
+                          labelFormatter={formatDate}
+                          formatter={(value, name) => {
+                            const label =
+                              balanceChartConfig[name as keyof typeof balanceChartConfig]?.label ||
+                              String(name);
+                            return (
+                              <div className="flex w-full items-center justify-between gap-2">
+                                <span className="text-muted-foreground">{label}</span>
+                                <span className="font-mono font-medium text-foreground">
+                                  {formatCurrency(Number(value))}
+                                </span>
+                              </div>
+                            );
+                          }}
+                        />
+                      }
+                    />
+                    <Line
+                      dataKey="balance"
+                      type="monotone"
+                      stroke="var(--color-balance)"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ChartContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center gap-2 pb-4">
+              <PieChart className="h-5 w-5 text-warning" />
+              <CardTitle className="text-lg">Win/Loss Breakdown</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {totalWinLossTrades === 0 ? (
+                <EmptyState
+                  title="No Closed Trades"
+                  description="Win/loss breakdown will appear after trades close"
+                  icon={PieChart}
+                />
+              ) : (
+                <>
+                  <ChartContainer config={winLossChartConfig} className="h-[260px] w-full">
+                    <RechartsPieChart>
+                      <Pie
+                        data={winLossData}
+                        dataKey="value"
+                        nameKey="name"
+                        innerRadius={60}
+                        outerRadius={90}
+                        strokeWidth={2}
+                      >
+                        {winLossData.map((entry) => (
+                          <Cell key={entry.name} fill={`var(--color-${entry.name})`} />
+                        ))}
+                      </Pie>
+                      <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                      <ChartLegend content={<ChartLegendContent nameKey="name" />} />
+                    </RechartsPieChart>
+                  </ChartContainer>
+                  <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Wins: {metrics?.winning_trades || 0}</span>
+                    <span>Losses: {metrics?.losing_trades || 0}</span>
+                    <span>Win rate: {formatPercent(metrics?.win_rate || 0)}</span>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Main Content Grid */}
