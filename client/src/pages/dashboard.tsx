@@ -412,7 +412,7 @@ export default function Dashboard() {
         ...signal,
         timestamp: signal.timestamp || new Date().toISOString(),
       };
-      queryClient.setQueryData<DashboardData>(["/api/dashboard"], (old) => {
+      queryClient.setQueryData<DashboardData>(["/api/dashboard"], (old: DashboardData | undefined) => {
         if (!old) return old;
         const existing = old.signals || [];
         const combined = [normalized, ...existing];
