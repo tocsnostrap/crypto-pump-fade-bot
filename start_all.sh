@@ -15,8 +15,15 @@ echo "PORT: $PORT"
 
 # Bootstrap Python deps if available
 if [ -f "./script/bootstrap_python.sh" ]; then
-    sh ./script/bootstrap_python.sh
+    bash ./script/bootstrap_python.sh
 fi
+
+VENV_DIR="${VENV_DIR:-.venv}"
+PYTHON_BIN="$VENV_DIR/bin/python"
+if [ ! -x "$PYTHON_BIN" ]; then
+    PYTHON_BIN="python3"
+fi
+echo "Using Python: $PYTHON_BIN"
 
 # Verify build exists
 if [ ! -f "dist/index.cjs" ]; then
@@ -40,7 +47,7 @@ trap cleanup SIGINT SIGTERM EXIT
 (
     while true; do
         echo "$(date): [python-bot] Starting..."
-        python3 main.py 2>&1 | while IFS= read -r line; do echo "[python-bot] $line"; done
+        "$PYTHON_BIN" main.py 2>&1 | while IFS= read -r line; do echo "[python-bot] $line"; done
         echo "$(date): [python-bot] Exited, restarting in 10s..."
         sleep 10
     done

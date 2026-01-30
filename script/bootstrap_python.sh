@@ -2,9 +2,27 @@
 set -e
 
 MARKER_FILE=".python_deps_ready"
+VENV_DIR="${VENV_DIR:-.venv}"
+PYTHON_BIN="python3"
+PIP_BIN="python3 -m pip"
+
+ensure_venv() {
+  if [ ! -d "$VENV_DIR" ]; then
+    echo "[bootstrap] Creating virtualenv at $VENV_DIR"
+    python3 -m venv "$VENV_DIR"
+  fi
+
+  PYTHON_BIN="$VENV_DIR/bin/python"
+  PIP_BIN="$VENV_DIR/bin/pip"
+
+  if [ ! -x "$PYTHON_BIN" ]; then
+    echo "[bootstrap] ERROR: Python binary not found in $VENV_DIR"
+    exit 1
+  fi
+}
 
 check_core_deps() {
-  python3 - <<'PY'
+  "$PYTHON_BIN" - <<'PY'
 import sys
 try:
     import ccxt
@@ -19,7 +37,7 @@ PY
 }
 
 check_talib() {
-  python3 - <<'PY'
+  "$PYTHON_BIN" - <<'PY'
 import sys
 try:
     import talib
@@ -39,15 +57,18 @@ PY
 
 install_deps() {
   echo "[bootstrap] Installing Python dependencies..."
-  python3 -m pip install --upgrade pip --quiet
-  python3 -m pip install "numpy<2.3" "pandas>=2.0" ccxt --quiet || true
+  "$PIP_BIN" install --upgrade pip --quiet
+  "$PIP_BIN" install "numpy<2.3" "pandas>=2.0" ccxt --quiet || true
 
   # Try TA-Lib first, fall back to pandas-ta
-  python3 -m pip install ta-lib --quiet 2>/dev/null || {
+  "$PIP_BIN" install ta-lib --quiet 2>/dev/null || {
     echo "[bootstrap] TA-Lib unavailable, installing pandas-ta fallback..."
-    python3 -m pip install pandas-ta --quiet
+    "$PIP_BIN" install pandas-ta --quiet
   }
 }
+
+# Ensure we have a writable virtualenv before any checks/install
+ensure_venv
 
 # Always verify core deps, reinstall if missing
 if ! check_core_deps; then
@@ -59,7 +80,7 @@ fi
 # Verify technical analysis library
 if ! check_talib; then
   echo "[bootstrap] Installing pandas-ta..."
-  python3 -m pip install pandas-ta --quiet
+  "$PIP_BIN" install pandas-ta --quiet
 fi
 
 # Final verification
