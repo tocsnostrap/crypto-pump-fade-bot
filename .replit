@@ -17,7 +17,7 @@ PORT = "5000"
 
 [deployment]
 deploymentTarget = "gce"
-run = ["sh", "start.sh"]
+run = ["bash", "start.sh"]
 build = ["npm", "run", "build"]
 
 [workflows]
