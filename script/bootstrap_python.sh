@@ -123,10 +123,21 @@ if ! check_talib; then
       pip_install pandas-ta || true
   }
   
+  # Force re-check immediately after install attempt
+  if check_talib; then
+      echo "[bootstrap] TA library installed successfully!"
+      exit 0
+  fi
+  
   # Try one more time to see if we have anything usable
   if ! check_talib; then
       echo "[bootstrap] Still missing TA libs. Trying to force install pandas-ta..."
       pip_install pandas-ta || echo "[bootstrap] Failed to install pandas-ta"
+      
+      if check_talib; then
+          echo "[bootstrap] pandas-ta installed successfully!"
+          exit 0
+      fi
   fi
 fi
 
