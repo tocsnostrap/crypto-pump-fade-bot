@@ -1,12 +1,12 @@
 # Pump Fade Bot v1.1.0 - Updated Jan 25, 2026
 # New: Adaptive Learning Dashboard Tab
 modules = ["nodejs-20", "web", "postgresql-16", "python-3.11"]
-run = "sh -c 'sh ./script/bootstrap_python.sh && npm run dev'"
+run = "bash start.sh"
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["glibcLocales", "ta-lib", "nodejs_20", "python311"]
+packages = ["glibcLocales", "ta-lib", "nodejs_20", "python311", "python311Packages.ta"]
 
 [[ports]]
 localPort = 5000
@@ -17,7 +17,7 @@ PORT = "5000"
 
 [deployment]
 deploymentTarget = "gce"
-run = ["sh", "-c", "./start.sh"]
+run = ["sh", "start.sh"]
 build = ["npm", "run", "build"]
 
 [workflows]
@@ -38,7 +38,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "sh -c 'sh ./script/bootstrap_python.sh && npm run dev'"
+args = "bash start.sh"
 waitForPort = 5000
 
 [agent]

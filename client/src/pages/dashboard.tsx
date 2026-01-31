@@ -1,12 +1,29 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import {
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart as RechartsPieChart,
+  XAxis,
+  YAxis,
+} from "recharts";
 import {
   TrendingUp,
   TrendingDown,
@@ -32,11 +49,6 @@ import {
   XOctagon,
   Settings,
   Brain,
-  Lightbulb,
-  History,
-  BookOpen,
-  Sparkles,
-  GraduationCap,
 } from "lucide-react";
 import type { DashboardData, Signal, OpenTrade, ClosedTrade, TradingMetrics } from "@shared/schema";
 
@@ -69,6 +81,23 @@ function formatDate(timestamp: string | number): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatShortDate(timestamp: string | number): string {
+  const date = new Date(typeof timestamp === "number" ? timestamp * 1000 : timestamp);
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatCompactCurrency(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 function MetricCard({
@@ -125,6 +154,8 @@ function SignalItem({ signal }: { signal: Signal }) {
     entry_signal: "bg-profit/10 text-profit border-profit/20",
     exit_signal: "bg-primary/10 text-primary border-primary/20",
     time_decay: "bg-muted text-muted-foreground border-muted",
+    partial_exit: "bg-primary/10 text-primary border-primary/20",
+    fade_watch: "bg-warning/10 text-warning border-warning/20",
   };
 
   const typeIcons: Record<string, typeof Zap> = {
@@ -133,6 +164,8 @@ function SignalItem({ signal }: { signal: Signal }) {
     entry_signal: TrendingUp,
     exit_signal: TrendingDown,
     time_decay: Clock,
+    partial_exit: Percent,
+    fade_watch: AlertTriangle,
   };
 
   const Icon = typeIcons[signal.type] || Activity;
@@ -147,13 +180,28 @@ function SignalItem({ signal }: { signal: Signal }) {
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-sm font-medium">{signal.symbol}</span>
           <Badge variant="outline" className="text-xs uppercase">{signal.exchange}</Badge>
-          {signal.change_pct && (
+          {signal.change_pct !== undefined && signal.change_pct !== null && (
             <Badge className={signal.change_pct >= 0 ? "bg-profit/10 text-profit" : "bg-loss/10 text-loss"}>
               {formatPercent(signal.change_pct)}
             </Badge>
           )}
         </div>
         <p className="text-sm text-muted-foreground mt-1">{signal.message}</p>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-1">
+          <span className="font-mono text-foreground">
+            {Number.isFinite(signal.price) ? `$${signal.price.toFixed(4)}` : "—"}
+          </span>
+          {signal.funding_rate !== undefined && signal.funding_rate !== null && (
+            <Badge variant="outline" className="text-xs">
+              Funding {(signal.funding_rate * 100).toFixed(2)}%
+            </Badge>
+          )}
+          {signal.rsi !== undefined && signal.rsi !== null && (
+            <Badge variant="outline" className="text-xs">
+              RSI {signal.rsi.toFixed(1)}
+            </Badge>
+          )}
+        </div>
         <p className="text-xs text-muted-foreground mt-1">{formatTime(signal.timestamp)}</p>
       </div>
     </div>
@@ -295,286 +343,6 @@ interface KeysStatus {
   any_configured: boolean;
 }
 
-interface LearningData {
-  learning_enabled: boolean;
-  last_analysis: string | null;
-  recent_performance: {
-    trades: number;
-    wins: number;
-    losses: number;
-    win_rate: number;
-    total_profit: number;
-    avg_profit: number;
-  };
-  recent_lessons: Array<{
-    trade_id: string;
-    timestamp: string;
-    is_win: boolean;
-    profit: number;
-    lessons: string[];
-  }>;
-  adjustments_made: Array<{
-    timestamp: string;
-    changes: Array<{
-      parameter: string;
-      old_value: number;
-      new_value: number;
-      reason: string;
-    }>;
-  }>;
-  performance_history: Array<{
-    timestamp: string;
-    win_rate: number;
-    avg_profit: number;
-    trades: number;
-  }>;
-  pattern_stats: {
-    total_analyzed: number;
-    by_pump_size: Record<string, { count: number; win_rate: number }>;
-    by_entry_quality: Record<string, { count: number; win_rate: number }>;
-  };
-  trend: "improving" | "declining" | "stable";
-}
-
-function LearningSection({ data, onToggle, isToggling }: { 
-  data: LearningData | undefined; 
-  onToggle: (enabled: boolean) => void;
-  isToggling: boolean;
-}) {
-  if (!data) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <EmptyState
-            title="Learning Data Unavailable"
-            description="The learning system is initializing..."
-            icon={Brain}
-          />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const trendColors = {
-    improving: "text-profit",
-    declining: "text-loss",
-    stable: "text-muted-foreground",
-  };
-
-  const trendIcons = {
-    improving: TrendingUp,
-    declining: TrendingDown,
-    stable: Activity,
-  };
-
-  const TrendIcon = trendIcons[data.trend] || Activity;
-
-  return (
-    <div className="space-y-6">
-      {/* Learning Header */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
-          <div className="flex items-center gap-2">
-            <Brain className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg">Adaptive Learning</CardTitle>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className={`text-sm ${data.learning_enabled ? "text-profit" : "text-muted-foreground"}`}>
-              {data.learning_enabled ? "Active" : "Paused"}
-            </span>
-            <Switch
-              checked={data.learning_enabled}
-              onCheckedChange={onToggle}
-              disabled={isToggling}
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-3 rounded-lg bg-muted/50">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                <TrendIcon className={`h-3 w-3 ${trendColors[data.trend]}`} />
-                <span>Trend</span>
-              </div>
-              <p className={`text-lg font-bold capitalize ${trendColors[data.trend]}`}>
-                {data.trend}
-              </p>
-            </div>
-            <div className="p-3 rounded-lg bg-muted/50">
-              <p className="text-xs text-muted-foreground mb-1">7-Day Win Rate</p>
-              <p className={`text-lg font-bold ${data.recent_performance.win_rate >= 50 ? "text-profit" : "text-loss"}`}>
-                {data.recent_performance.win_rate.toFixed(1)}%
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {data.recent_performance.wins}W / {data.recent_performance.losses}L
-              </p>
-            </div>
-            <div className="p-3 rounded-lg bg-muted/50">
-              <p className="text-xs text-muted-foreground mb-1">7-Day Profit</p>
-              <p className={`text-lg font-bold ${data.recent_performance.total_profit >= 0 ? "text-profit" : "text-loss"}`}>
-                {formatCurrency(data.recent_performance.total_profit)}
-              </p>
-            </div>
-            <div className="p-3 rounded-lg bg-muted/50">
-              <p className="text-xs text-muted-foreground mb-1">Trades Analyzed</p>
-              <p className="text-lg font-bold">{data.pattern_stats.total_analyzed}</p>
-            </div>
-          </div>
-          {data.last_analysis && (
-            <p className="text-xs text-muted-foreground mt-4">
-              Last analysis: {formatDate(data.last_analysis)}
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Pattern Analysis */}
-        <Card>
-          <CardHeader className="flex flex-row items-center gap-2 pb-4">
-            <Sparkles className="h-5 w-5 text-warning" />
-            <CardTitle className="text-lg">Pattern Analysis</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {data.pattern_stats.total_analyzed === 0 ? (
-              <EmptyState
-                title="No Patterns Yet"
-                description="Complete more trades for pattern analysis"
-                icon={Sparkles}
-              />
-            ) : (
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm font-medium mb-2">Win Rate by Pump Size</p>
-                  <div className="space-y-2">
-                    {Object.entries(data.pattern_stats.by_pump_size).map(([label, stats]) => (
-                      <div key={label} className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">{label}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">({stats.count} trades)</span>
-                          <span className={`font-mono font-bold ${stats.win_rate >= 50 ? "text-profit" : "text-loss"}`}>
-                            {stats.win_rate.toFixed(1)}%
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <Separator />
-                <div>
-                  <p className="text-sm font-medium mb-2">Win Rate by Entry Quality</p>
-                  <div className="space-y-2">
-                    {Object.entries(data.pattern_stats.by_entry_quality).map(([label, stats]) => (
-                      <div key={label} className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Quality {label}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">({stats.count} trades)</span>
-                          <span className={`font-mono font-bold ${stats.win_rate >= 50 ? "text-profit" : "text-loss"}`}>
-                            {stats.win_rate.toFixed(1)}%
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Recent Lessons */}
-        <Card>
-          <CardHeader className="flex flex-row items-center gap-2 pb-4">
-            <Lightbulb className="h-5 w-5 text-warning" />
-            <CardTitle className="text-lg">Recent Lessons</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <ScrollArea className="h-[280px]">
-              <div className="p-4 pt-0 space-y-3">
-                {data.recent_lessons.length === 0 ? (
-                  <EmptyState
-                    title="No Lessons Yet"
-                    description="Lessons will appear as trades complete"
-                    icon={Lightbulb}
-                  />
-                ) : (
-                  data.recent_lessons.map((lesson, idx) => (
-                    <div key={idx} className="p-3 rounded-lg bg-muted/30">
-                      <div className="flex items-center justify-between mb-2">
-                        <Badge className={lesson.is_win ? "bg-profit/10 text-profit" : "bg-loss/10 text-loss"}>
-                          {lesson.is_win ? "WIN" : "LOSS"} {formatCurrency(lesson.profit)}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {formatTime(lesson.timestamp)}
-                        </span>
-                      </div>
-                      <ul className="text-xs text-muted-foreground space-y-1">
-                        {lesson.lessons.slice(0, 3).map((l, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <span className="text-primary">•</span>
-                            {l}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))
-                )}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Parameter Adjustments History */}
-      <Card>
-        <CardHeader className="flex flex-row items-center gap-2 pb-4">
-          <History className="h-5 w-5 text-muted-foreground" />
-          <CardTitle className="text-lg">Parameter Adjustments</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {data.adjustments_made.length === 0 ? (
-            <EmptyState
-              title="No Adjustments Yet"
-              description="The bot will suggest and apply changes based on performance"
-              icon={Settings}
-            />
-          ) : (
-            <ScrollArea className="h-[200px]">
-              <div className="space-y-3">
-                {data.adjustments_made.map((adj, idx) => (
-                  <div key={idx} className="p-3 rounded-lg border">
-                    <div className="flex items-center justify-between mb-2">
-                      <Badge variant="outline">
-                        <Settings className="h-3 w-3 mr-1" />
-                        {adj.changes.length} change{adj.changes.length !== 1 ? "s" : ""}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(adj.timestamp)}
-                      </span>
-                    </div>
-                    <div className="space-y-1">
-                      {adj.changes.map((change, i) => (
-                        <div key={i} className="text-xs">
-                          <span className="font-mono text-primary">{change.parameter}</span>
-                          <span className="text-muted-foreground">: </span>
-                          <span className="text-loss">{change.old_value}</span>
-                          <span className="text-muted-foreground"> → </span>
-                          <span className="text-profit">{change.new_value}</span>
-                          <p className="text-muted-foreground mt-0.5 ml-2">{change.reason}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
 export default function Dashboard() {
   const { data, isLoading, error, refetch, isFetching } = useQuery<DashboardData>({
     queryKey: ["/api/dashboard"],
@@ -587,12 +355,6 @@ export default function Dashboard() {
     refetchInterval: 30000,
   });
 
-  const { data: learningData, refetch: refetchLearning } = useQuery<LearningData>({
-    queryKey: ["/api/learning"],
-    refetchInterval: 30000,
-    staleTime: 10000,
-  });
-
   const toggleModeMutation = useMutation({
     mutationFn: async (paperMode: boolean) => {
       const res = await apiRequest("POST", "/api/config/mode", { paper_mode: paperMode });
@@ -600,16 +362,6 @@ export default function Dashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
-    },
-  });
-
-  const toggleLearningMutation = useMutation({
-    mutationFn: async (enabled: boolean) => {
-      const res = await apiRequest("POST", "/api/learning/toggle", { enabled });
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/learning"] });
     },
   });
 
@@ -635,7 +387,7 @@ export default function Dashboard() {
     );
   }
 
-  const { config, status, metrics, open_trades, closed_trades, signals } = data || {
+  const { config, status, metrics, open_trades, closed_trades, signals, balance_history } = data || {
     config: {
       paper_mode: true,
       leverage_default: 3,
@@ -764,7 +516,6 @@ export default function Dashboard() {
       funding_adverse_time_cap_hours: 24,
       funding_trailing_min_pct: 0.03,
       funding_trailing_tighten_factor: 0.8,
-      enable_funding_filter: false,
       max_hold_hours: 48,
     },
     status: { running: false, last_poll: null, exchanges_connected: [], symbols_loaded: {} },
@@ -777,6 +528,7 @@ export default function Dashboard() {
     open_trades: [],
     closed_trades: [],
     signals: [],
+    balance_history: [],
   };
 
   const isPaperMode = config?.paper_mode ?? true;
@@ -822,6 +574,38 @@ export default function Dashboard() {
     ? `On (${(config?.min_atr_pct ?? 0).toFixed(1)}% - ${(config?.max_atr_pct ?? 0).toFixed(1)}%)`
     : "Off";
 
+  const balanceHistory = (balance_history || [])
+    .slice()
+    .sort((a, b) => {
+      const aTime = new Date(a.timestamp).getTime();
+      const bTime = new Date(b.timestamp).getTime();
+      return (Number.isFinite(aTime) ? aTime : 0) - (Number.isFinite(bTime) ? bTime : 0);
+    });
+  const balanceChartData = balanceHistory.slice(-60);
+
+  const winLossData = [
+    { name: "wins", value: metrics?.winning_trades || 0 },
+    { name: "losses", value: metrics?.losing_trades || 0 },
+  ];
+  const totalWinLossTrades = winLossData.reduce((sum, entry) => sum + entry.value, 0);
+
+  const balanceChartConfig = {
+    balance: {
+      label: "Balance",
+      color: "hsl(var(--chart-1))",
+    },
+  };
+  const winLossChartConfig = {
+    wins: {
+      label: "Wins",
+      color: "hsl(var(--profit))",
+    },
+    losses: {
+      label: "Losses",
+      color: "hsl(var(--loss))",
+    },
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -863,6 +647,13 @@ export default function Dashboard() {
                 </div>
               </div>
 
+              <Button asChild variant="outline" className="gap-2">
+                <Link href="/learning">
+                  <Brain className="h-4 w-4" />
+                  Learning
+                </Link>
+              </Button>
+
               <Button
                 variant="outline"
                 size="icon"
@@ -877,371 +668,472 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 space-y-6">
-        {/* Mode Banner */}
-        {isPaperMode && (
-          <div className="flex items-center gap-3 p-4 rounded-lg bg-primary/5 border border-primary/20">
-            <AlertTriangle className="h-5 w-5 text-primary flex-shrink-0" />
-            <div>
-              <p className="text-sm font-medium">Paper Trading Mode</p>
-              <p className="text-xs text-muted-foreground">All trades are simulated. No real orders will be placed.</p>
-            </div>
-          </div>
-        )}
-
-        {/* Key Metrics */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <MetricCard
-            title="Balance"
-            value={formatCurrency(metrics?.current_balance || 0)}
-            icon={Wallet}
-            trend={metrics?.net_pnl >= 0 ? "up" : "down"}
-            trendValue={formatPercent(metrics?.return_pct || 0)}
-          />
-          <MetricCard
-            title="Net P&L"
-            value={formatCurrency(metrics?.net_pnl || 0)}
-            icon={DollarSign}
-            trend={metrics?.net_pnl >= 0 ? "up" : "down"}
-          />
-          <MetricCard
-            title="Win Rate"
-            value={`${(metrics?.win_rate || 0).toFixed(1)}%`}
-            subtitle={`${metrics?.winning_trades || 0}W / ${metrics?.losing_trades || 0}L`}
-            icon={Target}
-            trend={metrics?.win_rate >= 50 ? "up" : "down"}
-          />
-          <MetricCard
-            title="Total Trades"
-            value={String(metrics?.total_trades || 0)}
-            subtitle={`Profit Factor: ${(metrics?.profit_factor || 0).toFixed(2)}`}
-            icon={Activity}
-            trend="neutral"
-          />
-        </div>
-
-        {/* Secondary Metrics */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <MetricCard
-            title="Total Profit"
-            value={formatCurrency(metrics?.total_profit || 0)}
-            icon={TrendingUp}
-            trend="up"
-            className="bg-profit/5 border-profit/20"
-          />
-          <MetricCard
-            title="Total Loss"
-            value={formatCurrency(Math.abs(metrics?.total_loss || 0))}
-            icon={TrendingDown}
-            trend="down"
-            className="bg-loss/5 border-loss/20"
-          />
-          <MetricCard
-            title="Avg Win"
-            value={formatCurrency(metrics?.avg_win || 0)}
-            icon={Trophy}
-            trend="up"
-          />
-          <MetricCard
-            title="Avg Loss"
-            value={formatCurrency(Math.abs(metrics?.avg_loss || 0))}
-            icon={XCircle}
-            trend="down"
-          />
-          <MetricCard
-            title="Max Drawdown"
-            value={formatPercent(-(metrics?.max_drawdown || 0))}
-            icon={AlertTriangle}
-            trend="down"
-          />
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Open Positions */}
-          <Card className="lg:col-span-2">
-            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
-              <div className="flex items-center gap-2">
-                <Scale className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Open Positions</CardTitle>
-              </div>
-              <Badge variant="secondary" className="font-mono">
-                {open_trades?.length || 0} / {config?.max_open_trades || 4}
-              </Badge>
-            </CardHeader>
-            <CardContent>
-              {!open_trades || open_trades.length === 0 ? (
-                <EmptyState
-                  title="No Open Positions"
-                  description="Waiting for pump detection and entry signals..."
-                  icon={Scale}
-                />
-              ) : (
-                <div className="space-y-3">
-                  {open_trades.map((trade, i) => (
-                    <OpenPositionRow key={`${trade.sym}-${i}`} trade={trade} />
-                  ))}
+      <main className="max-w-7xl mx-auto px-4 md:px-6 py-8 space-y-8">
+            {/* Mode Banner */}
+            {isPaperMode && (
+              <div className="flex items-center gap-3 p-4 rounded-lg bg-primary/5 border border-primary/20">
+                <AlertTriangle className="h-5 w-5 text-primary flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium">Paper Trading Mode</p>
+                  <p className="text-xs text-muted-foreground">All trades are simulated. No real orders will be placed.</p>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Live Signals */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
-              <div className="flex items-center gap-2">
-                <Zap className="h-5 w-5 text-warning" />
-                <CardTitle className="text-lg">Live Signals</CardTitle>
               </div>
-              {signals && signals.length > 0 && (
-                <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20">
-                  {signals.length} new
-                </Badge>
-              )}
-            </CardHeader>
-            <CardContent className="p-0">
-              <ScrollArea className="h-[320px]">
-                <div className="p-4 pt-0 space-y-2">
-                  {!signals || signals.length === 0 ? (
+            )}
+
+            {/* Key Metrics */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <MetricCard
+                title="Balance"
+                value={formatCurrency(metrics?.current_balance || 0)}
+                icon={Wallet}
+                trend={metrics?.net_pnl >= 0 ? "up" : "down"}
+                trendValue={formatPercent(metrics?.return_pct || 0)}
+              />
+              <MetricCard
+                title="Net P&L"
+                value={formatCurrency(metrics?.net_pnl || 0)}
+                icon={DollarSign}
+                trend={metrics?.net_pnl >= 0 ? "up" : "down"}
+              />
+              <MetricCard
+                title="Win Rate"
+                value={`${(metrics?.win_rate || 0).toFixed(1)}%`}
+                subtitle={`${metrics?.winning_trades || 0}W / ${metrics?.losing_trades || 0}L`}
+                icon={Target}
+                trend={metrics?.win_rate >= 50 ? "up" : "down"}
+              />
+              <MetricCard
+                title="Total Trades"
+                value={String(metrics?.total_trades || 0)}
+                subtitle={`Profit Factor: ${(metrics?.profit_factor || 0).toFixed(2)}`}
+                icon={Activity}
+                trend="neutral"
+              />
+            </div>
+
+            {/* Secondary Metrics */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <MetricCard
+                title="Total Profit"
+                value={formatCurrency(metrics?.total_profit || 0)}
+                icon={TrendingUp}
+                trend="up"
+                className="bg-profit/5 border-profit/20"
+              />
+              <MetricCard
+                title="Total Loss"
+                value={formatCurrency(Math.abs(metrics?.total_loss || 0))}
+                icon={TrendingDown}
+                trend="down"
+                className="bg-loss/5 border-loss/20"
+              />
+              <MetricCard
+                title="Avg Win"
+                value={formatCurrency(metrics?.avg_win || 0)}
+                icon={Trophy}
+                trend="up"
+              />
+              <MetricCard
+                title="Avg Loss"
+                value={formatCurrency(Math.abs(metrics?.avg_loss || 0))}
+                icon={XCircle}
+                trend="down"
+              />
+              <MetricCard
+                title="Max Drawdown"
+                value={formatPercent(-(metrics?.max_drawdown || 0))}
+                icon={AlertTriangle}
+                trend="down"
+              />
+            </div>
+
+            {/* Performance Overview */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <Card className="lg:col-span-2">
+                <CardHeader className="flex flex-row items-center gap-2 pb-4">
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-lg">Balance History</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {balanceChartData.length < 2 ? (
                     <EmptyState
-                      title="No Signals"
-                      description="Scanning markets for pump opportunities..."
-                      icon={Zap}
+                      title="No Balance History"
+                      description="Balance history will appear after trades close"
+                      icon={BarChart3}
                     />
                   ) : (
-                    signals.map((signal, idx) => (
-                      <SignalItem key={`${signal.id}_${idx}`} signal={signal} />
-                    ))
+                    <ChartContainer config={balanceChartConfig} className="h-[260px] w-full">
+                      <LineChart data={balanceChartData} margin={{ left: 12, right: 12 }}>
+                        <CartesianGrid vertical={false} />
+                        <XAxis
+                          dataKey="timestamp"
+                          tickFormatter={formatShortDate}
+                          tickLine={false}
+                          axisLine={false}
+                          tickMargin={8}
+                        />
+                        <YAxis
+                          tickFormatter={(value) => formatCompactCurrency(Number(value))}
+                          tickLine={false}
+                          axisLine={false}
+                          width={64}
+                        />
+                        <ChartTooltip
+                          cursor={false}
+                          content={
+                            <ChartTooltipContent
+                              labelFormatter={formatDate}
+                              formatter={(value, name) => {
+                                const label =
+                                  balanceChartConfig[name as keyof typeof balanceChartConfig]?.label ||
+                                  String(name);
+                                return (
+                                  <div className="flex w-full items-center justify-between gap-2">
+                                    <span className="text-muted-foreground">{label}</span>
+                                    <span className="font-mono font-medium text-foreground">
+                                      {formatCurrency(Number(value))}
+                                    </span>
+                                  </div>
+                                );
+                              }}
+                            />
+                          }
+                        />
+                        <Line
+                          dataKey="balance"
+                          type="monotone"
+                          stroke="var(--color-balance)"
+                          strokeWidth={2}
+                          dot={false}
+                        />
+                      </LineChart>
+                    </ChartContainer>
                   )}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </div>
+                </CardContent>
+              </Card>
 
-        {/* Trade History */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-muted-foreground" />
-              <CardTitle className="text-lg">Trade History</CardTitle>
-            </div>
-            <Badge variant="secondary">{closed_trades?.length || 0} trades</Badge>
-          </CardHeader>
-          <CardContent>
-            {!closed_trades || closed_trades.length === 0 ? (
-              <EmptyState
-                title="No Trade History"
-                description="Completed trades will appear here"
-                icon={Clock}
-              />
-            ) : (
-              <ScrollArea className="h-[300px]">
-                <div className="space-y-2 pr-4">
-                  {closed_trades.slice(0, 20).map((trade, i) => (
-                    <TradeHistoryRow key={i} trade={trade} index={i} />
-                  ))}
-                </div>
-              </ScrollArea>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* API Keys Status */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
-            <div className="flex items-center gap-2">
-              <Key className="h-5 w-5 text-muted-foreground" />
-              <CardTitle className="text-lg">API Keys</CardTitle>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => refetchKeys()}
-              data-testid="button-refresh-keys"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Gate.io */}
-              <div className="p-4 rounded-lg border">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold">Gate.io</h3>
-                  {keysStatus?.gate_configured ? (
-                    <Badge className="bg-profit">
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                      Configured
-                    </Badge>
+              <Card>
+                <CardHeader className="flex flex-row items-center gap-2 pb-4">
+                  <PieChart className="h-5 w-5 text-warning" />
+                  <CardTitle className="text-lg">Win/Loss Breakdown</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {totalWinLossTrades === 0 ? (
+                    <EmptyState
+                      title="No Closed Trades"
+                      description="Win/loss breakdown will appear after trades close"
+                      icon={PieChart}
+                    />
                   ) : (
-                    <Badge variant="destructive">
-                      <XOctagon className="h-3 w-3 mr-1" />
-                      Not Configured
-                    </Badge>
+                    <>
+                      <ChartContainer config={winLossChartConfig} className="h-[260px] w-full">
+                        <RechartsPieChart>
+                          <Pie
+                            data={winLossData}
+                            dataKey="value"
+                            nameKey="name"
+                            innerRadius={60}
+                            outerRadius={90}
+                            strokeWidth={2}
+                          >
+                            {winLossData.map((entry) => (
+                              <Cell key={entry.name} fill={`var(--color-${entry.name})`} />
+                            ))}
+                          </Pie>
+                          <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                          <ChartLegend content={<ChartLegendContent nameKey="name" />} />
+                        </RechartsPieChart>
+                      </ChartContainer>
+                      <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Wins: {metrics?.winning_trades || 0}</span>
+                        <span>Losses: {metrics?.losing_trades || 0}</span>
+                        <span>Win rate: {formatPercent(metrics?.win_rate || 0)}</span>
+                      </div>
+                    </>
                   )}
-                </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">GATE_API_KEY</span>
-                    {keysStatus?.keys.gate.api_key ? (
-                      <CheckCircle2 className="h-4 w-4 text-profit" />
-                    ) : (
-                      <XCircle className="h-4 w-4 text-loss" />
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">GATE_SECRET</span>
-                    {keysStatus?.keys.gate.secret ? (
-                      <CheckCircle2 className="h-4 w-4 text-profit" />
-                    ) : (
-                      <XCircle className="h-4 w-4 text-loss" />
-                    )}
-                  </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
+            </div>
 
-              {/* Bitget */}
-              <div className="p-4 rounded-lg border">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold">Bitget</h3>
-                  {keysStatus?.bitget_configured ? (
-                    <Badge className="bg-profit">
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                      Configured
-                    </Badge>
+            {/* Main Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Open Positions */}
+              <Card className="lg:col-span-2">
+                <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
+                  <div className="flex items-center gap-2">
+                    <Scale className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-lg">Open Positions</CardTitle>
+                  </div>
+                  <Badge variant="secondary" className="font-mono">
+                    {open_trades?.length || 0} / {config?.max_open_trades || 4}
+                  </Badge>
+                </CardHeader>
+                <CardContent>
+                  {!open_trades || open_trades.length === 0 ? (
+                    <EmptyState
+                      title="No Open Positions"
+                      description="Waiting for pump detection and entry signals..."
+                      icon={Scale}
+                    />
                   ) : (
-                    <Badge variant="secondary">
-                      <Settings className="h-3 w-3 mr-1" />
-                      Optional
+                    <div className="space-y-3">
+                      {open_trades.map((trade, i) => (
+                        <OpenPositionRow key={`${trade.sym}-${i}`} trade={trade} />
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Live Signals */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-5 w-5 text-warning" />
+                    <CardTitle className="text-lg">Live Signals</CardTitle>
+                  </div>
+                  {signals && signals.length > 0 && (
+                    <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20">
+                      {signals.length} new
                     </Badge>
                   )}
+                </CardHeader>
+                <CardContent className="p-0">
+                  <ScrollArea className="h-[320px]">
+                    <div className="p-4 pt-0 space-y-2">
+                      {!signals || signals.length === 0 ? (
+                        <EmptyState
+                          title="No Signals"
+                          description="Scanning markets for pump opportunities..."
+                          icon={Zap}
+                        />
+                      ) : (
+                        signals.map((signal, idx) => (
+                          <SignalItem key={`${signal.id}_${idx}`} signal={signal} />
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Trade History */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-muted-foreground" />
+                  <CardTitle className="text-lg">Trade History</CardTitle>
                 </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">BITGET_API_KEY</span>
-                    {keysStatus?.keys.bitget.api_key ? (
-                      <CheckCircle2 className="h-4 w-4 text-profit" />
-                    ) : (
-                      <XCircle className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">BITGET_SECRET</span>
-                    {keysStatus?.keys.bitget.secret ? (
-                      <CheckCircle2 className="h-4 w-4 text-profit" />
-                    ) : (
-                      <XCircle className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">BITGET_PASSPHRASE</span>
-                    {keysStatus?.keys.bitget.passphrase ? (
-                      <CheckCircle2 className="h-4 w-4 text-profit" />
-                    ) : (
-                      <XCircle className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </div>
+                <Badge variant="secondary">{closed_trades?.length || 0} trades</Badge>
+              </CardHeader>
+              <CardContent>
+                {!closed_trades || closed_trades.length === 0 ? (
+                  <EmptyState
+                    title="No Trade History"
+                    description="Completed trades will appear here"
+                    icon={Clock}
+                  />
+                ) : (
+                  <ScrollArea className="h-[300px]">
+                    <div className="space-y-2 pr-4">
+                      {closed_trades.slice(0, 20).map((trade, i) => (
+                        <TradeHistoryRow key={i} trade={trade} index={i} />
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* API Keys Status */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
+                <div className="flex items-center gap-2">
+                  <Key className="h-5 w-5 text-muted-foreground" />
+                  <CardTitle className="text-lg">API Keys</CardTitle>
                 </div>
-              </div>
-            </div>
-
-            {!keysStatus?.gate_configured && (
-              <div className="mt-4 p-3 rounded-lg bg-muted/50 text-sm">
-                <p className="font-medium mb-1">How to add API keys:</p>
-                <ol className="list-decimal list-inside text-muted-foreground space-y-1">
-                  <li>Click "All tools" in the left sidebar</li>
-                  <li>Select "Secrets"</li>
-                  <li>Add your API keys (GATE_API_KEY, GATE_SECRET, etc.)</li>
-                  <li>Click the refresh button above to verify</li>
-                </ol>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Adaptive Learning Section */}
-        <LearningSection 
-          data={learningData} 
-          onToggle={(enabled) => toggleLearningMutation.mutate(enabled)}
-          isToggling={toggleLearningMutation.isPending}
-        />
-
-        {/* Bot Configuration */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
-            <div className="flex items-center gap-2">
-              <Power className="h-5 w-5 text-muted-foreground" />
-              <CardTitle className="text-lg">Bot Configuration</CardTitle>
-            </div>
-            <Badge variant={isPaperMode ? "secondary" : "default"} className={!isPaperMode ? "bg-profit" : ""}>
-              {isPaperMode ? "Paper Mode" : "Live Trading"}
-            </Badge>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">Leverage</p>
-                <p className="text-lg font-bold font-mono">{config?.leverage_default || 3}x</p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">Risk/Trade</p>
-                <p className="text-lg font-bold font-mono">{((config?.risk_pct_per_trade || 0.01) * 100).toFixed(0)}%</p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">Pump Range</p>
-                <p className="text-lg font-bold font-mono">{pumpRange}</p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">Stop Loss</p>
-                <p className="text-lg font-bold font-mono">{stopLossLabel}</p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">Compound</p>
-                <p className="text-lg font-bold font-mono">{((config?.compound_pct || 0.6) * 100).toFixed(0)}%</p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">Max Trades</p>
-                <p className="text-lg font-bold font-mono">{config?.max_open_trades || 4}</p>
-              </div>
-            </div>
-
-            <div className="mt-4 pt-4 border-t text-xs text-muted-foreground space-y-1">
-              <p>Pump Tier: {pumpThresholdLabel}</p>
-              <p>Entry: {entryLabel} | {entryQualityLabel}</p>
-              <p>Fade: {fadeSignalsLabel} | {lowerHighsLabel}</p>
-              <p>RSI Pullback: {rsiPullbackLabel}</p>
-              <p>ATR Filter: {atrFilterLabel}</p>
-              <p>Bollinger: {bollingerLabel}</p>
-              <p>{validationLabel}</p>
-              <p>Open Interest: {oiLabel}</p>
-              <p>BTC Vol Filter: {btcVolLabel}</p>
-              <p>Structure Break: {structureLabel}</p>
-              <p>Time Decay: {timeDecayLabel}</p>
-              <p>Exits: {exitLabel}</p>
-            </div>
-
-            {status?.exchanges_connected && status.exchanges_connected.length > 0 && (
-              <div className="mt-4 pt-4 border-t">
-                <p className="text-xs text-muted-foreground mb-2">Connected Exchanges</p>
-                <div className="flex gap-2 flex-wrap">
-                  {status.exchanges_connected.map((ex) => {
-                    const symbolCount = (status.symbols_loaded as Record<string, number>)?.[ex];
-                    return (
-                      <Badge key={ex} variant="outline" className="font-mono">
-                        <span className="h-2 w-2 rounded-full bg-profit mr-2" />
-                        {ex.toUpperCase()}
-                        {symbolCount && (
-                          <span className="ml-2 text-muted-foreground">({symbolCount} pairs)</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => refetchKeys()}
+                  data-testid="button-refresh-keys"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Gate.io */}
+                  <div className="p-4 rounded-lg border">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold">Gate.io</h3>
+                      {keysStatus?.gate_configured ? (
+                        <Badge className="bg-profit">
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Configured
+                        </Badge>
+                      ) : (
+                        <Badge variant="destructive">
+                          <XOctagon className="h-3 w-3 mr-1" />
+                          Not Configured
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">GATE_API_KEY</span>
+                        {keysStatus?.keys.gate.api_key ? (
+                          <CheckCircle2 className="h-4 w-4 text-profit" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-loss" />
                         )}
-                      </Badge>
-                    );
-                  })}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">GATE_SECRET</span>
+                        {keysStatus?.keys.gate.secret ? (
+                          <CheckCircle2 className="h-4 w-4 text-profit" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-loss" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bitget */}
+                  <div className="p-4 rounded-lg border">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold">Bitget</h3>
+                      {keysStatus?.bitget_configured ? (
+                        <Badge className="bg-profit">
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Configured
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">
+                          <Settings className="h-3 w-3 mr-1" />
+                          Optional
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">BITGET_API_KEY</span>
+                        {keysStatus?.keys.bitget.api_key ? (
+                          <CheckCircle2 className="h-4 w-4 text-profit" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">BITGET_SECRET</span>
+                        {keysStatus?.keys.bitget.secret ? (
+                          <CheckCircle2 className="h-4 w-4 text-profit" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">BITGET_PASSPHRASE</span>
+                        {keysStatus?.keys.bitget.passphrase ? (
+                          <CheckCircle2 className="h-4 w-4 text-profit" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+
+                {!keysStatus?.gate_configured && (
+                  <div className="mt-4 p-3 rounded-lg bg-muted/50 text-sm">
+                    <p className="font-medium mb-1">How to add API keys:</p>
+                    <ol className="list-decimal list-inside text-muted-foreground space-y-1">
+                      <li>Click "All tools" in the left sidebar</li>
+                      <li>Select "Secrets"</li>
+                      <li>Add your API keys (GATE_API_KEY, GATE_SECRET, etc.)</li>
+                      <li>Click the refresh button above to verify</li>
+                    </ol>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Bot Configuration */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
+                <div className="flex items-center gap-2">
+                  <Power className="h-5 w-5 text-muted-foreground" />
+                  <CardTitle className="text-lg">Bot Configuration</CardTitle>
+                </div>
+                <Badge variant={isPaperMode ? "secondary" : "default"} className={!isPaperMode ? "bg-profit" : ""}>
+                  {isPaperMode ? "Paper Mode" : "Live Trading"}
+                </Badge>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <p className="text-xs text-muted-foreground">Leverage</p>
+                    <p className="text-lg font-bold font-mono">{config?.leverage_default || 3}x</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <p className="text-xs text-muted-foreground">Risk/Trade</p>
+                    <p className="text-lg font-bold font-mono">{((config?.risk_pct_per_trade || 0.01) * 100).toFixed(0)}%</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <p className="text-xs text-muted-foreground">Pump Range</p>
+                    <p className="text-lg font-bold font-mono">{pumpRange}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <p className="text-xs text-muted-foreground">Stop Loss</p>
+                    <p className="text-lg font-bold font-mono">{stopLossLabel}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <p className="text-xs text-muted-foreground">Compound</p>
+                    <p className="text-lg font-bold font-mono">{((config?.compound_pct || 0.6) * 100).toFixed(0)}%</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <p className="text-xs text-muted-foreground">Max Trades</p>
+                    <p className="text-lg font-bold font-mono">{config?.max_open_trades || 4}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-4 border-t text-xs text-muted-foreground space-y-1">
+                  <p>Pump Tier: {pumpThresholdLabel}</p>
+                  <p>Entry: {entryLabel} | {entryQualityLabel}</p>
+                  <p>Fade: {fadeSignalsLabel} | {lowerHighsLabel}</p>
+                  <p>RSI Pullback: {rsiPullbackLabel}</p>
+                  <p>ATR Filter: {atrFilterLabel}</p>
+                  <p>Bollinger: {bollingerLabel}</p>
+                  <p>{validationLabel}</p>
+                  <p>Open Interest: {oiLabel}</p>
+                  <p>BTC Vol Filter: {btcVolLabel}</p>
+                  <p>Structure Break: {structureLabel}</p>
+                  <p>Time Decay: {timeDecayLabel}</p>
+                  <p>Exits: {exitLabel}</p>
+                </div>
+
+                {status?.exchanges_connected && status.exchanges_connected.length > 0 && (
+                  <div className="mt-4 pt-4 border-t">
+                    <p className="text-xs text-muted-foreground mb-2">Connected Exchanges</p>
+                    <div className="flex gap-2 flex-wrap">
+                      {status.exchanges_connected.map((ex) => {
+                        const symbolCount = (status.symbols_loaded as Record<string, number>)?.[ex];
+                        return (
+                          <Badge key={ex} variant="outline" className="font-mono">
+                            <span className="h-2 w-2 rounded-full bg-profit mr-2" />
+                            {ex.toUpperCase()}
+                            {symbolCount && (
+                              <span className="ml-2 text-muted-foreground">({symbolCount} pairs)</span>
+                            )}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
       </main>
     </div>
   );

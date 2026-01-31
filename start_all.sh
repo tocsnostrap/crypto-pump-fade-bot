@@ -13,10 +13,19 @@ echo "=== Pump Fade Trading Bot Production Startup ==="
 echo "Starting at: $(date)"
 echo "PORT: $PORT"
 
+# Cleanup any stale venv from previous runs
+if [ -d ".venv" ]; then
+    echo "Removing stale .venv directory..."
+    rm -rf .venv
+fi
+
 # Bootstrap Python deps if available
 if [ -f "./script/bootstrap_python.sh" ]; then
-    sh ./script/bootstrap_python.sh
+    bash ./script/bootstrap_python.sh
 fi
+
+PYTHON_BIN="python3"
+echo "Using Python: $PYTHON_BIN"
 
 # Verify build exists
 if [ ! -f "dist/index.cjs" ]; then
@@ -40,7 +49,7 @@ trap cleanup SIGINT SIGTERM EXIT
 (
     while true; do
         echo "$(date): [python-bot] Starting..."
-        python3 main.py 2>&1 | while IFS= read -r line; do echo "[python-bot] $line"; done
+        "$PYTHON_BIN" main.py 2>&1 | while IFS= read -r line; do echo "[python-bot] $line"; done
         echo "$(date): [python-bot] Exited, restarting in 10s..."
         sleep 10
     done

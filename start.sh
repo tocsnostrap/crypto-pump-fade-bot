@@ -13,10 +13,26 @@ echo "=== Pump Fade Trading Bot Production Startup ==="
 echo "Starting at: $(date)"
 echo "PORT: $PORT"
 
+# Add Nix library paths to LD_LIBRARY_PATH to ensure C extensions work
+for path in /nix/store/*-gcc-*-lib/lib; do
+    if [ -d "$path" ]; then
+        export LD_LIBRARY_PATH="$path${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    fi
+done
+
+# Cleanup any stale venv from previous runs
+if [ -d ".venv" ]; then
+    echo "Removing stale .venv directory..."
+    rm -rf .venv
+fi
+
 # Bootstrap Python deps if available
 if [ -f "./script/bootstrap_python.sh" ]; then
-    sh ./script/bootstrap_python.sh
+    bash ./script/bootstrap_python.sh
 fi
+
+PYTHON_BIN="python3"
+echo "Using Python: $PYTHON_BIN"
 
 # Verify build exists
 if [ ! -f "dist/index.cjs" ]; then
@@ -34,13 +50,13 @@ cleanup() {
     exit 0
 }
 
-trap cleanup SIGINT SIGTERM EXIT
+trap cleanup INT TERM EXIT
 
 # Start Python trading bot in background with simple restart loop
 (
     while true; do
         echo "$(date): [python-bot] Starting..."
-        python3 main.py 2>&1 | while IFS= read -r line; do echo "[python-bot] $line"; done
+        "$PYTHON_BIN" main.py 2>&1 | while IFS= read -r line; do echo "[python-bot] $line"; done
         echo "$(date): [python-bot] Exited, restarting in 10s..."
         sleep 10
     done

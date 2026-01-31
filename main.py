@@ -5,6 +5,10 @@ import os
 import pandas as pd
 import numpy as np
 from datetime import datetime
+try:
+    import ta
+except ImportError:
+    print("Warning: 'ta' library not found. Using fallbacks.")
 from talib_compat import talib
 import urllib.parse
 import urllib.request

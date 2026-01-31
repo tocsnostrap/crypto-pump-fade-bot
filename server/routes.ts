@@ -40,7 +40,6 @@ interface BotConfig {
   funding_min: number;
   enable_funding_filter?: boolean;
   funding_filter_pump_pct?: number;
-  enable_funding_filter?: boolean;
   rsi_overbought: number;
   leverage_default: number;
   reward_risk_min?: number;
@@ -152,6 +151,10 @@ interface BotConfig {
   funding_adverse_time_cap_hours?: number;
   funding_trailing_min_pct?: number;
   funding_trailing_tighten_factor?: number;
+  enable_adaptive_learning?: boolean;
+  enable_auto_tuning?: boolean;
+  learning_min_trades?: number;
+  learning_cycle_hours?: number;
 }
 
 interface TradeInfo {
@@ -274,6 +277,68 @@ function getPumpState(): Record<string, Record<string, { price: number; ts: numb
   return readJsonFile(STATE_FILE, {});
 }
 
+function normalizeProfitValue(profit: unknown): number {
+  if (typeof profit === "number") {
+    return Number.isFinite(profit) ? profit : 0;
+  }
+  const parsed = Number.parseFloat(String(profit));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeTimestamp(timestamp?: string): string {
+  if (!timestamp) {
+    return new Date().toISOString();
+  }
+  const sanitized = timestamp.includes(" ") && !timestamp.includes("T")
+    ? timestamp.replace(" ", "T")
+    : timestamp;
+  const parsed = new Date(sanitized);
+  if (Number.isNaN(parsed.getTime())) {
+    return new Date().toISOString();
+  }
+  return parsed.toISOString();
+}
+
+function buildBalanceHistory(
+  closedTrades: ClosedTrade[],
+  startingBalance: number,
+  currentBalance: number,
+  lastUpdated?: string
+) {
+  if (!closedTrades.length && !Number.isFinite(currentBalance)) {
+    return [];
+  }
+
+  const sortedTrades = [...closedTrades]
+    .filter((trade) => trade.closed_at)
+    .sort((a, b) => {
+      const aTime = new Date(a.closed_at).getTime();
+      const bTime = new Date(b.closed_at).getTime();
+      return aTime - bTime;
+    });
+
+  let runningBalance = startingBalance;
+  const history = sortedTrades.map((trade) => {
+    runningBalance += normalizeProfitValue(trade.profit);
+    return {
+      timestamp: normalizeTimestamp(trade.closed_at),
+      balance: runningBalance,
+    };
+  });
+
+  if (Number.isFinite(currentBalance)) {
+    const lastBalance = history.length ? history[history.length - 1].balance : startingBalance;
+    if (Math.abs(currentBalance - lastBalance) > 0.01) {
+      history.push({
+        timestamp: normalizeTimestamp(lastUpdated),
+        balance: currentBalance,
+      });
+    }
+  }
+
+  return history;
+}
+
 function calculateMetrics(
   openTrades: OpenTrade[],
   closedTrades: ClosedTrade[],
@@ -281,10 +346,7 @@ function calculateMetrics(
   startingBalance: number
 ) {
   const normalizedTrades = closedTrades.map((trade) => {
-    const profitValue =
-      typeof trade.profit === "number"
-        ? trade.profit
-        : Number.parseFloat(String(trade.profit));
+    const profitValue = normalizeProfitValue(trade.profit);
     return {
       ...trade,
       profit_value: Number.isFinite(profitValue) ? profitValue : 0,
@@ -388,6 +450,12 @@ export async function registerRoutes(
       const pumpState = getPumpState();
 
       const currentBalance = balanceData.balance || config.starting_capital;
+      const balanceHistory = buildBalanceHistory(
+        closedTrades.slice(-200),
+        config.starting_capital,
+        currentBalance,
+        balanceData.last_updated
+      );
       const metrics = calculateMetrics(
         openTrades,
         closedTrades,
@@ -403,7 +471,7 @@ export async function registerRoutes(
         open_trades: openTrades,
         closed_trades: closedTrades.slice(-50).reverse(), // Last 50, newest first
         signals: signals.slice(-20).reverse(), // Last 20 signals
-        balance_history: [], // Could be populated from historical data
+        balance_history: balanceHistory,
       });
     } catch (err) {
       console.error("Dashboard error:", err);
@@ -600,6 +668,7 @@ export async function registerRoutes(
   // Get learning state and summary
   app.get("/api/learning", (_req, res) => {
     try {
+      const config = getConfig();
       const learningState = readJsonFile(LEARNING_STATE_FILE, {
         learning_enabled: true,
         last_analysis: null,
@@ -732,6 +801,24 @@ export async function registerRoutes(
         }
       }
 
+      let nextAnalysis: string | null = null;
+      if (learningState.last_analysis && config.learning_cycle_hours) {
+        const lastAnalysis = new Date(normalizeTimestamp(learningState.last_analysis));
+        if (!Number.isNaN(lastAnalysis.getTime())) {
+          nextAnalysis = new Date(
+            lastAnalysis.getTime() + config.learning_cycle_hours * 60 * 60 * 1000
+          ).toISOString();
+        }
+      }
+
+      const learningConfig = {
+        adaptive_learning: config.enable_adaptive_learning ?? learningState.learning_enabled,
+        auto_tuning: config.enable_auto_tuning ?? false,
+        learning_cycle_hours: config.learning_cycle_hours ?? null,
+        learning_min_trades: config.learning_min_trades ?? null,
+        next_analysis: nextAnalysis,
+      };
+
       res.json({
         learning_enabled: learningState.learning_enabled,
         last_analysis: learningState.last_analysis,
@@ -741,6 +828,8 @@ export async function registerRoutes(
         performance_history: performanceHistory.slice(-20),
         pattern_stats: patternStats,
         trend,
+        journal_entries: journal.slice(-50).reverse(),
+        learning_config: learningConfig,
       });
     } catch (err) {
       console.error("Learning endpoint error:", err);
@@ -766,7 +855,7 @@ export async function registerRoutes(
       writeJsonFile(LEARNING_STATE_FILE, learningState);
 
       // Also update bot config
-      const config = readJsonFile(CONFIG_FILE, {});
+      const config = readJsonFile<Partial<BotConfig>>(CONFIG_FILE, {});
       config.enable_adaptive_learning = enabled;
       writeJsonFile(CONFIG_FILE, config);
 

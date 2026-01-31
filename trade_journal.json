@@ -1,0 +1,46 @@
+[
+  {
+    "trade_id": "paper_0_1769103016",
+    "type": "exit",
+    "timestamp": "2026-01-31T01:00:04.334792",
+    "exit_price": 0.030202544492858113,
+    "profit": 33.3145863183977,
+    "is_win": true,
+    "reason": "SL hit",
+    "duration_minutes": 11969.803462437789,
+    "duration_hours": 199.49672437396313,
+    "lessons_learned": [
+      "Trade outcome: WIN with 33.31 profit"
+    ]
+  },
+  {
+    "trade_id": "paper_1_1769106737",
+    "type": "exit",
+    "timestamp": "2026-01-31T01:00:04.477468",
+    "exit_price": 0.030194708052181312,
+    "profit": -3.0745831607197873,
+    "is_win": false,
+    "reason": "SL hit",
+    "duration_minutes": 11907.789519457023,
+    "duration_hours": 198.46315865761704,
+    "lessons_learned": [
+      "Stop loss triggered - consider if SL was too tight",
+      "Low entry quality (0) may have indicated weak setup",
+      "Low validation score - more confirmation may be needed"
+    ]
+  },
+  {
+    "trade_id": "paper_2_1769106974",
+    "type": "exit",
+    "timestamp": "2026-01-31T01:00:04.619840",
+    "exit_price": 0.03020060505312964,
+    "profit": 0.49882390132694976,
+    "is_win": true,
+    "reason": "SL hit",
+    "duration_minutes": 11903.827341930071,
+    "duration_hours": 198.3971223655012,
+    "lessons_learned": [
+      "Trade outcome: WIN with 0.50 profit"
+    ]
+  }
+]
