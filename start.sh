@@ -14,11 +14,13 @@ echo "Starting at: $(date)"
 echo "PORT: $PORT"
 
 # Add Nix library paths to LD_LIBRARY_PATH to ensure C extensions work
-for path in /nix/store/*-gcc-*-lib/lib; do
+# Include gcc libs and zlib
+for path in /nix/store/*-gcc-*-lib/lib /nix/store/*-zlib-1.3*/lib; do
     if [ -d "$path" ]; then
         export LD_LIBRARY_PATH="$path${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
     fi
 done
+echo "LD_LIBRARY_PATH set: $LD_LIBRARY_PATH"
 
 # Cleanup any stale venv from previous runs
 if [ -d ".venv" ]; then
