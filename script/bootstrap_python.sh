@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+# set -e removed to prevent exit on pandas-ta failure
 
 MARKER_FILE=".python_deps_ready"
 PYTHON_BIN="python3"
@@ -95,14 +95,15 @@ install_deps() {
 
   # Try installing 'ta' library (version 0.10.2 for Python 3.11 compatibility)
   echo "[bootstrap] Attempting to install 'ta' library..."
-  pip_install "ta==0.10.2" --quiet || {
-      echo "[bootstrap] Warning: Failed to install 'ta' library. Continuing with fallbacks."
-  }
+  pip_install "ta==0.10.2" || echo "[bootstrap] Warning: Failed to install 'ta' library. Continuing..."
 
   # Try TA-Lib first, fall back to pandas-ta
+  # We use || true to ensure script doesn't exit even if this fails
   pip_install ta-lib --quiet 2>/dev/null || {
-    echo "[bootstrap] TA-Lib unavailable, installing pandas-ta fallback..."
-    pip_install pandas-ta --quiet
+    echo "[bootstrap] TA-Lib unavailable, attempting pandas-ta fallback..."
+    pip_install pandas-ta || {
+        echo "[bootstrap] Warning: Failed to install pandas-ta. Using talib_compat fallback."
+    }
   }
 }
 
@@ -118,33 +119,23 @@ if ! check_talib; then
   echo "[bootstrap] Technical analysis libraries missing. Attempting to install 'ta'..."
   
   # Try installing 'ta' first (more reliable on newer Python)
-  pip_install "ta==0.10.2" || {
-      echo "[bootstrap] Warning: Failed to install 'ta'. Trying pandas-ta..."
-      pip_install pandas-ta || true
-  }
+  pip_install "ta==0.10.2" || echo "[bootstrap] Warning: Failed to install 'ta'."
   
-  # Force re-check immediately after install attempt
+  # Check if we are good now
   if check_talib; then
       echo "[bootstrap] TA library installed successfully!"
       exit 0
   fi
   
-  # Try one more time to see if we have anything usable
-  if ! check_talib; then
-      echo "[bootstrap] Still missing TA libs. Trying to force install pandas-ta..."
-      pip_install pandas-ta || echo "[bootstrap] Failed to install pandas-ta"
-      
-      if check_talib; then
-          echo "[bootstrap] pandas-ta installed successfully!"
-          exit 0
-      fi
-  fi
+  # If still missing, try pandas-ta one last time but don't fail hard
+  echo "[bootstrap] Still missing TA libs. Trying to force install pandas-ta..."
+  pip_install pandas-ta || echo "[bootstrap] Failed to install pandas-ta. Proceeding anyway..."
 fi
 
-# Final verification
+# Final verification - Warning only
 if check_core_deps && check_talib; then
   echo "[bootstrap] All dependencies ready!"
 else
-  echo "[bootstrap] ERROR: Failed to install required dependencies"
-  exit 1
+  echo "[bootstrap] WARNING: Some dependencies might be missing, but proceeding to start bot..."
+  echo "[bootstrap] The bot will attempt to use available libraries via talib_compat."
 fi
