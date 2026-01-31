@@ -69,13 +69,21 @@ try:
     print("[bootstrap] TA-Lib OK", getattr(talib, "__version__", "unknown"))
     sys.exit(0)
 except Exception:
+    # Check for 'ta' library
+    try:
+        import ta
+        print("[bootstrap] 'ta' library OK")
+        sys.exit(0)
+    except ImportError:
+        pass
+
     print("[bootstrap] TA-Lib not available, checking pandas-ta...")
     try:
         import pandas_ta
         print("[bootstrap] pandas-ta OK (fallback)")
         sys.exit(0)
     except ImportError:
-        print("[bootstrap] Neither talib nor pandas-ta available")
+        print("[bootstrap] Neither talib, ta, nor pandas-ta available")
         sys.exit(1)
 PY
 }
@@ -107,8 +115,19 @@ fi
 
 # Verify technical analysis library
 if ! check_talib; then
-  echo "[bootstrap] Installing pandas-ta..."
-  pip_install pandas-ta --quiet
+  echo "[bootstrap] Technical analysis libraries missing. Attempting to install 'ta'..."
+  
+  # Try installing 'ta' first (more reliable on newer Python)
+  pip_install "ta==0.10.2" --quiet || {
+      echo "[bootstrap] Warning: Failed to install 'ta'. Trying pandas-ta..."
+      pip_install pandas-ta --quiet || true
+  }
+  
+  # Try one more time to see if we have anything usable
+  if ! check_talib; then
+      echo "[bootstrap] Still missing TA libs. Trying to force install pandas-ta..."
+      pip_install pandas-ta --quiet || echo "[bootstrap] Failed to install pandas-ta"
+  fi
 fi
 
 # Final verification
