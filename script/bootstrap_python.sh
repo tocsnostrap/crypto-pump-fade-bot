@@ -118,15 +118,15 @@ if ! check_talib; then
   echo "[bootstrap] Technical analysis libraries missing. Attempting to install 'ta'..."
   
   # Try installing 'ta' first (more reliable on newer Python)
-  pip_install "ta==0.10.2" --quiet || {
+  pip_install "ta==0.10.2" || {
       echo "[bootstrap] Warning: Failed to install 'ta'. Trying pandas-ta..."
-      pip_install pandas-ta --quiet || true
+      pip_install pandas-ta || true
   }
   
   # Try one more time to see if we have anything usable
   if ! check_talib; then
       echo "[bootstrap] Still missing TA libs. Trying to force install pandas-ta..."
-      pip_install pandas-ta --quiet || echo "[bootstrap] Failed to install pandas-ta"
+      pip_install pandas-ta || echo "[bootstrap] Failed to install pandas-ta"
   fi
 fi
 
