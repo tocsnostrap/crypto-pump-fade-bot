@@ -1,1 +1,217 @@
-[]
+[
+  {
+    "ex": "gate",
+    "sym": "\u6211\u8e0f\u9a6c\u6765\u4e86/USDT:USDT",
+    "trade": {
+      "id": "paper_0_1769903572",
+      "entry": 0.04991653885058933,
+      "market_price_at_entry": 0.04997,
+      "pump_high": 0.053017,
+      "recent_low": 0.03258,
+      "swing_high": 0.053521,
+      "sl": 0.0524123657931188,
+      "tp_prices": [
+        0.040386934,
+        0.036953518,
+        0.034909817999999995
+      ],
+      "staged_exit_levels": [
+        {
+          "fib": 0.618,
+          "pct": 0.1
+        },
+        {
+          "fib": 0.786,
+          "pct": 0.2
+        },
+        {
+          "fib": 0.886,
+          "pct": 0.7
+        }
+      ],
+      "amount": 121467.74932369121,
+      "leverage": 5,
+      "contract_size": 1,
+      "entry_fee": 3.031624814104839,
+      "total_fees": 3.031624814104839,
+      "funding_payments": 0,
+      "last_funding_ts": 1769903572.1669583,
+      "exits_taken": [],
+      "entry_ts": 1769903572.1669614,
+      "entry_quality": 96,
+      "validation_details": {
+        "symbol": "\u6211\u8e0f\u9a6c\u6765\u4e86/USDT:USDT",
+        "exchange": "gate",
+        "pct_change": 82.67,
+        "timestamp": "2026-01-31T23:37:36.390099",
+        "volume_profile": {
+          "avg_volume": 2793.5416666666665,
+          "total_volume": 67045.0,
+          "max_volume": 17593.0,
+          "volume_dominance": 0.26240584681930046,
+          "elevated_candles": 2,
+          "is_single_spike": false,
+          "is_sustained": false
+        },
+        "multi_timeframe": {
+          "rsi_1h": 77.26717751253086,
+          "rsi_4h": 75.94034665263169,
+          "threshold": 65
+        },
+        "cross_exchange": {
+          "skipped": true
+        },
+        "spread_check": {
+          "bid": 0.052423,
+          "ask": 0.052579,
+          "spread_pct": 0.29424524209216546,
+          "max_allowed": 0.5
+        },
+        "holders": {
+          "skipped": true
+        },
+        "validation_score": 2
+      },
+      "validation_score": 2,
+      "pump_pct": 82.67,
+      "pump_window_hours": 24,
+      "funding_rate_entry": 1.2e-05,
+      "rsi_peak": 88.8109623616347,
+      "holders_details": {
+        "skipped": true
+      },
+      "entry_timeframe": "5m",
+      "features": {
+        "symbol": "\u6211\u8e0f\u9a6c\u6765\u4e86/USDT:USDT",
+        "exchange": "gate",
+        "pct_change": 82.67,
+        "timestamp": "2026-01-31T23:37:36.390099",
+        "volume_profile": {
+          "avg_volume": 2793.5416666666665,
+          "total_volume": 67045.0,
+          "max_volume": 17593.0,
+          "volume_dominance": 0.26240584681930046,
+          "elevated_candles": 2,
+          "is_single_spike": false,
+          "is_sustained": false
+        },
+        "multi_timeframe": {
+          "rsi_1h": 77.26717751253086,
+          "rsi_4h": 75.94034665263169,
+          "threshold": 65
+        },
+        "cross_exchange": {
+          "skipped": true
+        },
+        "spread_check": {
+          "bid": 0.052423,
+          "ask": 0.052579,
+          "spread_pct": 0.29424524209216546,
+          "max_allowed": 0.5
+        },
+        "holders": {
+          "skipped": true
+        },
+        "validation_score": 2,
+        "entry_timing": {
+          "atr_filter": {
+            "atr": 0.002677070035391291,
+            "atr_pct": 5.354140070782583,
+            "min_atr_pct": 0.4,
+            "max_atr_pct": 15.0,
+            "atr_ok": true
+          },
+          "bollinger_bands": {
+            "upper_band": 0.04939716519221256,
+            "last_high": 0.051332,
+            "last_close": 0.05,
+            "above_upper": true,
+            "extension_pct": 3.9168944214889283,
+            "min_extension_pct": 0.2,
+            "meets_extension": true
+          },
+          "volume_decline": {
+            "peak_volume": 24208.0,
+            "last_volume": 6204.0,
+            "decline_ratio": 0.2562789160608063,
+            "is_declining": true
+          },
+          "ema_breakdown": {
+            "skipped": true
+          },
+          "entry_drawdown": {
+            "drawdown_pct": 6.578726107509195,
+            "min_required": 4.0,
+            "lookback_candles": 24,
+            "ok": true
+          },
+          "lower_highs": {
+            "lower_high_count": 1,
+            "min_required": 2,
+            "has_enough": false
+          },
+          "structure_break": {
+            "has_lower_low": false,
+            "has_declining_lows": true,
+            "has_lower_high": false,
+            "bearish_closes": 0,
+            "n_candles": 3
+          },
+          "blowoff_pattern": {
+            "blowoff_candles": 2,
+            "volume_declining": true,
+            "high_volatility": false,
+            "signals": [
+              {
+                "wick_ratio": 0.6714918759231909,
+                "has_long_wick": false,
+                "is_bearish": false
+              },
+              {
+                "wick_ratio": 3.472792149866201,
+                "has_long_wick": true,
+                "is_bearish": false
+              },
+              {
+                "wick_ratio": 4.774193548387071,
+                "has_long_wick": true,
+                "is_bearish": false
+              }
+            ]
+          },
+          "rsi_pullback": {
+            "current_rsi": 86.99177936523066,
+            "recent_peak": 87.24282816574903,
+            "pullback": 0.25104880051837597,
+            "required_pullback": 3.0,
+            "lookback": 6
+          },
+          "open_interest": {
+            "error": "unavailable",
+            "ok": true
+          },
+          "fade_signals": {
+            "valid": false,
+            "rsi": 86.99177936523066
+          },
+          "fade_required": true,
+          "pattern_count": 4,
+          "entry_quality": 96,
+          "should_enter": true,
+          "min_patterns": 1,
+          "min_quality": 58
+        },
+        "entry_quality": 96,
+        "entry_price": 0.04997,
+        "pump_high": 0.053017,
+        "pump_pct": 82.67,
+        "pump_window_hours": 24,
+        "change_source": "24h",
+        "funding_rate": 1.2e-05,
+        "rsi_peak": 88.8109623616347,
+        "trade_id": "paper_0_1769903572",
+        "leverage": 5
+      }
+    }
+  }
+]

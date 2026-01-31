@@ -42,5 +42,49 @@
     "lessons_learned": [
       "Trade outcome: WIN with 0.50 profit"
     ]
+  },
+  {
+    "trade_id": "paper_0_1769903572",
+    "type": "entry",
+    "symbol": "\u6211\u8e0f\u9a6c\u6765\u4e86/USDT:USDT",
+    "exchange": "gate",
+    "timestamp": "2026-01-31T23:52:52.171834",
+    "entry_price": 0.04997,
+    "features": {
+      "pump_pct": 82.67,
+      "pump_window_hours": 24,
+      "entry_quality": 96,
+      "validation_score": 2,
+      "rsi_peak": 88.8109623616347,
+      "funding_rate": 1.2e-05,
+      "bb_above": "True",
+      "volume_declining": "True",
+      "lower_highs_count": 1,
+      "structure_break": "False",
+      "rsi_pullback": 0.25104880051837597,
+      "pattern_count": "4",
+      "atr_pct": 5.354140070782583
+    },
+    "reasoning": {
+      "entry_signals": [
+        "Price above upper BB",
+        "Volume declining"
+      ],
+      "validation_passed": [
+        "MTF RSI 1h: 77.3"
+      ],
+      "confidence_factors": [
+        "Entry quality: 96",
+        "Pattern count: 4"
+      ],
+      "risk_factors": [
+        "Pump: 82.7%",
+        "Funding: 0.0012%"
+      ]
+    },
+    "market_context": {
+      "volume_usdt": null,
+      "market_cap_rank": null
+    }
   }
 ]
