@@ -2297,5 +2297,59 @@
     "outcome": {
       "reason": "fake_pump_single_spike"
     }
+  },
+  {
+    "timestamp": "2026-01-31T01:00:04.332427",
+    "symbol": "SENT/USDT:USDT",
+    "exchange": "gate",
+    "action": "exit",
+    "features": {},
+    "outcome": {
+      "trade_id": "paper_0_1769103016",
+      "exit_price": 0.030202544492858113,
+      "net_profit": 33.3145863183977,
+      "gross_profit": 53.030305882260784,
+      "fees": 0.9548152524847795,
+      "funding": -18.760904311378308,
+      "reason": "SL hit",
+      "duration_min": 11969.803462437789,
+      "max_drawdown_pct": -34.490512690906186
+    }
+  },
+  {
+    "timestamp": "2026-01-31T01:00:04.475256",
+    "symbol": "SENT/USDT:USDT",
+    "exchange": "gate",
+    "action": "exit",
+    "features": {},
+    "outcome": {
+      "trade_id": "paper_1_1769106737",
+      "exit_price": 0.030194708052181312,
+      "net_profit": -3.0745831607197873,
+      "gross_profit": 8.444830883578673,
+      "fees": 0.5470026366821967,
+      "funding": -10.972411407616264,
+      "reason": "SL hit",
+      "duration_min": 11907.789519457023,
+      "max_drawdown_pct": -40.031671154609185
+    }
+  },
+  {
+    "timestamp": "2026-01-31T01:00:04.617689",
+    "symbol": "SENT/USDT:USDT",
+    "exchange": "gate",
+    "action": "exit",
+    "features": {},
+    "outcome": {
+      "trade_id": "paper_2_1769106974",
+      "exit_price": 0.03020060505312964,
+      "net_profit": 0.49882390132694976,
+      "gross_profit": 6.6817660404056465,
+      "fees": 0.29461221850041686,
+      "funding": -5.88832992057828,
+      "reason": "SL hit",
+      "duration_min": 11903.827341930071,
+      "max_drawdown_pct": -39.02642677705595
+    }
   }
 ]

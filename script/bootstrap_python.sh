@@ -85,6 +85,12 @@ install_deps() {
   pip_install --upgrade pip --quiet
   pip_install "numpy<2.3" "pandas>=2.0" ccxt python-socketio websocket-client --quiet || true
 
+  # Try installing 'ta' library (version 0.10.2 for Python 3.11 compatibility)
+  echo "[bootstrap] Attempting to install 'ta' library..."
+  pip_install "ta==0.10.2" --quiet || {
+      echo "[bootstrap] Warning: Failed to install 'ta' library. Continuing with fallbacks."
+  }
+
   # Try TA-Lib first, fall back to pandas-ta
   pip_install ta-lib --quiet 2>/dev/null || {
     echo "[bootstrap] TA-Lib unavailable, installing pandas-ta fallback..."
