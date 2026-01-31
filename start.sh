@@ -13,6 +13,13 @@ echo "=== Pump Fade Trading Bot Production Startup ==="
 echo "Starting at: $(date)"
 echo "PORT: $PORT"
 
+# Add Nix library paths to LD_LIBRARY_PATH to ensure C extensions work
+for path in /nix/store/*-gcc-*-lib/lib; do
+    if [ -d "$path" ]; then
+        export LD_LIBRARY_PATH="$path${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    fi
+done
+
 # Cleanup any stale venv from previous runs
 if [ -d ".venv" ]; then
     echo "Removing stale .venv directory..."
@@ -43,7 +50,7 @@ cleanup() {
     exit 0
 }
 
-trap cleanup SIGINT SIGTERM EXIT
+trap cleanup INT TERM EXIT
 
 # Start Python trading bot in background with simple restart loop
 (
