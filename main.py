@@ -2990,6 +2990,12 @@ def main():
                         
                     volume = ticker.get('quoteVolume', 0) or 0
                     if volume < config['min_volume_usdt']:
+                        # Log pumps with significant % change that fail volume filter
+                        pct_quick = ticker.get('percentage', 0) or 0
+                        if pct_quick and pct_quick >= config.get('min_pump_pct', 60) * 0.5:
+                            save_signal(ex_name, symbol, 'pump_rejected', current_price,
+                                       f"Volume ${volume:,.0f} below ${config['min_volume_usdt']:,.0f} minimum",
+                                       change_pct=pct_quick)
                         continue
 
                     info = ticker.get('info', {})
