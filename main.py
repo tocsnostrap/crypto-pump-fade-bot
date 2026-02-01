@@ -2452,24 +2452,25 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
                 # Skip old TP logic if using staged exits
                 if i not in to_close:
                     # Trailing stop update
-                    profit_pct = (entry - current_price) / entry if entry > 0 else 0
-                    effective_trailing_stop = base_trailing_stop_pct
-                    if config.get('enable_funding_bias', True) and funding_rate is not None:
-                        hold_threshold = config.get('funding_hold_threshold', 0.0001)
-                        favorable = is_funding_favorable(funding_rate, config)
-                        if favorable is False and abs(funding_rate) >= hold_threshold:
-                            tightened = base_trailing_stop_pct * config.get('funding_trailing_tighten_factor', 0.8)
-                            effective_trailing_stop = max(config.get('funding_trailing_min_pct', 0.03), tightened)
+                    if base_trailing_stop_pct > 0:
+                        profit_pct = (entry - current_price) / entry if entry > 0 else 0
+                        effective_trailing_stop = base_trailing_stop_pct
+                        if config.get('enable_funding_bias', True) and funding_rate is not None:
+                            hold_threshold = config.get('funding_hold_threshold', 0.0001)
+                            favorable = is_funding_favorable(funding_rate, config)
+                            if favorable is False and abs(funding_rate) >= hold_threshold:
+                                tightened = base_trailing_stop_pct * config.get('funding_trailing_tighten_factor', 0.8)
+                                effective_trailing_stop = max(config.get('funding_trailing_min_pct', 0.03), tightened)
 
-                    if profit_pct > effective_trailing_stop:
-                        new_sl = current_price * (1 + effective_trailing_stop)
-                        if new_sl < sl:
-                            open_trades[i]['trade']['sl'] = new_sl
-                            if not paper_mode and trade_data.get('amount', 0) > 0:
-                                cancel_exchange_order(ex, trade['sym'], trade_data.get('sl_order_id'))
-                                sl_order = place_exchange_stop_loss(ex, trade['sym'], trade_data['amount'], new_sl)
-                                open_trades[i]['trade']['sl_order_id'] = sl_order.get('id') if sl_order else None
-                            print(f"[{datetime.now()}] Trailing stop updated for {trade['sym']}: {new_sl:.4f}")
+                        if profit_pct > effective_trailing_stop:
+                            new_sl = current_price * (1 + effective_trailing_stop)
+                            if new_sl < sl:
+                                open_trades[i]['trade']['sl'] = new_sl
+                                if not paper_mode and trade_data.get('amount', 0) > 0:
+                                    cancel_exchange_order(ex, trade['sym'], trade_data.get('sl_order_id'))
+                                    sl_order = place_exchange_stop_loss(ex, trade['sym'], trade_data['amount'], new_sl)
+                                    open_trades[i]['trade']['sl_order_id'] = sl_order.get('id') if sl_order else None
+                                print(f"[{datetime.now()}] Trailing stop updated for {trade['sym']}: {new_sl:.4f}")
             else:
                 # Original single TP logic (fallback)
                 fib_levels = calc_fib_levels(pump_high, recent_low, config)
@@ -2479,24 +2480,25 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
                         to_close.append(i)
                         break
                 else:
-                    profit_pct = (entry - current_price) / entry if entry > 0 else 0
-                    effective_trailing_stop = base_trailing_stop_pct
-                    if config.get('enable_funding_bias', True) and funding_rate is not None:
-                        hold_threshold = config.get('funding_hold_threshold', 0.0001)
-                        favorable = is_funding_favorable(funding_rate, config)
-                        if favorable is False and abs(funding_rate) >= hold_threshold:
-                            tightened = base_trailing_stop_pct * config.get('funding_trailing_tighten_factor', 0.8)
-                            effective_trailing_stop = max(config.get('funding_trailing_min_pct', 0.03), tightened)
+                    if base_trailing_stop_pct > 0:
+                        profit_pct = (entry - current_price) / entry if entry > 0 else 0
+                        effective_trailing_stop = base_trailing_stop_pct
+                        if config.get('enable_funding_bias', True) and funding_rate is not None:
+                            hold_threshold = config.get('funding_hold_threshold', 0.0001)
+                            favorable = is_funding_favorable(funding_rate, config)
+                            if favorable is False and abs(funding_rate) >= hold_threshold:
+                                tightened = base_trailing_stop_pct * config.get('funding_trailing_tighten_factor', 0.8)
+                                effective_trailing_stop = max(config.get('funding_trailing_min_pct', 0.03), tightened)
 
-                    if profit_pct > effective_trailing_stop:
-                        new_sl = current_price * (1 + effective_trailing_stop)
-                        if new_sl < sl:
-                            open_trades[i]['trade']['sl'] = new_sl
-                            if not paper_mode and trade_data.get('amount', 0) > 0:
-                                cancel_exchange_order(ex, trade['sym'], trade_data.get('sl_order_id'))
-                                sl_order = place_exchange_stop_loss(ex, trade['sym'], trade_data['amount'], new_sl)
-                                open_trades[i]['trade']['sl_order_id'] = sl_order.get('id') if sl_order else None
-                            print(f"[{datetime.now()}] Trailing stop updated for {trade['sym']}: {new_sl:.4f}")
+                        if profit_pct > effective_trailing_stop:
+                            new_sl = current_price * (1 + effective_trailing_stop)
+                            if new_sl < sl:
+                                open_trades[i]['trade']['sl'] = new_sl
+                                if not paper_mode and trade_data.get('amount', 0) > 0:
+                                    cancel_exchange_order(ex, trade['sym'], trade_data.get('sl_order_id'))
+                                    sl_order = place_exchange_stop_loss(ex, trade['sym'], trade_data['amount'], new_sl)
+                                    open_trades[i]['trade']['sl_order_id'] = sl_order.get('id') if sl_order else None
+                                print(f"[{datetime.now()}] Trailing stop updated for {trade['sym']}: {new_sl:.4f}")
 
             # Time exit (configurable, with funding bias)
             if i not in to_close:
