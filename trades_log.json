@@ -211,7 +211,13 @@
         "rsi_peak": 88.8109623616347,
         "trade_id": "paper_0_1769903572",
         "leverage": 5
-      }
+      },
+      "current_price": 0.049657,
+      "unrealized_pnl": 28.49397522903906,
+      "pnl_percent": 0.5199456063373823,
+      "last_update": "2026-02-01T00:00:04.239096",
+      "funding_rate_current": 0.000399,
+      "max_drawdown_pct": -0.35150904580114856
     }
   }
 ]

@@ -2788,6 +2788,11 @@ def process_entry_watchlist(ex_name, ex, tickers, entry_watchlist, open_trades, 
                 'sym': symbol,
                 'trade': trade_info
             })
+            
+            # Log successful entry as signal
+            save_signal(ex_name, symbol, 'trade_entered', current_price,
+                       f"SHORT entered: +{watch.get('pct_change', 0):.1f}% pump, RSI {watch.get('rsi_peak', 0):.1f}, Quality {entry_quality}",
+                       change_pct=watch.get('pct_change'), rsi=watch.get('rsi_peak'))
 
             if config.get('enable_trade_logging', True):
                 combined_features = {

@@ -2489,5 +2489,43 @@
       "leverage": 5
     },
     "outcome": null
+  },
+  {
+    "timestamp": "2026-02-01T00:00:09.791674",
+    "symbol": "MEMES/USDT:USDT",
+    "exchange": "gate",
+    "action": "skip",
+    "features": {
+      "symbol": "MEMES/USDT:USDT",
+      "exchange": "gate",
+      "pct_change": 89.7,
+      "timestamp": "2026-02-01T00:00:09.198964",
+      "volume_profile": {
+        "avg_volume": 75440.25,
+        "total_volume": 1810566.0,
+        "max_volume": 666055.0,
+        "volume_dominance": 0.36787115189393815,
+        "elevated_candles": 4,
+        "is_single_spike": false,
+        "is_sustained": true
+      },
+      "multi_timeframe": {
+        "rsi_1h": 74.07315263827174,
+        "rsi_4h": 53.548109653449025,
+        "threshold": 65
+      },
+      "cross_exchange": {
+        "skipped": true
+      },
+      "spread_check": {
+        "bid": 0.006881,
+        "ask": 0.006945,
+        "spread_pct": 0.9142857142857117,
+        "max_allowed": 0.5
+      }
+    },
+    "outcome": {
+      "reason": "abnormal_spread_manipulation"
+    }
   }
 ]
