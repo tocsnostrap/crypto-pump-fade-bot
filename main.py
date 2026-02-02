@@ -2436,7 +2436,9 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
                             required_tps = 0
                         if required_tps and len(exits_taken) == required_tps:
                             buffer_pct = config.get('breakeven_buffer_pct', 0.001)
-                            new_sl = entry * (1 + buffer_pct)
+                            # For SHORT trades, BE needs to be BELOW entry to cover fees.
+                            # entry * (1 - buffer) gives a lower price.
+                            new_sl = entry * (1 - buffer_pct)
                             if new_sl < sl:
                                 open_trades[i]['trade']['sl'] = new_sl
                                 if not paper_mode and trade_data.get('amount', 0) > 0:
