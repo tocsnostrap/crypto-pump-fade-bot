@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
+import * as dbHelper from "./db-helper";
 
 const STATE_FILE = path.join(process.cwd(), "pump_state.json");
 const TRADES_FILE = path.join(process.cwd(), "trades_log.json");
@@ -257,9 +258,29 @@ function getOpenTrades(): OpenTrade[] {
   return readJsonFile<OpenTrade[]>(TRADES_FILE, []);
 }
 
+async function getOpenTradesWithFallback(): Promise<OpenTrade[]> {
+  const local = getOpenTrades();
+  if (local.length > 0) return local;
+  try {
+    const dbData = await dbHelper.getState("open_trades");
+    if (dbData && Array.isArray(dbData) && dbData.length > 0) return dbData as OpenTrade[];
+  } catch {}
+  return local;
+}
+
 function getClosedTrades(): ClosedTrade[] {
   const closedTradesFile = path.join(process.cwd(), "closed_trades.json");
   return readJsonFile<ClosedTrade[]>(closedTradesFile, []);
+}
+
+async function getClosedTradesWithFallback(): Promise<ClosedTrade[]> {
+  const local = getClosedTrades();
+  if (local.length > 0) return local;
+  try {
+    const dbData = await dbHelper.getClosedTrades();
+    if (dbData.length > 0) return dbData as ClosedTrade[];
+  } catch {}
+  return local;
 }
 
 function getBalance(): { balance: number; last_updated?: string } {
@@ -269,8 +290,28 @@ function getBalance(): { balance: number; last_updated?: string } {
   });
 }
 
+async function getBalanceWithFallback(): Promise<{ balance: number; last_updated?: string }> {
+  const local = getBalance();
+  if (local.balance !== DEFAULT_CONFIG.starting_capital) return local;
+  try {
+    const dbData = await dbHelper.getState("balance");
+    if (dbData && dbData.balance) return dbData;
+  } catch {}
+  return local;
+}
+
 function getSignals(): Signal[] {
   return readJsonFile<Signal[]>(SIGNALS_FILE, []);
+}
+
+async function getSignalsWithFallback(): Promise<Signal[]> {
+  const local = getSignals();
+  if (local.length > 0) return local;
+  try {
+    const dbData = await dbHelper.getSignals();
+    if (dbData.length > 0) return dbData as Signal[];
+  } catch {}
+  return local;
 }
 
 function getPumpState(): Record<string, Record<string, { price: number; ts: number }>> {
@@ -439,14 +480,15 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Get full dashboard data
-  app.get("/api/dashboard", (_req, res) => {
+  app.get("/api/dashboard", async (_req, res) => {
     try {
       const config = getConfig();
-      const openTrades = getOpenTrades();
-      const closedTrades = getClosedTrades();
-      const balanceData = getBalance();
-      const signals = getSignals();
+      const [openTrades, closedTrades, balanceData, signals] = await Promise.all([
+        getOpenTradesWithFallback(),
+        getClosedTradesWithFallback(),
+        getBalanceWithFallback(),
+        getSignalsWithFallback(),
+      ]);
       const pumpState = getPumpState();
 
       const currentBalance = balanceData.balance || config.starting_capital;
@@ -469,8 +511,8 @@ export async function registerRoutes(
         status,
         metrics,
         open_trades: openTrades,
-        closed_trades: closedTrades.slice(-50).reverse(), // Last 50, newest first
-        signals: signals.slice(-20).reverse(), // Last 20 signals
+        closed_trades: closedTrades.slice(-50).reverse(),
+        signals: signals.slice(-20).reverse(),
         balance_history: balanceHistory,
       });
     } catch (err) {
@@ -511,43 +553,41 @@ export async function registerRoutes(
     }
   });
 
-  // Get open trades
-  app.get("/api/trades/open", (_req, res) => {
+  app.get("/api/trades/open", async (_req, res) => {
     try {
-      const trades = getOpenTrades();
+      const trades = await getOpenTradesWithFallback();
       res.json(trades);
     } catch (err) {
       res.status(500).json({ error: "Failed to load trades" });
     }
   });
 
-  // Get trade history
-  app.get("/api/trades/history", (_req, res) => {
+  app.get("/api/trades/history", async (_req, res) => {
     try {
-      const trades = getClosedTrades();
+      const trades = await getClosedTradesWithFallback();
       res.json(trades.slice(-100).reverse());
     } catch (err) {
       res.status(500).json({ error: "Failed to load trade history" });
     }
   });
 
-  // Get signals
-  app.get("/api/signals", (_req, res) => {
+  app.get("/api/signals", async (_req, res) => {
     try {
-      const signals = getSignals();
+      const signals = await getSignalsWithFallback();
       res.json(signals.slice(-50).reverse());
     } catch (err) {
       res.status(500).json({ error: "Failed to load signals" });
     }
   });
 
-  // Get metrics
-  app.get("/api/metrics", (_req, res) => {
+  app.get("/api/metrics", async (_req, res) => {
     try {
       const config = getConfig();
-      const openTrades = getOpenTrades();
-      const closedTrades = getClosedTrades();
-      const balanceData = getBalance();
+      const [openTrades, closedTrades, balanceData] = await Promise.all([
+        getOpenTradesWithFallback(),
+        getClosedTradesWithFallback(),
+        getBalanceWithFallback(),
+      ]);
 
       const currentBalance = balanceData.balance || config.starting_capital;
       const metrics = calculateMetrics(
@@ -563,10 +603,9 @@ export async function registerRoutes(
     }
   });
 
-  // Get balance
-  app.get("/api/balance", (_req, res) => {
+  app.get("/api/balance", async (_req, res) => {
     try {
-      const balanceData = getBalance();
+      const balanceData = await getBalanceWithFallback();
       res.json(balanceData);
     } catch (err) {
       res.status(500).json({ error: "Failed to load balance" });

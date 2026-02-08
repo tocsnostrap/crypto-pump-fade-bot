@@ -1,12 +1,10 @@
-# Pump Fade Bot v1.1.0 - Updated Jan 25, 2026
-# New: Adaptive Learning Dashboard Tab
-modules = ["nodejs-20", "web", "postgresql-16", "python-3.11"]
+modules = ["nodejs-20", "web", "python-3.11", "postgresql-16"]
 run = "bash start.sh"
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["glibcLocales", "ta-lib", "nodejs_20", "python311", "python311Packages.ta"]
+packages = ["glibcLocales", "nodejs_20", "python311", "python311Packages.ta", "ta-lib"]
 
 [[ports]]
 localPort = 5000

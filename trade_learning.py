@@ -16,6 +16,12 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from typing import Dict, List, Tuple, Optional, Any
 
+try:
+    import db_persistence as dbp
+    DB_AVAILABLE = True
+except ImportError:
+    DB_AVAILABLE = False
+
 # File paths
 JOURNAL_FILE = "trade_journal.json"
 LEARNING_STATE_FILE = "learning_state.json"
@@ -56,6 +62,14 @@ class TradeJournal:
     """
     
     def __init__(self):
+        if DB_AVAILABLE:
+            try:
+                db_entries = dbp.load_trade_journal()
+                if db_entries:
+                    self.entries = db_entries
+                    return
+            except Exception:
+                pass
         self.entries = load_json(JOURNAL_FILE, [])
     
     def log_entry(self, trade_id: str, symbol: str, exchange: str, 
@@ -193,10 +207,15 @@ class TradeJournal:
         }
     
     def _save(self) -> None:
-        """Save journal to file."""
+        """Save journal to file and DB."""
         # Keep last 500 entries
         self.entries = self.entries[-500:]
         save_json(JOURNAL_FILE, self.entries)
+        if DB_AVAILABLE and self.entries:
+            try:
+                dbp.append_trade_journal(self.entries[-1])
+            except Exception:
+                pass
 
 
 class PatternAnalyzer:

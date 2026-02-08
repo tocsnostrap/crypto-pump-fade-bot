@@ -14,6 +14,13 @@ import urllib.parse
 import urllib.request
 import urllib.error
 
+try:
+    import db_persistence as dbp
+    DB_AVAILABLE = True
+except ImportError:
+    DB_AVAILABLE = False
+    print(f"[{datetime.now()}] Warning: db_persistence module not available, using JSON files only")
+
 # Import learning system (graceful fallback if not available)
 try:
     from trade_learning import (
@@ -602,6 +609,12 @@ def save_signal(exchange, symbol, signal_type, price, message, change_pct=None, 
         
         atomic_write_json(SIGNALS_FILE, signals)
 
+        if DB_AVAILABLE:
+            try:
+                dbp.save_signal(signal)
+            except Exception as db_err:
+                print(f"[{datetime.now()}] DB save_signal error: {db_err}")
+
         # Send push notification only for allowed signal types
         if should_notify_signal(signal_type):
             title, body = build_alert_message(exchange, symbol, signal_type, price, message, change_pct, funding_rate, rsi)
@@ -632,6 +645,12 @@ def save_closed_trade(ex_name, symbol, entry, exit_price, profit, reason):
         trades.append(trade)
         
         atomic_write_json(CLOSED_TRADES_FILE, trades)
+
+        if DB_AVAILABLE:
+            try:
+                dbp.append_closed_trade(trade)
+            except Exception as db_err:
+                print(f"[{datetime.now()}] DB append_closed_trade error: {db_err}")
     except Exception as e:
         print(f"[{datetime.now()}] Error saving closed trade: {e}")
 
@@ -673,7 +692,23 @@ def load_symbols(exchanges):
     return symbols
 
 def load_state(config):
-    """Load previous state from JSON files"""
+    """Load previous state from DB first, fall back to JSON files"""
+    starting_capital = config['starting_capital']
+
+    if DB_AVAILABLE:
+        try:
+            prev_data = dbp.load_pump_state()
+            open_trades = dbp.load_open_trades()
+            current_balance = dbp.load_balance(starting_capital)
+            if prev_data or open_trades or current_balance != starting_capital:
+                print(f"[{datetime.now()}] Loaded state from database")
+                atomic_write_json(STATE_FILE, prev_data)
+                atomic_write_json(TRADES_FILE, open_trades)
+                atomic_write_json(BALANCE_FILE, {'balance': current_balance, 'last_updated': str(datetime.now())})
+                return prev_data, open_trades, current_balance
+        except Exception as e:
+            print(f"[{datetime.now()}] DB load_state error, falling back to JSON: {e}")
+
     prev_data = {}
     if os.path.exists(STATE_FILE):
         try:
@@ -690,7 +725,6 @@ def load_state(config):
         except json.JSONDecodeError:
             open_trades = []
 
-    starting_capital = config['starting_capital']
     current_balance = starting_capital
     if os.path.exists(BALANCE_FILE):
         try:
@@ -703,10 +737,17 @@ def load_state(config):
     return prev_data, open_trades, current_balance
 
 def save_state(prev_data, open_trades, current_balance):
-    """Save current state to JSON files"""
+    """Save current state to JSON files and DB"""
     atomic_write_json(STATE_FILE, prev_data)
     atomic_write_json(TRADES_FILE, open_trades)
     atomic_write_json(BALANCE_FILE, {'balance': current_balance, 'last_updated': str(datetime.now())})
+    if DB_AVAILABLE:
+        try:
+            dbp.save_pump_state(prev_data)
+            dbp.save_open_trades(open_trades)
+            dbp.save_balance(current_balance)
+        except Exception as e:
+            print(f"[{datetime.now()}] DB save_state error: {e}")
 
 def get_ohlcv(ex, symbol, timeframe='15m', limit=20):
     """Fetch OHLCV data and return as DataFrame"""
@@ -1711,6 +1752,12 @@ def log_trade_features(symbol, ex_name, action, features, outcome=None):
         logs = logs[-1000:]
         
         atomic_write_json(TRADE_FEATURES_FILE, logs)
+
+        if DB_AVAILABLE:
+            try:
+                dbp.append_trade_feature(entry)
+            except Exception as db_err:
+                print(f"[{datetime.now()}] DB append_trade_feature error: {db_err}")
         
     except Exception as e:
         print(f"[{datetime.now()}] Error logging trade features: {e}")
@@ -2862,6 +2909,13 @@ def process_entry_watchlist(ex_name, ex, tickers, entry_watchlist, open_trades, 
 def main():
     """Main trading loop"""
     config = load_config()
+
+    if DB_AVAILABLE:
+        try:
+            dbp.init_tables()
+            dbp.migrate_json_to_db()
+        except Exception as e:
+            print(f"[{datetime.now()}] DB initialization error (continuing with JSON): {e}")
     
     print("=" * 60)
     print(f"[{datetime.now()}] Crypto Pump Fade Trading Bot Starting...")
