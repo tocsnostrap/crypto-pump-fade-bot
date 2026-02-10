@@ -5,6 +5,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
 import * as dbHelper from "./db-helper";
+import { registerChatRoutes } from "./replit_integrations/chat";
 
 const STATE_FILE = path.join(process.cwd(), "pump_state.json");
 const TRADES_FILE = path.join(process.cwd(), "trades_log.json");
@@ -480,6 +481,8 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  registerChatRoutes(app);
+
   app.get("/api/dashboard", async (_req, res) => {
     try {
       const config = getConfig();

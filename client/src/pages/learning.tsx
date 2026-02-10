@@ -35,6 +35,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import type { BotStatus } from "@shared/schema";
+import BotChat from "@/components/bot-chat";
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -879,6 +880,8 @@ export default function LearningPage() {
           onToggle={(enabled) => toggleLearningMutation.mutate(enabled)}
           isToggling={toggleLearningMutation.isPending}
         />
+
+        <BotChat />
       </main>
     </div>
   );

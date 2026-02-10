@@ -39,6 +39,13 @@ The dashboard runs on port 5000 and provides:
   - Pattern analysis showing win rates by pump size and entry quality
   - Recent lessons learned from completed trades
   - Parameter adjustment history with timestamps
+- **AI Strategy Chat** (NEW in v1.2.0):
+  - Chat with AI about trade performance and strategy
+  - AI has full context: open/closed trades, signals, config, balance
+  - Modify bot parameters through natural conversation
+  - Safety: paper_mode, emergency_stop, starting_capital blocked from chat changes
+  - Streaming responses via SSE with config change notifications
+  - Conversation persistence in PostgreSQL
 - **Bot Configuration**: View current config parameters
 
 ## Configuration
