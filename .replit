@@ -40,5 +40,5 @@ args = "bash start.sh"
 waitForPort = 5000
 
 [agent]
-integrations = ["github:1.0.0"]
+integrations = ["github:1.0.0", "javascript_openai_ai_integrations:2.0.0"]
 expertMode = true
