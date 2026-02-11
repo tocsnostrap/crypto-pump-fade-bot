@@ -196,7 +196,7 @@ export function registerChatRoutes(app: Express): void {
         { role: "system", content: SYSTEM_PROMPT + "\n\n" + botContext },
         ...history.map((m) => {
           if (m.role === "user") {
-            const imgMatch = m.content.match(/\[Image attached: (data:image\/[^\]]+)\]/);
+            const imgMatch = m.content.match(/\[Image attached: (data:image\/.+)\]$/);
             if (imgMatch) {
               const textPart = m.content.replace(imgMatch[0], "").trim();
               const parts: OpenAI.ChatCompletionContentPart[] = [];

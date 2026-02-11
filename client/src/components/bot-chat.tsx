@@ -34,7 +34,7 @@ function formatMessageContent(content: string): string {
 }
 
 function extractImageFromContent(content: string): { text: string; imageUrl: string | null } {
-  const match = content.match(/\[Image attached: (data:image\/[^\]]+)\]/);
+  const match = content.match(/\[Image attached: (data:image\/.+)\]$/);
   if (match) {
     return {
       text: content.replace(match[0], "").trim(),
