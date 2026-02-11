@@ -67,29 +67,49 @@ ${JSON.stringify(recentSignals, null, 2)}
 ${JSON.stringify(config, null, 2)}`;
 }
 
-const SYSTEM_PROMPT = `You are the AI assistant for a Pump Fade cryptocurrency trading bot. You help the user understand their trading performance, analyze trades, discuss strategy, and modify bot configuration when asked.
+const SYSTEM_PROMPT = `You are the AI trading strategist for a Pump Fade cryptocurrency trading bot. You help the user understand their trading performance, analyze trades, discuss strategy, and actively modify bot configuration when asked.
 
 ## Your Capabilities
 1. **Trade Analysis**: Discuss open positions, closed trades, win rates, P&L
 2. **Strategy Discussion**: Explain the pump-fade strategy, entry/exit logic, filters
-3. **Config Modification**: When the user asks to change bot settings, output the changes in a special JSON block
+3. **Config Modification**: You have FULL AUTHORITY to change nearly all bot trading parameters
 4. **Risk Assessment**: Evaluate current risk, drawdown, position sizing
 5. **Market Insight**: Discuss signals, pump detections, and rejections
+6. **Strategy Optimization**: Proactively suggest parameter improvements based on trade data
 
 ## Config Modification Protocol
-When the user asks you to change a bot setting, include a CONFIG_CHANGE block in your response like this:
+When the user asks you to change a bot setting, include a CONFIG_CHANGE block in your response:
 
 \`\`\`CONFIG_CHANGE
 {"parameter_name": new_value, "another_param": new_value}
 \`\`\`
 
-IMPORTANT RULES for config changes:
-- Only change parameters the user explicitly asks about
-- Always confirm what you're changing and why
-- For critical safety parameters (paper_mode, emergency_stop, leverage), warn the user about risks
-- Never switch from paper_mode to live trading without explicit confirmation
-- Use the exact parameter names from the bot configuration
-- After showing the CONFIG_CHANGE block, explain what the change does
+### What You CAN Change (examples):
+- **Entry/Exit**: rsi_overbought, min_pump_pct, max_pump_pct, min_lower_highs, min_fade_signals, time_decay_minutes, min_entry_quality, blowoff_wick_ratio
+- **Risk Management**: leverage_default, leverage_min, leverage_max, risk_pct_per_trade, max_open_trades, max_hold_hours, trailing_stop_pct, sl_pct_above_entry, max_sl_pct_above_entry, sl_swing_buffer_pct, reward_risk_min
+- **Staged Exits**: staged_exit_levels (array of {fib, pct}), staged_exit_levels_small, staged_exit_levels_large
+- **Filters**: All enable_* toggles (bollinger, structure_break, atr, oi, funding, volume, spread, rsi_pullback, etc.)
+- **Filter Params**: min_bb_extension_pct, mtf_rsi_threshold, min_atr_pct, max_atr_pct, oi_drop_pct, max_spread_pct, volume_sustained_candles, volume_spike_threshold
+- **Timing**: poll_interval_sec, structure_break_candles, early_cut_minutes, time_stop_minutes
+- **Funding**: funding_min, funding_hold_threshold, funding_time_extension_hours, funding_adverse_time_cap_hours, funding_trailing_min_pct
+- **Learning**: enable_adaptive_learning, enable_auto_tuning, learning_min_trades, learning_cycle_hours
+- **Paper Sim**: paper_slippage_pct, paper_spread_pct, paper_fee_pct, paper_funding_interval_hrs
+- **Position Sizing**: compound_pct, risk_scale_high, risk_scale_mid, risk_scale_low, min_validation_score, min_volume_usdt
+- **Breakeven/Trailing**: breakeven_after_tps, breakeven_buffer_pct, btc_volatility_max_pct
+
+### What You CANNOT Change (blocked for safety):
+- paper_mode (must be toggled via the dashboard switch)
+- emergency_stop (must use the emergency stop button)
+- starting_capital (fixed at account setup)
+
+### Rules:
+- Only change parameters the user explicitly asks about or agrees to
+- Always confirm what you're changing and the old vs new values
+- For leverage changes above 5x, warn about liquidation risk
+- For risk_pct_per_trade above 3%, warn about portfolio impact
+- Use the exact parameter names from the configuration
+- The bot reloads config each cycle, so changes take effect within minutes
+- You can change multiple parameters at once in a single CONFIG_CHANGE block
 
 ## Strategy Overview
 The bot scans Gate.io and Bitget futures for 60-200% pumps in USDT perpetual pairs, then shorts on reversal signals. It uses RSI >= 70, Bollinger Band confirmation, structure breaks, and staged fibonacci exits.
@@ -239,44 +259,92 @@ const BLOCKED_CONFIG_KEYS = [
   "starting_capital",
 ];
 
+const INTERNAL_CONFIG_KEYS = [
+  "holders_api_url_template",
+  "holders_list_keys",
+  "holders_percent_keys",
+  "holders_cache_file",
+  "holders_data_file",
+  "token_address_map",
+];
+
 function isKnownConfigParam(key: string): boolean {
-  const knownParams = [
-    "min_pump_pct", "max_pump_pct", "poll_interval_sec",
-    "min_volume_usdt", "funding_min", "rsi_overbought", "leverage_default",
-    "risk_pct_per_trade", "sl_pct_above_entry", "max_open_trades",
-    "compound_pct", "trailing_stop_pct", "max_hold_hours",
-    "enable_bollinger_check", "min_bb_extension_pct", "enable_structure_break",
-    "structure_break_candles", "time_decay_minutes", "min_lower_highs",
-    "min_fade_signals", "enable_adaptive_learning", "enable_auto_tuning",
-    "learning_min_trades", "learning_cycle_hours",
-    "use_staged_exits", "enable_funding_filter", "enable_multi_timeframe",
-    "enable_volume_profile", "enable_spread_check", "enable_rsi_pullback",
-    "enable_atr_filter", "enable_oi_filter", "enable_holders_filter",
-    "enable_funding_bias", "enable_early_cut", "enable_breakeven_after_first_tp",
-    "use_swing_high_sl", "sl_swing_buffer_pct", "enable_quality_risk_scale",
-    "enable_dynamic_leverage",
-  ];
-  return knownParams.includes(key);
+  if (BLOCKED_CONFIG_KEYS.includes(key)) return false;
+  if (INTERNAL_CONFIG_KEYS.includes(key)) return false;
+  const currentConfig = readJsonFile<Record<string, unknown>>(CONFIG_FILE, {});
+  return key in currentConfig;
 }
 
 function isValidConfigValue(key: string, value: unknown): boolean {
   if (value === null || value === undefined) return false;
 
-  if (key.startsWith("enable_") || key.startsWith("use_") || key.startsWith("require_")) {
+  if (key.startsWith("enable_") || key.startsWith("use_") || key.startsWith("require_") ||
+      key === "paper_realistic_mode" || key === "funding_positive_is_favorable") {
     return typeof value === "boolean";
   }
 
-  const numericKeys = [
-    "min_pump_pct", "max_pump_pct", "poll_interval_sec", "min_volume_usdt",
-    "funding_min", "rsi_overbought", "leverage_default", "risk_pct_per_trade",
-    "sl_pct_above_entry", "max_open_trades", "compound_pct", "trailing_stop_pct",
-    "max_hold_hours", "min_bb_extension_pct", "structure_break_candles",
-    "time_decay_minutes", "min_lower_highs", "min_fade_signals",
-    "learning_min_trades", "learning_cycle_hours", "sl_swing_buffer_pct",
-  ];
-  if (numericKeys.includes(key)) {
-    return typeof value === "number" && isFinite(value) && value >= 0;
+  if (key === "staged_exit_levels" || key === "staged_exit_levels_small" ||
+      key === "staged_exit_levels_large") {
+    if (!Array.isArray(value)) return false;
+    return (value as unknown[]).every((item: any) =>
+      item && typeof item === "object" &&
+      typeof item.fib === "number" && item.fib > 0 && item.fib <= 1 &&
+      typeof item.pct === "number" && item.pct > 0 && item.pct <= 1
+    );
   }
 
-  return true;
+  if (key === "scale_in_levels" || key === "tp_fib_levels") {
+    if (!Array.isArray(value)) return false;
+    return (value as unknown[]).every((v: any) => typeof v === "number" && v > 0 && v <= 1);
+  }
+
+  if (key === "multi_window_hours") {
+    if (!Array.isArray(value)) return false;
+    return (value as unknown[]).every((v: any) => typeof v === "number" && v > 0 && v <= 168);
+  }
+
+  if (key === "early_cut_timeframe") {
+    return typeof value === "string" && ["1m", "3m", "5m", "15m", "30m", "1h"].includes(value as string);
+  }
+
+  if (typeof value === "number" && isFinite(value) && value >= 0) {
+    const bounds: Record<string, [number, number]> = {
+      leverage_default: [1, 20],
+      leverage_min: [1, 10],
+      leverage_max: [1, 20],
+      risk_pct_per_trade: [0.001, 0.10],
+      max_open_trades: [1, 20],
+      rsi_overbought: [50, 99],
+      min_pump_pct: [5, 500],
+      max_pump_pct: [10, 1000],
+      poll_interval_sec: [30, 3600],
+      max_hold_hours: [1, 168],
+      trailing_stop_pct: [0.01, 0.30],
+      sl_pct_above_entry: [0.01, 0.30],
+      max_sl_pct_above_entry: [0.01, 0.30],
+      max_sl_pct_small: [0.01, 0.30],
+      max_sl_pct_large: [0.01, 0.30],
+      sl_swing_buffer_pct: [0.005, 0.10],
+      compound_pct: [0, 1],
+      min_volume_usdt: [0, 100000000],
+      min_bb_extension_pct: [0, 20],
+      mtf_rsi_threshold: [30, 99],
+      max_spread_pct: [0.01, 5],
+      blowoff_wick_ratio: [1, 10],
+      min_lower_highs: [1, 10],
+      min_fade_signals: [1, 10],
+      time_decay_minutes: [10, 1440],
+      structure_break_candles: [1, 20],
+      min_entry_quality: [0, 100],
+      min_entry_quality_small: [0, 100],
+      min_entry_quality_large: [0, 100],
+      btc_volatility_max_pct: [0.5, 20],
+    };
+    if (bounds[key]) {
+      return value >= bounds[key][0] && value <= bounds[key][1];
+    }
+    return true;
+  }
+
+  return false;
 }
