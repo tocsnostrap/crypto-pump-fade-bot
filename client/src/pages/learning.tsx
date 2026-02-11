@@ -875,13 +875,13 @@ export default function LearningPage() {
           </Badge>
         </div>
 
+        <BotChat />
+
         <LearningSection
           data={learningData}
           onToggle={(enabled) => toggleLearningMutation.mutate(enabled)}
           isToggling={toggleLearningMutation.isPending}
         />
-
-        <BotChat />
       </main>
     </div>
   );

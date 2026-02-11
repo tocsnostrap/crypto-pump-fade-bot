@@ -203,7 +203,7 @@ export default function BotChat() {
   const messages = activeConversation?.messages || [];
 
   return (
-    <Card className="flex flex-col" style={{ height: "600px" }}>
+    <Card className="flex flex-col h-[400px] md:h-[600px]">
       <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3 shrink-0">
         <div className="flex items-center gap-2">
           <MessageSquare className="h-5 w-5 text-primary" />
