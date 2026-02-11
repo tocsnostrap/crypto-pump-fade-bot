@@ -481,6 +481,12 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  try {
+    await dbHelper.restoreJsonFromDb();
+  } catch (err) {
+    console.error("[startup] Failed to restore JSON from DB:", err);
+  }
+
   registerChatRoutes(app);
 
   app.get("/api/dashboard", async (_req, res) => {
@@ -708,18 +714,41 @@ export async function registerRoutes(
   const TRADE_FEATURES_FILE = path.join(process.cwd(), "trade_features.json");
 
   // Get learning state and summary
-  app.get("/api/learning", (_req, res) => {
+  app.get("/api/learning", async (_req, res) => {
     try {
       const config = getConfig();
-      const learningState = readJsonFile(LEARNING_STATE_FILE, {
+      const defaultLearningState = {
         learning_enabled: true,
         last_analysis: null,
         adjustments_made: [],
         performance_history: [],
-      });
+      };
+      let learningState = readJsonFile(LEARNING_STATE_FILE, defaultLearningState);
 
-      const journal = readJsonFile<any[]>(TRADE_JOURNAL_FILE, []);
-      const features = readJsonFile<any[]>(TRADE_FEATURES_FILE, []);
+      if (!learningState.last_analysis && learningState.adjustments_made?.length === 0) {
+        try {
+          const dbState = await dbHelper.getState("learning_state");
+          if (dbState && (dbState.last_analysis || dbState.adjustments_made?.length > 0)) {
+            learningState = dbState;
+          }
+        } catch {}
+      }
+
+      let journal = readJsonFile<any[]>(TRADE_JOURNAL_FILE, []);
+      let features = readJsonFile<any[]>(TRADE_FEATURES_FILE, []);
+
+      if (journal.length === 0) {
+        try {
+          const dbJournal = await dbHelper.getTradeJournal();
+          if (dbJournal.length > 0) journal = dbJournal;
+        } catch {}
+      }
+      if (features.length === 0) {
+        try {
+          const dbFeatures = await dbHelper.getTradeFeatures();
+          if (dbFeatures.length > 0) features = dbFeatures;
+        } catch {}
+      }
 
       // Calculate recent performance from journal
       const sevenDaysAgo = new Date();

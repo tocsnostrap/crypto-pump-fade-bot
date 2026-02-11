@@ -40,7 +40,7 @@ def load_json(path: str, default: Any = None) -> Any:
         return default if default is not None else {}
 
 def save_json(path: str, data: Any) -> None:
-    """Save JSON file atomically."""
+    """Save JSON file atomically, also persist to DB for key files."""
     import tempfile
     temp_fd, temp_path = tempfile.mkstemp(dir=os.path.dirname(path) or '.', suffix='.tmp')
     try:
@@ -53,6 +53,14 @@ def save_json(path: str, data: Any) -> None:
             os.unlink(temp_path)
         except:
             pass
+
+    try:
+        from db_persistence import _upsert_state
+        basename = os.path.basename(path)
+        if basename == LEARNING_STATE_FILE:
+            _upsert_state("learning_state", data)
+    except Exception:
+        pass
 
 
 class TradeJournal:

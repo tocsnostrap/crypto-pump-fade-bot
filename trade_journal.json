@@ -1,71 +1,73 @@
 [
   {
-    "trade_id": "paper_0_1769103016",
     "type": "exit",
+    "is_win": true,
+    "profit": 33.3145863183977,
+    "reason": "SL hit",
+    "trade_id": "paper_0_1769103016",
     "timestamp": "2026-01-31T01:00:04.334792",
     "exit_price": 0.030202544492858113,
-    "profit": 33.3145863183977,
-    "is_win": true,
-    "reason": "SL hit",
-    "duration_minutes": 11969.803462437789,
     "duration_hours": 199.49672437396313,
     "lessons_learned": [
       "Trade outcome: WIN with 33.31 profit"
-    ]
+    ],
+    "duration_minutes": 11969.803462437789
   },
   {
-    "trade_id": "paper_1_1769106737",
     "type": "exit",
+    "is_win": false,
+    "profit": -3.0745831607197873,
+    "reason": "SL hit",
+    "trade_id": "paper_1_1769106737",
     "timestamp": "2026-01-31T01:00:04.477468",
     "exit_price": 0.030194708052181312,
-    "profit": -3.0745831607197873,
-    "is_win": false,
-    "reason": "SL hit",
-    "duration_minutes": 11907.789519457023,
     "duration_hours": 198.46315865761704,
     "lessons_learned": [
       "Stop loss triggered - consider if SL was too tight",
       "Low entry quality (0) may have indicated weak setup",
       "Low validation score - more confirmation may be needed"
-    ]
+    ],
+    "duration_minutes": 11907.789519457023
   },
   {
-    "trade_id": "paper_2_1769106974",
     "type": "exit",
+    "is_win": true,
+    "profit": 0.49882390132694976,
+    "reason": "SL hit",
+    "trade_id": "paper_2_1769106974",
     "timestamp": "2026-01-31T01:00:04.619840",
     "exit_price": 0.03020060505312964,
-    "profit": 0.49882390132694976,
-    "is_win": true,
-    "reason": "SL hit",
-    "duration_minutes": 11903.827341930071,
     "duration_hours": 198.3971223655012,
     "lessons_learned": [
       "Trade outcome: WIN with 0.50 profit"
-    ]
+    ],
+    "duration_minutes": 11903.827341930071
   },
   {
-    "trade_id": "paper_0_1769903572",
     "type": "entry",
-    "symbol": "\u6211\u8e0f\u9a6c\u6765\u4e86/USDT:USDT",
+    "symbol": "我踏马来了/USDT:USDT",
     "exchange": "gate",
-    "timestamp": "2026-01-31T23:52:52.171834",
-    "entry_price": 0.04997,
     "features": {
-      "pump_pct": 82.67,
-      "pump_window_hours": 24,
-      "entry_quality": 96,
-      "validation_score": 2,
-      "rsi_peak": 88.8109623616347,
-      "funding_rate": 1.2e-05,
+      "atr_pct": 5.354140070782583,
       "bb_above": "True",
+      "pump_pct": 82.67,
+      "rsi_peak": 88.8109623616347,
+      "funding_rate": 0.000012,
+      "rsi_pullback": 0.25104880051837597,
+      "entry_quality": 96,
+      "pattern_count": "4",
+      "structure_break": "False",
+      "validation_score": 2,
       "volume_declining": "True",
       "lower_highs_count": 1,
-      "structure_break": "False",
-      "rsi_pullback": 0.25104880051837597,
-      "pattern_count": "4",
-      "atr_pct": 5.354140070782583
+      "pump_window_hours": 24
     },
+    "trade_id": "paper_0_1769903572",
     "reasoning": {
+      "risk_factors": [
+        "Pump: 82.7%",
+        "Funding: 0.0012%"
+      ],
       "entry_signals": [
         "Price above upper BB",
         "Volume declining"
@@ -76,29 +78,27 @@
       "confidence_factors": [
         "Entry quality: 96",
         "Pattern count: 4"
-      ],
-      "risk_factors": [
-        "Pump: 82.7%",
-        "Funding: 0.0012%"
       ]
     },
+    "timestamp": "2026-01-31T23:52:52.171834",
+    "entry_price": 0.04997,
     "market_context": {
       "volume_usdt": null,
       "market_cap_rank": null
     }
   },
   {
-    "trade_id": "paper_0_1769903572",
     "type": "exit",
+    "is_win": false,
+    "profit": -316.60470109846807,
+    "reason": "SL hit",
+    "trade_id": "paper_0_1769903572",
     "timestamp": "2026-02-01T01:12:26.497559",
     "exit_price": 0.0524718365330545,
-    "profit": -316.60470109846807,
-    "is_win": false,
-    "reason": "SL hit",
-    "duration_minutes": 79.57204993168513,
     "duration_hours": 1.326200832194752,
     "lessons_learned": [
       "Stop loss triggered - consider if SL was too tight"
-    ]
+    ],
+    "duration_minutes": 79.57204993168513
   }
 ]
