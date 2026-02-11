@@ -1,53 +1,5 @@
 [
   {
-    "id": "pump_rejected_STG/USDT:USDT_1770815787",
-    "exchange": "bitget",
-    "symbol": "STG/USDT:USDT",
-    "type": "pump_rejected",
-    "price": 0.2143,
-    "change_pct": 39.066,
-    "funding_rate": -0.002473,
-    "rsi": null,
-    "timestamp": "2026-02-11T13:16:27.864728",
-    "message": "Funding -0.247% below threshold"
-  },
-  {
-    "id": "pump_rejected_BAT/USDT:USDT_1770815787",
-    "exchange": "bitget",
-    "symbol": "BAT/USDT:USDT",
-    "type": "pump_rejected",
-    "price": 0.1318,
-    "change_pct": 1.151,
-    "funding_rate": -7.6e-05,
-    "rsi": null,
-    "timestamp": "2026-02-11T13:16:27.891060",
-    "message": "Funding -0.008% below threshold"
-  },
-  {
-    "id": "pump_rejected_LDO/USDT:USDT_1770815787",
-    "exchange": "bitget",
-    "symbol": "LDO/USDT:USDT",
-    "type": "pump_rejected",
-    "price": 0.3257,
-    "change_pct": -3.81,
-    "funding_rate": 4.3e-05,
-    "rsi": null,
-    "timestamp": "2026-02-11T13:16:27.914971",
-    "message": "Funding 0.004% below threshold"
-  },
-  {
-    "id": "pump_rejected_ACH/USDT:USDT_1770815787",
-    "exchange": "bitget",
-    "symbol": "ACH/USDT:USDT",
-    "type": "pump_rejected",
-    "price": 0.007617,
-    "change_pct": 4.543,
-    "funding_rate": -0.000157,
-    "rsi": null,
-    "timestamp": "2026-02-11T13:16:27.935095",
-    "message": "Funding -0.016% below threshold"
-  },
-  {
     "id": "pump_rejected_ARB/USDT:USDT_1770815787",
     "exchange": "bitget",
     "symbol": "ARB/USDT:USDT",
@@ -1198,5 +1150,53 @@
     "rsi": null,
     "timestamp": "2026-02-11T13:16:29.893065",
     "message": "Funding -0.141% below threshold"
+  },
+  {
+    "id": "pump_rejected_SPACE/USDT:USDT_1770815790",
+    "exchange": "bitget",
+    "symbol": "SPACE/USDT:USDT",
+    "type": "pump_rejected",
+    "price": 0.004631,
+    "change_pct": -0.409,
+    "funding_rate": 5e-05,
+    "rsi": null,
+    "timestamp": "2026-02-11T13:16:30.064068",
+    "message": "Funding 0.005% below threshold"
+  },
+  {
+    "id": "pump_rejected_BIRB/USDT:USDT_1770815790",
+    "exchange": "bitget",
+    "symbol": "BIRB/USDT:USDT",
+    "type": "pump_rejected",
+    "price": 0.22125,
+    "change_pct": -4.333,
+    "funding_rate": -0.000252,
+    "rsi": null,
+    "timestamp": "2026-02-11T13:16:30.150113",
+    "message": "Funding -0.025% below threshold"
+  },
+  {
+    "id": "pump_rejected_INX/USDT:USDT_1770815790",
+    "exchange": "bitget",
+    "symbol": "INX/USDT:USDT",
+    "type": "pump_rejected",
+    "price": 0.012576,
+    "change_pct": 1.134,
+    "funding_rate": 5e-05,
+    "rsi": null,
+    "timestamp": "2026-02-11T13:16:30.194364",
+    "message": "Funding 0.005% below threshold"
+  },
+  {
+    "id": "pump_rejected_TRIA/USDT:USDT_1770815790",
+    "exchange": "bitget",
+    "symbol": "TRIA/USDT:USDT",
+    "type": "pump_rejected",
+    "price": 0.015069,
+    "change_pct": 3.113,
+    "funding_rate": 5e-05,
+    "rsi": null,
+    "timestamp": "2026-02-11T13:16:30.218549",
+    "message": "Funding 0.005% below threshold"
   }
 ]
