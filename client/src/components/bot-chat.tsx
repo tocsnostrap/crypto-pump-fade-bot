@@ -3,7 +3,6 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -13,6 +12,8 @@ import {
   Trash2,
   Settings,
   Loader2,
+  ImagePlus,
+  X,
 } from "lucide-react";
 import type { Conversation, Message } from "@shared/schema";
 
@@ -30,6 +31,17 @@ interface StreamEvent {
 
 function formatMessageContent(content: string): string {
   return content.replace(/```CONFIG_CHANGE\s*\n[\s\S]*?\n```/g, "").trim();
+}
+
+function extractImageFromContent(content: string): { text: string; imageUrl: string | null } {
+  const match = content.match(/\[Image attached: (data:image\/[^\]]+)\]/);
+  if (match) {
+    return {
+      text: content.replace(match[0], "").trim(),
+      imageUrl: match[1],
+    };
+  }
+  return { text: content, imageUrl: null };
 }
 
 function ConfigChangeBadge({ changes }: { changes: Record<string, { old: unknown; new: unknown }> }) {
@@ -54,12 +66,21 @@ function ConfigChangeBadge({ changes }: { changes: Record<string, { old: unknown
 
 function MessageBubble({ message, configChanges }: { message: Message; configChanges?: Record<string, { old: unknown; new: unknown }> | null }) {
   const isUser = message.role === "user";
-  const displayContent = isUser ? message.content : formatMessageContent(message.content);
+  const { text, imageUrl } = extractImageFromContent(message.content);
+  const displayContent = isUser ? text : formatMessageContent(text);
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-3`} data-testid={`message-${message.id}`}>
       <div className={`max-w-[85%] rounded-lg px-4 py-2.5 text-sm ${isUser ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-        <div className="whitespace-pre-wrap break-words">{displayContent}</div>
+        {imageUrl && (
+          <img
+            src={imageUrl}
+            alt="Attached"
+            className="max-w-full max-h-48 rounded-md mb-2 object-contain"
+            data-testid={`img-attachment-${message.id}`}
+          />
+        )}
+        {displayContent && <div className="whitespace-pre-wrap break-words">{displayContent}</div>}
         {configChanges && <ConfigChangeBadge changes={configChanges} />}
       </div>
     </div>
@@ -77,14 +98,18 @@ function StreamingBubble({ text }: { text: string }) {
   );
 }
 
+const MAX_IMAGE_SIZE = 4 * 1024 * 1024;
+
 export default function BotChat() {
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
   const [input, setInput] = useState("");
   const [streamingText, setStreamingText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [configChanges, setConfigChanges] = useState<Record<string, { old: unknown; new: unknown }> | null>(null);
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: conversations = [] } = useQuery<Conversation[]>({
     queryKey: ["/api/conversations"],
@@ -136,11 +161,39 @@ export default function BotChat() {
     scrollToBottom();
   }, [activeConversation?.messages, streamingText, scrollToBottom]);
 
+  const handleImageFile = useCallback((file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    if (file.size > MAX_IMAGE_SIZE) {
+      alert("Image must be under 4MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setPendingImage(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) handleImageFile(file);
+        return;
+      }
+    }
+  }, [handleImageFile]);
+
   const sendMessage = useCallback(async () => {
-    if (!input.trim() || !activeConversationId || isStreaming) return;
+    if ((!input.trim() && !pendingImage) || !activeConversationId || isStreaming) return;
 
     const userMessage = input.trim();
+    const imageData = pendingImage;
     setInput("");
+    setPendingImage(null);
     setIsStreaming(true);
     setStreamingText("");
     setConfigChanges(null);
@@ -149,7 +202,10 @@ export default function BotChat() {
       const response = await fetch(`/api/conversations/${activeConversationId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: userMessage }),
+        body: JSON.stringify({
+          content: userMessage,
+          image: imageData || undefined,
+        }),
       });
 
       if (!response.ok) throw new Error("Failed to send message");
@@ -199,7 +255,7 @@ export default function BotChat() {
       setIsStreaming(false);
       setStreamingText("");
     }
-  }, [input, activeConversationId, isStreaming, refetchConversation]);
+  }, [input, pendingImage, activeConversationId, isStreaming, refetchConversation]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -320,26 +376,69 @@ export default function BotChat() {
         </div>
 
         {activeConversationId && (
-          <div className="flex gap-2 shrink-0">
-            <Textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask about trades, strategy, or config changes..."
-              className="resize-none min-h-[40px] max-h-[100px]"
-              rows={1}
-              disabled={isStreaming}
-              data-testid="input-chat-message"
-            />
-            <Button
-              size="icon"
-              onClick={sendMessage}
-              disabled={!input.trim() || isStreaming}
-              data-testid="button-send-message"
-            >
-              {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
+          <div className="shrink-0 space-y-2">
+            {pendingImage && (
+              <div className="relative inline-block">
+                <img
+                  src={pendingImage}
+                  alt="Preview"
+                  className="max-h-24 rounded-md border"
+                  data-testid="img-preview"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground"
+                  onClick={() => setPendingImage(null)}
+                  data-testid="button-remove-image"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImageFile(file);
+                  e.target.value = "";
+                }}
+                data-testid="input-file-upload"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isStreaming}
+                data-testid="button-attach-image"
+              >
+                <ImagePlus className="h-4 w-4" />
+              </Button>
+              <Textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
+                placeholder="Ask about trades, strategy, or paste an image..."
+                className="resize-none min-h-[40px] max-h-[100px] flex-1"
+                rows={1}
+                disabled={isStreaming}
+                data-testid="input-chat-message"
+              />
+              <Button
+                size="icon"
+                onClick={sendMessage}
+                disabled={(!input.trim() && !pendingImage) || isStreaming}
+                data-testid="button-send-message"
+              >
+                {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>

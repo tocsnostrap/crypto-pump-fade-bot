@@ -1,8 +1,11 @@
 import type { Express, Request, Response } from "express";
+import express from "express";
 import OpenAI from "openai";
 import { chatStorage } from "./storage";
 import * as fs from "fs";
 import * as path from "path";
+
+const imageBodyParser = express.json({ limit: "10mb" });
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -76,6 +79,7 @@ const SYSTEM_PROMPT = `You are the AI trading strategist for a Pump Fade cryptoc
 4. **Risk Assessment**: Evaluate current risk, drawdown, position sizing
 5. **Market Insight**: Discuss signals, pump detections, and rejections
 6. **Strategy Optimization**: Proactively suggest parameter improvements based on trade data
+7. **Image Analysis**: Users can send you screenshots of charts, trades, or market data. Analyze them and provide insights, identify patterns, support/resistance levels, and trading opportunities relevant to the pump-fade strategy
 
 ## Config Modification Protocol
 When the user asks you to change a bot setting, include a CONFIG_CHANGE block in your response:
@@ -165,22 +169,52 @@ export function registerChatRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/conversations/:id/messages", async (req: Request, res: Response) => {
+  app.post("/api/conversations/:id/messages", imageBodyParser, async (req: Request, res: Response) => {
     try {
       const conversationId = parseInt(req.params.id);
-      const { content } = req.body;
+      const { content, image } = req.body;
 
-      await chatStorage.createMessage(conversationId, "user", content);
+      if (image) {
+        if (typeof image !== "string" || !image.startsWith("data:image/")) {
+          return res.status(400).json({ error: "Invalid image format" });
+        }
+        if (image.length > 6 * 1024 * 1024) {
+          return res.status(400).json({ error: "Image too large (max 4MB)" });
+        }
+      }
+
+      const storedContent = image
+        ? `${content || ""}\n[Image attached: ${image}]`.trim()
+        : content;
+
+      await chatStorage.createMessage(conversationId, "user", storedContent);
 
       const botContext = gatherBotContext();
 
       const history = await chatStorage.getMessagesByConversation(conversationId);
       const chatMessages: OpenAI.ChatCompletionMessageParam[] = [
         { role: "system", content: SYSTEM_PROMPT + "\n\n" + botContext },
-        ...history.map((m) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        })),
+        ...history.map((m) => {
+          if (m.role === "user") {
+            const imgMatch = m.content.match(/\[Image attached: (data:image\/[^\]]+)\]/);
+            if (imgMatch) {
+              const textPart = m.content.replace(imgMatch[0], "").trim();
+              const parts: OpenAI.ChatCompletionContentPart[] = [];
+              if (textPart) {
+                parts.push({ type: "text" as const, text: textPart });
+              }
+              parts.push({
+                type: "image_url" as const,
+                image_url: { url: imgMatch[1], detail: "low" as const },
+              });
+              return { role: "user" as const, content: parts };
+            }
+          }
+          return {
+            role: m.role as "user" | "assistant",
+            content: m.content,
+          };
+        }),
       ];
 
       res.setHeader("Content-Type", "text/event-stream");
