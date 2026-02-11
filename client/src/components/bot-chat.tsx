@@ -90,6 +90,12 @@ export default function BotChat() {
     queryKey: ["/api/conversations"],
   });
 
+  useEffect(() => {
+    if (!activeConversationId && conversations.length > 0) {
+      setActiveConversationId(conversations[0].id);
+    }
+  }, [conversations, activeConversationId]);
+
   const { data: activeConversation, refetch: refetchConversation } = useQuery<ConversationWithMessages>({
     queryKey: ["/api/conversations", activeConversationId],
     enabled: !!activeConversationId,
@@ -109,11 +115,13 @@ export default function BotChat() {
   const deleteConversationMutation = useMutation({
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/conversations/${id}`);
+      return id;
     },
-    onSuccess: () => {
+    onSuccess: (deletedId) => {
       queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
-      if (activeConversationId) {
-        setActiveConversationId(null);
+      if (activeConversationId === deletedId) {
+        const remaining = conversations.filter((c) => c.id !== deletedId);
+        setActiveConversationId(remaining.length > 0 ? remaining[0].id : null);
       }
     },
   });
@@ -232,13 +240,13 @@ export default function BotChat() {
         </div>
       </CardHeader>
 
-      {conversations.length > 0 && !activeConversationId && (
+      {conversations.length > 1 && (
         <div className="px-4 pb-2 shrink-0">
           <div className="flex flex-wrap gap-1">
             {conversations.slice(0, 5).map((conv) => (
               <Badge
                 key={conv.id}
-                variant="outline"
+                variant={conv.id === activeConversationId ? "default" : "outline"}
                 className="cursor-pointer"
                 onClick={() => setActiveConversationId(conv.id)}
                 data-testid={`badge-conversation-${conv.id}`}
