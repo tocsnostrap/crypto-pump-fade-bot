@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+"""TCT Analysis Module - Market structure and supply/demand zone analysis"""
+import ccxt
+import pandas as pd
+from datetime import datetime
+
+
+class TCTAnalyzer:
+    def __init__(self, exchange_id='gateio'):
+        self.exchange_id = exchange_id
+
+    def fetch_ohlcv(self, symbol, timeframe='1h', limit=100):
+        ex = ccxt.gateio({'enableRateLimit': True, 'options': {'defaultType': 'swap'}})
+        ohlcv = ex.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+        return pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+
+    def get_market_structure(self, symbol, timeframe='4h'):
+        df = self.fetch_ohlcv(symbol, timeframe, limit=100)
+        highs, lows = df['high'].values, df['low'].values
+        swing_h, swing_l = [], []
+        for i in range(2, len(df) - 2):
+            if highs[i] == max(highs[i - 2:i + 3]):
+                swing_h.append(highs[i])
+            if lows[i] == min(lows[i - 2:i + 3]):
+                swing_l.append(lows[i])
+        if len(swing_h) >= 2 and len(swing_l) >= 2:
+            if swing_l[-1] < swing_l[-2] and swing_h[-1] < swing_h[-2]:
+                return {'structure': 'downtrend', 'swing_high': swing_h[-1], 'swing_low': swing_l[-1]}
+            elif swing_l[-1] > swing_l[-2] and swing_h[-1] > swing_h[-2]:
+                return {'structure': 'uptrend', 'swing_high': swing_h[-1], 'swing_low': swing_l[-1]}
+        return {
+            'structure': 'range',
+            'swing_high': swing_h[-1] if swing_h else None,
+            'swing_low': swing_l[-1] if swing_l else None,
+        }
+
+    def find_supply_zones(self, symbol, timeframe='4h', lookback=50):
+        df = self.fetch_ohlcv(symbol, timeframe, limit=lookback)
+        zones = []
+        for i in range(3, len(df) - 3):
+            if df['high'].iloc[i] < df['high'].iloc[i - 1] and df['high'].iloc[i - 1] < df['high'].iloc[i - 2]:
+                zones.append({'zone': df['high'].iloc[i - 1]})
+        unique = []
+        for z in zones:
+            if not unique or abs(z['zone'] - unique[-1]['zone']) / unique[-1]['zone'] > 0.02:
+                unique.append(z)
+        return unique[:5]
+
+    def find_demand_zones(self, symbol, timeframe='4h', lookback=50):
+        df = self.fetch_ohlcv(symbol, timeframe, limit=lookback)
+        zones = []
+        for i in range(3, len(df) - 3):
+            if df['low'].iloc[i] > df['low'].iloc[i - 1] and df['low'].iloc[i - 1] > df['low'].iloc[i - 2]:
+                zones.append({'zone': df['low'].iloc[i - 1]})
+        unique = []
+        for z in zones:
+            if not unique or abs(z['zone'] - unique[-1]['zone']) / unique[-1]['zone'] > 0.02:
+                unique.append(z)
+        return unique[:5]
+
+    def analyze_for_short(self, symbol, entry_price, timeframe='4h'):
+        reasons, confidence = [], 50
+        struct = self.get_market_structure(symbol, timeframe)
+        if struct['structure'] == 'downtrend':
+            reasons.append("TCT: Bearish structure confirmed")
+            confidence += 20
+        elif struct['structure'] == 'uptrend':
+            return {
+                'approved': False,
+                'confidence': 0,
+                'reasons': ["TCT: Bullish structure - AVOID short"],
+                'tp_target': None,
+            }
+        supply = self.find_supply_zones(symbol, timeframe)
+        near = any(entry_price * 0.98 <= z['zone'] <= entry_price * 1.02 for z in supply)
+        if near:
+            reasons.append("TCT: Near supply zone")
+            confidence += 15
+        demand = self.find_demand_zones(symbol, timeframe)
+        tp = next((z['zone'] for z in demand if z['zone'] < entry_price), None)
+        if tp:
+            confidence += 10
+        return {
+            'approved': confidence >= 70,
+            'confidence': confidence,
+            'reasons': reasons,
+            'tp_target': tp,
+            'structure': struct['structure'],
+        }

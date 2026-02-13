@@ -12,6 +12,7 @@ Automated cryptocurrency trading bot that scans Gate.io and Bitget futures marke
 ## Project Structure
 ```
 main.py               - Python trading bot script
+tct_analysis.py       - TCT market structure & supply/demand zone analysis
 bot_config.json       - Bot configuration (live/paper mode, parameters)
 backtest_compare.py   - Backtest comparison script (staged vs single exits)
 analyze_winners.py    - Winner/loser pattern analysis

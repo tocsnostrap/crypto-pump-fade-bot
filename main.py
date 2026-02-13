@@ -21,6 +21,15 @@ except ImportError:
     DB_AVAILABLE = False
     print(f"[{datetime.now()}] Warning: db_persistence module not available, using JSON files only")
 
+try:
+    from tct_analysis import TCTAnalyzer
+    tct_analyzer = TCTAnalyzer()
+    TCT_AVAILABLE = True
+except ImportError:
+    TCT_AVAILABLE = False
+    tct_analyzer = None
+    print(f"[{datetime.now()}] Warning: TCT analysis module not available, skipping market structure filter")
+
 # Import learning system (graceful fallback if not available)
 try:
     from trade_learning import (
@@ -2801,6 +2810,21 @@ def process_entry_watchlist(ex_name, ex, tickers, entry_watchlist, open_trades, 
                         risk_multiplier = config.get('risk_scale_mid', 1.0)
             elif entry_quality <= low_q:
                 risk_multiplier = config.get('risk_scale_low', 0.8)
+
+        if TCT_AVAILABLE and config.get('enable_tct_filter', True):
+            try:
+                tct_result = tct_analyzer.analyze_for_short(symbol, current_price, '4h')
+                if not tct_result['approved']:
+                    tct_reasons = ', '.join(tct_result.get('reasons', []))
+                    print(f"[{datetime.now()}] TCT REJECTED {symbol}: confidence={tct_result['confidence']}%, {tct_reasons}")
+                    save_signal(ex_name, symbol, 'tct_rejected', current_price,
+                               f"TCT filter rejected: {tct_reasons} (confidence: {tct_result['confidence']}%)")
+                    continue
+                else:
+                    tct_reasons = ', '.join(tct_result.get('reasons', []))
+                    print(f"[{datetime.now()}] TCT APPROVED {symbol}: confidence={tct_result['confidence']}%, {tct_reasons}")
+            except Exception as e:
+                print(f"[{datetime.now()}] TCT analysis error for {symbol}: {e} - proceeding without TCT filter")
 
         risk = current_balance * config['risk_pct_per_trade'] * risk_multiplier
         trade_info = enter_short(

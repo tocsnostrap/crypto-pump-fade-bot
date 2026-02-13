@@ -96,6 +96,8 @@
   "enable_spread_check": true,
   "max_spread_pct": 0.5,
 
+  "enable_tct_filter": true,
+
   "enable_structure_break": true,
   "structure_break_candles": 3,
   "min_lower_highs": 2,
