@@ -6,8 +6,40 @@ from datetime import datetime
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
+_pool = None
+
+def _get_pool():
+    global _pool
+    if _pool is None or _pool.closed:
+        try:
+            from psycopg2.pool import SimpleConnectionPool
+            _pool = SimpleConnectionPool(1, 10, DATABASE_URL)
+        except Exception:
+            _pool = None
+    return _pool
+
 def get_connection():
+    pool = _get_pool()
+    if pool:
+        try:
+            return pool.getconn()
+        except Exception:
+            pass
     return psycopg2.connect(DATABASE_URL)
+
+def _return_connection(conn):
+    pool = _get_pool()
+    if pool and conn and not conn.closed:
+        try:
+            pool.putconn(conn)
+            return
+        except Exception:
+            pass
+    if conn and not conn.closed:
+        try:
+            _return_connection(conn)
+        except Exception:
+            pass
 
 def init_tables():
     conn = get_connection()
@@ -70,7 +102,7 @@ def init_tables():
         print(f"[{datetime.now()}] DB init error: {e}")
         conn.rollback()
     finally:
-        conn.close()
+        _return_connection(conn)
 
 
 def save_balance(balance, last_updated=None):
@@ -131,7 +163,7 @@ def append_closed_trade(trade_dict):
         print(f"[{datetime.now()}] DB append_closed_trade error: {e}")
         conn.rollback()
     finally:
-        conn.close()
+        _return_connection(conn)
 
 def load_closed_trades():
     conn = get_connection()
@@ -144,7 +176,7 @@ def load_closed_trades():
         print(f"[{datetime.now()}] DB load_closed_trades error: {e}")
         return []
     finally:
-        conn.close()
+        _return_connection(conn)
 
 
 def save_signal(signal_dict):
@@ -179,7 +211,7 @@ def save_signal(signal_dict):
         print(f"[{datetime.now()}] DB save_signal error: {e}")
         conn.rollback()
     finally:
-        conn.close()
+        _return_connection(conn)
 
 def load_signals(limit=100):
     conn = get_connection()
@@ -192,7 +224,7 @@ def load_signals(limit=100):
         print(f"[{datetime.now()}] DB load_signals error: {e}")
         return []
     finally:
-        conn.close()
+        _return_connection(conn)
 
 
 def append_trade_feature(feature_dict):
@@ -220,7 +252,7 @@ def append_trade_feature(feature_dict):
         print(f"[{datetime.now()}] DB append_trade_feature error: {e}")
         conn.rollback()
     finally:
-        conn.close()
+        _return_connection(conn)
 
 def load_trade_features(limit=1000):
     conn = get_connection()
@@ -233,7 +265,7 @@ def load_trade_features(limit=1000):
         print(f"[{datetime.now()}] DB load_trade_features error: {e}")
         return []
     finally:
-        conn.close()
+        _return_connection(conn)
 
 
 def append_trade_journal(journal_entry):
@@ -261,7 +293,7 @@ def append_trade_journal(journal_entry):
         print(f"[{datetime.now()}] DB append_trade_journal error: {e}")
         conn.rollback()
     finally:
-        conn.close()
+        _return_connection(conn)
 
 def load_trade_journal():
     conn = get_connection()
@@ -274,7 +306,7 @@ def load_trade_journal():
         print(f"[{datetime.now()}] DB load_trade_journal error: {e}")
         return []
     finally:
-        conn.close()
+        _return_connection(conn)
 
 
 def _upsert_state(key, data):
@@ -291,7 +323,7 @@ def _upsert_state(key, data):
         print(f"[{datetime.now()}] DB upsert_state error ({key}): {e}")
         conn.rollback()
     finally:
-        conn.close()
+        _return_connection(conn)
 
 def _get_state(key):
     conn = get_connection()
@@ -306,7 +338,7 @@ def _get_state(key):
         print(f"[{datetime.now()}] DB get_state error ({key}): {e}")
         return None
     finally:
-        conn.close()
+        _return_connection(conn)
 
 
 def migrate_json_to_db():
@@ -326,7 +358,7 @@ def migrate_json_to_db():
             cur.execute("SELECT COUNT(*) FROM bot_state")
             bs_count = cur.fetchone()[0]
     finally:
-        conn.close()
+        _return_connection(conn)
 
     migrated = False
 
