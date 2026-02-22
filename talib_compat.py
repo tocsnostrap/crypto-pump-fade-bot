@@ -12,7 +12,7 @@ except Exception:
         # Fallback to 'ta' library if pandas-ta fails
         import ta
         from ta.momentum import RSIIndicator
-        from ta.trend import MACD, SMAIndicator
+        from ta.trend import MACD, SMAIndicator, EMAIndicator
         from ta.volatility import BollingerBands, AverageTrueRange
         import pandas as pd
         TALIB_SOURCE = "ta"
@@ -104,9 +104,17 @@ except Exception:
             if TALIB_SOURCE == "pandas_ta":
                 series = ta.sma(values, length=timeperiod)
             else:
-                # 'ta' library implementation
                 indicator = SMAIndicator(close=pd.Series(values), window=timeperiod)
                 series = indicator.sma_indicator()
+            return _as_array(series, len(values))
+
+        @staticmethod
+        def EMA(values, timeperiod=9):
+            if TALIB_SOURCE == "pandas_ta":
+                series = ta.ema(values, length=timeperiod)
+            else:
+                indicator = EMAIndicator(close=pd.Series(values), window=timeperiod)
+                series = indicator.ema_indicator()
             return _as_array(series, len(values))
 
     talib = _TalibCompat()

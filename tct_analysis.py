@@ -6,11 +6,21 @@ from datetime import datetime
 
 
 class TCTAnalyzer:
-    def __init__(self, exchange_id='gateio'):
+    def __init__(self, exchange_id='gateio', exchange=None):
         self.exchange_id = exchange_id
+        self._exchange = exchange
+
+    def _get_exchange(self):
+        if self._exchange is not None:
+            return self._exchange
+        return ccxt.gateio({'enableRateLimit': True, 'options': {'defaultType': 'swap'}})
+
+    def set_exchange(self, exchange):
+        """Reuse an existing authenticated exchange instance to avoid rate limits."""
+        self._exchange = exchange
 
     def fetch_ohlcv(self, symbol, timeframe='1h', limit=100):
-        ex = ccxt.gateio({'enableRateLimit': True, 'options': {'defaultType': 'swap'}})
+        ex = self._get_exchange()
         ohlcv = ex.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
         return pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
 

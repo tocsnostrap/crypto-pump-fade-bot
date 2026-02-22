@@ -2,6 +2,8 @@ import ccxt
 import time
 import json
 import os
+import math
+import logging
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -14,12 +16,19 @@ import urllib.parse
 import urllib.request
 import urllib.error
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+)
+log = logging.getLogger("pump_fade")
+
 try:
     import db_persistence as dbp
     DB_AVAILABLE = True
 except ImportError:
     DB_AVAILABLE = False
-    print(f"[{datetime.now()}] Warning: db_persistence module not available, using JSON files only")
+    log.warning(f"db_persistence module not available, using JSON files only")
 
 try:
     from tct_analysis import TCTAnalyzer
@@ -28,7 +37,7 @@ try:
 except ImportError:
     TCT_AVAILABLE = False
     tct_analyzer = None
-    print(f"[{datetime.now()}] Warning: TCT analysis module not available, skipping market structure filter")
+    log.warning("TCT analysis module not available, skipping market structure filter")
 
 # Import learning system (graceful fallback if not available)
 try:
@@ -39,7 +48,7 @@ try:
     LEARNING_AVAILABLE = True
 except ImportError:
     LEARNING_AVAILABLE = False
-    print(f"[{datetime.now()}] Warning: trade_learning module not available, learning disabled")
+    log.warning(f"trade_learning module not available, learning disabled")
 
 # === DEFAULT CONFIG (can be overridden by bot_config.json) ===
 DEFAULT_CONFIG = {
@@ -194,6 +203,11 @@ DEFAULT_CONFIG = {
     'require_oi_data': False,           # Do not block if OI missing
     'btc_volatility_max_pct': 2.0,      # Skip new entries if BTC swings too much
     
+    # === SAFETY / KILL SWITCH ===
+    'max_drawdown_kill_pct': 15.0,      # Kill switch at 15% drawdown from peak
+    'max_consecutive_losses': 6,        # Kill switch after 6 consecutive losses
+    'symbol_cooldown_sec': 3600,        # 1hr cooldown on a symbol after a loss
+
     # === LEARNING & LOGGING ===
     'enable_trade_logging': True,       # Log detailed feature vectors
     'min_fade_signals': 1,              # Base confirmations for entries
@@ -232,9 +246,176 @@ BALANCE_FILE = 'balance.json'
 CONFIG_FILE = 'bot_config.json'
 SIGNALS_FILE = 'signals.json'
 CLOSED_TRADES_FILE = 'closed_trades.json'
-TRADE_FEATURES_FILE = 'trade_features.json'  # For learning feature vectors
+TRADE_FEATURES_FILE = 'trade_features.json'
 HOLDERS_CACHE_FILE = 'token_holders_cache.json'
 HOLDERS_DATA_FILE = 'token_holders.json'
+SAFETY_STATE_FILE = 'safety_state.json'
+DAILY_LOSS_FILE = 'daily_loss.json'
+
+# ---------------------------------------------------------------------------
+# Retry helper for exchange API calls
+# ---------------------------------------------------------------------------
+def retry_api_call(func, *args, max_retries=3, base_delay=1.0, **kwargs):
+    """Retry an exchange API call with exponential backoff."""
+    last_err = None
+    for attempt in range(max_retries):
+        try:
+            return func(*args, **kwargs)
+        except (ccxt.NetworkError, ccxt.ExchangeNotAvailable, ccxt.RequestTimeout) as e:
+            last_err = e
+            delay = base_delay * (2 ** attempt)
+            log.warning(f"API call failed (attempt {attempt+1}/{max_retries}): {e}, retrying in {delay:.1f}s")
+            time.sleep(delay)
+        except ccxt.ExchangeError as e:
+            raise
+    raise last_err
+
+# ---------------------------------------------------------------------------
+# Order amount precision helper
+# ---------------------------------------------------------------------------
+def round_order_amount(ex, symbol, amount):
+    """Round order amount to exchange-required precision and enforce min/max."""
+    try:
+        market = ex.market(symbol)
+        precision = market.get('precision', {})
+        limits = market.get('limits', {})
+
+        amount_precision = precision.get('amount')
+        if amount_precision is not None:
+            if isinstance(amount_precision, int):
+                amount = round(amount, amount_precision)
+            else:
+                step = float(amount_precision)
+                if step > 0:
+                    amount = math.floor(amount / step) * step
+
+        min_amount = (limits.get('amount') or {}).get('min')
+        max_amount = (limits.get('amount') or {}).get('max')
+        if min_amount and amount < float(min_amount):
+            log.warning(f"Order amount {amount} below minimum {min_amount} for {symbol}")
+            return None
+        if max_amount and amount > float(max_amount):
+            amount = float(max_amount)
+
+        min_cost = (limits.get('cost') or {}).get('min')
+        if min_cost:
+            ticker = ex.fetch_ticker(symbol)
+            cost = amount * (ticker.get('last') or 0)
+            if cost < float(min_cost):
+                log.warning(f"Order cost {cost:.2f} below minimum {min_cost} for {symbol}")
+                return None
+
+        return amount
+    except Exception as e:
+        log.warning(f"Error rounding amount for {symbol}: {e}")
+        return amount
+
+# ---------------------------------------------------------------------------
+# Safety state management (kill switch, cooldowns, drawdown tracking)
+# ---------------------------------------------------------------------------
+def load_safety_state():
+    """Load safety state including cooldowns, drawdown tracking, kill switch."""
+    default = {
+        'symbol_cooldowns': {},
+        'last_loss_ts': 0,
+        'consecutive_losses': 0,
+        'weekly_loss': 0,
+        'week_start_ts': time.time(),
+        'peak_balance': 0,
+        'current_drawdown_pct': 0.0,
+        'kill_switch': False,
+        'kill_switch_reason': '',
+    }
+    return read_json_file(SAFETY_STATE_FILE, default)
+
+def save_safety_state(state):
+    """Persist safety state."""
+    atomic_write_json(SAFETY_STATE_FILE, state)
+
+def check_kill_switch(safety_state, current_balance, config):
+    """Check if trading should be halted. Returns (should_halt, reason)."""
+    if safety_state.get('kill_switch', False):
+        return True, safety_state.get('kill_switch_reason', 'Manual kill switch active')
+
+    max_drawdown_pct = config.get('max_drawdown_kill_pct', 15.0)
+    peak = safety_state.get('peak_balance', current_balance)
+    if peak > 0 and current_balance < peak:
+        dd = (peak - current_balance) / peak * 100
+        safety_state['current_drawdown_pct'] = dd
+        if dd >= max_drawdown_pct:
+            safety_state['kill_switch'] = True
+            safety_state['kill_switch_reason'] = f"Max drawdown {dd:.1f}% >= {max_drawdown_pct}%"
+            return True, safety_state['kill_switch_reason']
+
+    max_consecutive = config.get('max_consecutive_losses', 6)
+    if safety_state.get('consecutive_losses', 0) >= max_consecutive:
+        safety_state['kill_switch'] = True
+        safety_state['kill_switch_reason'] = f"Consecutive losses {safety_state['consecutive_losses']} >= {max_consecutive}"
+        return True, safety_state['kill_switch_reason']
+
+    return False, ''
+
+def update_safety_after_trade(safety_state, profit, current_balance):
+    """Update safety state after a trade closes."""
+    if current_balance > safety_state.get('peak_balance', 0):
+        safety_state['peak_balance'] = current_balance
+
+    if profit <= 0:
+        safety_state['consecutive_losses'] = safety_state.get('consecutive_losses', 0) + 1
+        safety_state['last_loss_ts'] = time.time()
+    else:
+        safety_state['consecutive_losses'] = 0
+
+    return safety_state
+
+def is_symbol_on_cooldown(symbol, safety_state, config):
+    """Check if a symbol is in cooldown period after a recent loss."""
+    cooldown_sec = config.get('symbol_cooldown_sec', 3600)
+    cooldowns = safety_state.get('symbol_cooldowns', {})
+    ts = cooldowns.get(symbol, 0)
+    return (time.time() - ts) < cooldown_sec
+
+def set_symbol_cooldown(symbol, safety_state):
+    """Put a symbol on cooldown."""
+    if 'symbol_cooldowns' not in safety_state:
+        safety_state['symbol_cooldowns'] = {}
+    safety_state['symbol_cooldowns'][symbol] = time.time()
+    # Prune old cooldowns (>24h)
+    cutoff = time.time() - 86400
+    safety_state['symbol_cooldowns'] = {
+        k: v for k, v in safety_state['symbol_cooldowns'].items() if v > cutoff
+    }
+    return safety_state
+
+# ---------------------------------------------------------------------------
+# Daily loss persistence
+# ---------------------------------------------------------------------------
+def load_daily_loss():
+    """Load persisted daily loss for today."""
+    data = read_json_file(DAILY_LOSS_FILE, {'date': '', 'loss': 0.0})
+    today = datetime.now().strftime('%Y-%m-%d')
+    if data.get('date') == today:
+        return data.get('loss', 0.0)
+    return 0.0
+
+def save_daily_loss(daily_loss):
+    """Persist daily loss."""
+    today = datetime.now().strftime('%Y-%m-%d')
+    atomic_write_json(DAILY_LOSS_FILE, {'date': today, 'loss': daily_loss})
+
+# ---------------------------------------------------------------------------
+# Live balance verification
+# ---------------------------------------------------------------------------
+def fetch_live_balance(ex, settle='USDT'):
+    """Fetch actual balance from exchange for margin verification."""
+    try:
+        balance = retry_api_call(ex.fetch_balance)
+        free = balance.get('free', {}).get(settle, 0)
+        total = balance.get('total', {}).get(settle, 0)
+        return {'free': float(free), 'total': float(total)}
+    except Exception as e:
+        log.error(f"Failed to fetch live balance: {e}")
+        return None
 
 # Pushover alert configuration
 PUSHOVER_USER_KEY = os.getenv('PUSHOVER_USER_KEY', '').strip()
@@ -278,7 +459,7 @@ def load_config():
                 file_config = json.load(f)
                 config.update(file_config)
         except (json.JSONDecodeError, IOError) as e:
-            print(f"[{datetime.now()}] Error loading config: {e}, using defaults")
+            log.error(f"Error loading config: {e}, using defaults")
     return config
 
 def convert_numpy_types(obj):
@@ -310,7 +491,7 @@ def atomic_write_json(filepath, data):
             json.dump(data, f, indent=2)
         os.replace(temp_path, filepath)
     except Exception as e:
-        print(f"[{datetime.now()}] ERROR writing to {filepath}: {e}")
+        log.error(f"ERROR writing to {filepath}: {e}")
         try:
             os.unlink(temp_path)
         except:
@@ -318,12 +499,23 @@ def atomic_write_json(filepath, data):
         raise e
 
 def read_json_file(filepath, default):
-    """Read JSON safely with a fallback."""
+    """Read JSON safely with a fallback.  Uses shared lock to avoid reading partial writes."""
     if not filepath or not os.path.exists(filepath):
         return default
     try:
+        import fcntl
         with open(filepath, 'r') as f:
-            return json.load(f)
+            fcntl.flock(f, fcntl.LOCK_SH)
+            try:
+                return json.load(f)
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
+    except ImportError:
+        try:
+            with open(filepath, 'r') as f:
+                return json.load(f)
+        except Exception:
+            return default
     except Exception:
         return default
 
@@ -492,7 +684,14 @@ def select_leverage(entry_quality, validation_score, config):
     leverage = max(min_leverage, leverage)
     return leverage
 
-def is_funding_favorable(funding_rate, config):
+def is_funding_favorable(funding_rate, config, exchange_id=None):
+    """Check if funding rate favors holding a short position.
+
+    On most perpetual exchanges, a positive funding rate means longs pay
+    shorts, which is favorable for our short positions.  Gate.io and Bitget
+    both follow this convention, so the default
+    ``funding_positive_is_favorable=True`` is correct for shorts.
+    """
     if funding_rate is None:
         return None
     if config.get('funding_positive_is_favorable', True):
@@ -506,18 +705,34 @@ def format_price(value):
     except (TypeError, ValueError):
         return str(value)
 
+try:
+    from notifications import send_notification as _send_telegram_discord, is_any_notification_configured
+    TELEGRAM_DISCORD_AVAILABLE = is_any_notification_configured()
+except ImportError:
+    TELEGRAM_DISCORD_AVAILABLE = False
+
 def send_push_notification(title, message, priority=0):
-    """Send a Pushover notification if configured."""
+    """Send notifications via Pushover, Telegram, and Discord (whichever configured)."""
     global last_push_ts
+
+    message = message.strip()
+    if len(message) > 1000:
+        message = message[:1000] + "..."
+
+    # Telegram / Discord via notifications module
+    if TELEGRAM_DISCORD_AVAILABLE:
+        try:
+            level = 'error' if priority >= 1 else 'info'
+            _send_telegram_discord(f"<b>{title}</b>\n{message}", title=title, level=level)
+        except Exception as e:
+            log.debug(f"Telegram/Discord notification failed: {e}")
+
+    # Pushover
     if not ALERTS_ENABLED:
         return
     now = time.time()
     if PUSHOVER_RATE_LIMIT_SEC > 0 and (now - last_push_ts) < PUSHOVER_RATE_LIMIT_SEC:
         return
-
-    message = message.strip()
-    if len(message) > 1000:
-        message = message[:1000] + "..."
 
     payload = {
         'token': PUSHOVER_APP_TOKEN,
@@ -556,9 +771,9 @@ def send_push_notification(title, message, priority=0):
                 error_detail = str(detail)
         if not error_detail:
             error_detail = str(getattr(e, 'reason', e))
-        print(f"[{datetime.now()}] Pushover HTTP {e.code}: {error_detail}")
+        log.warning(f"Pushover HTTP {e.code}: {error_detail}")
     except Exception as e:
-        print(f"[{datetime.now()}] Error sending push notification: {e}")
+        log.warning(f"Error sending push notification: {e}")
 
 def should_notify_signal(signal_type):
     if not ALERTS_ENABLED:
@@ -622,14 +837,14 @@ def save_signal(exchange, symbol, signal_type, price, message, change_pct=None, 
             try:
                 dbp.save_signal(signal)
             except Exception as db_err:
-                print(f"[{datetime.now()}] DB save_signal error: {db_err}")
+                log.info(f"DB save_signal error: {db_err}")
 
         # Send push notification only for allowed signal types
         if should_notify_signal(signal_type):
             title, body = build_alert_message(exchange, symbol, signal_type, price, message, change_pct, funding_rate, rsi)
             send_push_notification(title, body)
     except Exception as e:
-        print(f"[{datetime.now()}] Error saving signal: {e}")
+        log.error(f"Error saving signal: {e}")
 
 def save_closed_trade(ex_name, symbol, entry, exit_price, profit, reason):
     """Save a closed trade to the closed trades file"""
@@ -659,9 +874,9 @@ def save_closed_trade(ex_name, symbol, entry, exit_price, profit, reason):
             try:
                 dbp.append_closed_trade(trade)
             except Exception as db_err:
-                print(f"[{datetime.now()}] DB append_closed_trade error: {db_err}")
+                log.info(f"DB append_closed_trade error: {db_err}")
     except Exception as e:
-        print(f"[{datetime.now()}] Error saving closed trade: {e}")
+        log.error(f"Error saving closed trade: {e}")
 
 def is_symbol_open(open_trades, ex_name, symbol):
     """Check if a symbol already has an open trade for an exchange."""
@@ -669,22 +884,52 @@ def is_symbol_open(open_trades, ex_name, symbol):
 
 def init_exchanges():
     """Initialize exchange connections with API keys from environment"""
-    gate = ccxt.gateio({
-        'apiKey': os.getenv('GATE_API_KEY'),
-        'secret': os.getenv('GATE_SECRET'),
-        'enableRateLimit': True,
-        'options': {'defaultType': 'swap'}
-    })
+    exchanges = {}
+    gate_key = os.getenv('GATE_API_KEY')
+    gate_secret = os.getenv('GATE_SECRET')
+    if gate_key and gate_secret:
+        gate = ccxt.gateio({
+            'apiKey': gate_key,
+            'secret': gate_secret,
+            'enableRateLimit': True,
+            'options': {'defaultType': 'swap'}
+        })
+        exchanges['gate'] = gate
+    else:
+        log.warning("Gate.io API keys not configured, skipping")
 
-    bitget = ccxt.bitget({
-        'apiKey': os.getenv('BITGET_API_KEY'),
-        'secret': os.getenv('BITGET_SECRET'),
-        'password': os.getenv('BITGET_PASSPHRASE'),
-        'enableRateLimit': True,
-        'options': {'defaultType': 'swap'}
-    })
+    bitget_key = os.getenv('BITGET_API_KEY')
+    bitget_secret = os.getenv('BITGET_SECRET')
+    bitget_pass = os.getenv('BITGET_PASSPHRASE')
+    if bitget_key and bitget_secret and bitget_pass:
+        bitget = ccxt.bitget({
+            'apiKey': bitget_key,
+            'secret': bitget_secret,
+            'password': bitget_pass,
+            'enableRateLimit': True,
+            'options': {'defaultType': 'swap'}
+        })
+        exchanges['bitget'] = bitget
+    else:
+        log.warning("Bitget API keys not configured, skipping")
 
-    return {'gate': gate, 'bitget': bitget}
+    if not exchanges:
+        log.error("No exchange API keys configured! Bot cannot trade.")
+
+    return exchanges
+
+def setup_exchange_margin_mode(ex, symbol, config):
+    """Set margin mode to cross (or isolated) and one-way position mode."""
+    margin_mode = config.get('margin_mode', 'cross')
+    try:
+        if hasattr(ex, 'set_margin_mode'):
+            ex.set_margin_mode(margin_mode, symbol)
+    except ccxt.ExchangeError as e:
+        err_str = str(e).lower()
+        if 'no need to change' not in err_str and 'already' not in err_str:
+            log.warning(f"Failed to set margin mode for {symbol}: {e}")
+    except Exception as e:
+        log.warning(f"Error setting margin mode for {symbol}: {e}")
 
 def load_symbols(exchanges):
     """Load all USDT perpetual swap symbols from exchanges"""
@@ -694,9 +939,9 @@ def load_symbols(exchanges):
             ex.load_markets()
             symbols[name] = [s for s, m in ex.markets.items() 
                            if m.get('swap') and 'USDT' in s and m.get('active')]
-            print(f"[{datetime.now()}] Loaded {len(symbols[name])} symbols from {name}")
+            log.info(f"Loaded {len(symbols[name])} symbols from {name}")
         except Exception as e:
-            print(f"[{datetime.now()}] Error loading markets from {name}: {e}")
+            log.error(f"Error loading markets from {name}: {e}")
             symbols[name] = []
     return symbols
 
@@ -710,13 +955,13 @@ def load_state(config):
             open_trades = dbp.load_open_trades()
             current_balance = dbp.load_balance(starting_capital)
             if prev_data or open_trades or current_balance != starting_capital:
-                print(f"[{datetime.now()}] Loaded state from database")
+                log.info(f"Loaded state from database")
                 atomic_write_json(STATE_FILE, prev_data)
                 atomic_write_json(TRADES_FILE, open_trades)
                 atomic_write_json(BALANCE_FILE, {'balance': current_balance, 'last_updated': str(datetime.now())})
                 return prev_data, open_trades, current_balance
         except Exception as e:
-            print(f"[{datetime.now()}] DB load_state error, falling back to JSON: {e}")
+            log.info(f"DB load_state error, falling back to JSON: {e}")
 
     prev_data = {}
     if os.path.exists(STATE_FILE):
@@ -756,7 +1001,7 @@ def save_state(prev_data, open_trades, current_balance):
             dbp.save_open_trades(open_trades)
             dbp.save_balance(current_balance)
         except Exception as e:
-            print(f"[{datetime.now()}] DB save_state error: {e}")
+            log.info(f"DB save_state error: {e}")
 
 def get_ohlcv(ex, symbol, timeframe='15m', limit=20):
     """Fetch OHLCV data and return as DataFrame"""
@@ -766,7 +1011,7 @@ def get_ohlcv(ex, symbol, timeframe='15m', limit=20):
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
         return df
     except Exception as e:
-        print(f"[{datetime.now()}] Error fetching OHLCV for {symbol}: {e}")
+        log.error(f"Error fetching OHLCV for {symbol}: {e}")
         return None
 
 # OHLCV cache: {exchange_name: {symbol: {'pct': change, 'ts': timestamp}}}
@@ -807,7 +1052,7 @@ def get_24h_change_from_ohlcv(ex, ex_name, symbol):
                 ohlcv_cache[ex_name][symbol] = {'pct': pct_change, 'ts': time.time()}
                 return pct_change, True
     except Exception as e:
-        print(f"[{datetime.now()}] OHLCV fallback failed for {symbol}: {e}")
+        log.info(f"OHLCV fallback failed for {symbol}: {e}")
     return 0, False
 
 def get_multi_window_change_from_ohlcv(ex, ex_name, symbol, config):
@@ -857,7 +1102,7 @@ def get_multi_window_change_from_ohlcv(ex, ex_name, symbol, config):
         multi_ohlcv_cache[cache_key] = {'pct': best_pct, 'ok': bool(best_window), 'details': details, 'ts': now}
         return best_pct, bool(best_window), details
     except Exception as e:
-        print(f"[{datetime.now()}] Multi-window OHLCV failed for {symbol}: {e}")
+        log.info(f"Multi-window OHLCV failed for {symbol}: {e}")
         return 0, False, None
 
 def check_fade_signals(df, config=None, min_confirms=None):
@@ -1766,10 +2011,10 @@ def log_trade_features(symbol, ex_name, action, features, outcome=None):
             try:
                 dbp.append_trade_feature(entry)
             except Exception as db_err:
-                print(f"[{datetime.now()}] DB append_trade_feature error: {db_err}")
+                log.info(f"DB append_trade_feature error: {db_err}")
         
     except Exception as e:
-        print(f"[{datetime.now()}] Error logging trade features: {e}")
+        log.error(f"Error logging trade features: {e}")
 
 def simulate_realistic_entry(entry_price, config):
     """Apply realistic slippage, spread, and fees to paper trade SHORT entry.
@@ -1865,7 +2110,7 @@ def calculate_swing_high_sl(ex, symbol, entry_price, config):
             sl_pct = (sl_price - entry_price) / entry_price
             return sl_price, sl_pct, swing_high
     except Exception as e:
-        print(f"[{datetime.now()}] Error calculating swing high SL: {e}")
+        log.error(f"Error calculating swing high SL: {e}")
     
     # Fallback to fixed percentage
     fallback_pct = config.get('sl_pct_above_entry', 0.12)
@@ -1892,9 +2137,9 @@ def place_exchange_stop_loss(ex, symbol, amount, stop_price):
             return ex.create_stop_market_order(symbol, 'buy', amount, stop_price, params)
         if hasattr(ex, "has") and ex.has.get("createStopLimitOrder"):
             return ex.create_stop_limit_order(symbol, 'buy', amount, stop_price, stop_price, params)
-        print(f"[{datetime.now()}] Exchange does not support stop orders via CCXT: {ex.id}")
+        log.info(f"Exchange does not support stop orders via CCXT: {ex.id}")
     except Exception as e:
-        print(f"[{datetime.now()}] Failed to place exchange stop loss for {symbol}: {e}")
+        log.info(f"Failed to place exchange stop loss for {symbol}: {e}")
     return None
 
 def cancel_exchange_order(ex, symbol, order_id):
@@ -1904,7 +2149,7 @@ def cancel_exchange_order(ex, symbol, order_id):
     try:
         ex.cancel_order(order_id, symbol)
     except Exception as e:
-        print(f"[{datetime.now()}] Failed to cancel order {order_id} for {symbol}: {e}")
+        log.info(f"Failed to cancel order {order_id} for {symbol}: {e}")
 
 def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent_low, open_trades, config, entry_quality=None, validation_details=None, pump_pct=None):
     """Enter a short position (paper or live) with swing high stop loss
@@ -1932,7 +2177,7 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
             sl_cap = entry_price * (1 + max_sl_pct)
             if sl_price > sl_cap:
                 sl_price = sl_cap
-        print(f"  Swing high: ${swing_high:.4f} -> SL: ${sl_price:.4f} ({sl_pct*100:.1f}% above entry)")
+        log.info(f"  Swing high: ${swing_high:.4f} -> SL: ${sl_price:.4f} ({sl_pct*100:.1f}% above entry)")
     else:
         sl_pct = config['sl_pct_above_entry']
         sl_price = entry_price * (1 + sl_pct)
@@ -1985,14 +2230,14 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
                 rr = reward / sl_distance
                 min_rr = config.get('reward_risk_min', 1.2)
                 if rr < min_rr:
-                    print(f"[{datetime.now()}] [PAPER] Skip {symbol}: RR {rr:.2f} < {min_rr}")
+                    log.info(f"[PAPER] Skip {symbol}: RR {rr:.2f} < {min_rr}")
                     return None
         
-        print(f"[{datetime.now()}] [PAPER] Entering short {symbol}")
-        print(f"  Market: ${entry_price:.4f} -> Fill: ${simulated_entry:.4f} (slippage + spread)")
-        print(f"  Size: {position_size:.4f} | Leverage: {leverage}x | Fee: ${entry_fee_cost:.2f}")
-        print(f"  SL: ${sl_price:.4f} | Staged exits enabled: {config.get('use_staged_exits', True)}")
-        print(f"  TP levels: ${tp_prices[0]:.4f} (38.2%) | ${tp_prices[1]:.4f} (50%) | ${tp_prices[2]:.4f} (61.8%)")
+        log.info(f"[PAPER] Entering short {symbol}")
+        log.info(f"  Market: ${entry_price:.4f} -> Fill: ${simulated_entry:.4f} (slippage + spread)")
+        log.info(f"  Size: {position_size:.4f} | Leverage: {leverage}x | Fee: ${entry_fee_cost:.2f}")
+        log.info(f"  SL: ${sl_price:.4f} | Staged exits enabled: {config.get('use_staged_exits', True)}")
+        log.info(f"  TP levels: ${tp_prices[0]:.4f} (38.2%) | ${tp_prices[1]:.4f} (50%) | ${tp_prices[2]:.4f} (61.8%)")
         
         save_signal(ex_name, symbol, 'entry_signal', simulated_entry, 
                    f"PAPER short @ ${simulated_entry:.4f} (SL ${sl_price:.4f}), fee ${entry_fee_cost:.2f}")
@@ -2014,11 +2259,22 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
             'total_fees': entry_fee_cost,
             'funding_payments': 0,
             'last_funding_ts': time.time(),
-            'exits_taken': []  # Track staged exits taken
+            'entry_ts': time.time(),
+            'exits_taken': []
         }
 
     try:
-        ex.set_leverage(leverage, symbol)
+        # Verify live balance before entry
+        live_bal = fetch_live_balance(ex)
+        if live_bal:
+            free_margin = live_bal['free']
+            if free_margin < risk_amount * 2:
+                log.warning(f"[LIVE] Insufficient margin for {symbol}: free={free_margin:.2f}, need~{risk_amount*2:.2f}")
+                return None
+
+        setup_exchange_margin_mode(ex, symbol, config)
+        retry_api_call(ex.set_leverage, leverage, symbol)
+
         market = ex.market(symbol)
         contract_size = market.get('contractSize', 1)
         sl_distance = abs(sl_price - entry_price)
@@ -2026,16 +2282,17 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
             amount = risk_amount / (sl_distance * contract_size)
         else:
             amount = risk_amount / (entry_price * 0.12 * contract_size)
-        order = ex.create_market_sell_order(symbol, amount, params={'reduce_only': False})
-        filled_entry = order.get('average') or order.get('price') or entry_price
-        
-        # Calculate TP prices for live trades using actual pump range
+
+        amount = round_order_amount(ex, symbol, amount)
+        if amount is None or amount <= 0:
+            log.warning(f"[LIVE] Order amount invalid for {symbol} after rounding")
+            return None
+
         staged_exit_levels = exit_levels or config.get('staged_exit_levels', [
             {'fib': 0.382, 'pct': 0.50},
             {'fib': 0.50, 'pct': 0.30},
             {'fib': 0.618, 'pct': 0.20}
         ])
-        # Use actual recent_low from OHLCV data for proper fibonacci calculation
         diff = pump_high - recent_low
         tp_prices = [pump_high - (level['fib'] * diff) for level in staged_exit_levels]
 
@@ -2047,17 +2304,28 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
                 rr = reward / sl_distance_live
                 min_rr = config.get('reward_risk_min', 1.2)
                 if rr < min_rr:
-                    print(f"[{datetime.now()}] [LIVE] Skip {symbol}: RR {rr:.2f} < {min_rr}")
+                    log.info(f"[LIVE] Skip {symbol}: RR {rr:.2f} < {min_rr}")
                     return None
-        
-        print(f"[{datetime.now()}] [LIVE] Entered short {symbol} @ {filled_entry:.4f}, SL ${sl_price:.4f}, order ID: {order['id']}")
-        print(f"  TP levels: ${tp_prices[0]:.4f} (38.2%) | ${tp_prices[1]:.4f} (50%) | ${tp_prices[2]:.4f} (61.8%)")
+
+        order = retry_api_call(
+            ex.create_market_sell_order, symbol, amount,
+            params={'reduceOnly': False}
+        )
+        filled_entry = order.get('average') or order.get('price') or entry_price
+
+        log.info(f"[LIVE] Entered short {symbol} @ {filled_entry:.4f}, SL ${sl_price:.4f}, order ID: {order['id']}")
+        log.info(f"  TP levels: ${tp_prices[0]:.4f} | ${tp_prices[1]:.4f} | ${tp_prices[2]:.4f}")
         save_signal(ex_name, symbol, 'entry_signal', filled_entry,
                    f"LIVE short entry at ${filled_entry:.4f}, SL ${sl_price:.4f}")
 
         sl_order = place_exchange_stop_loss(ex, symbol, amount, sl_price)
         if sl_order:
-            print(f"[{datetime.now()}] [LIVE] Stop loss order placed for {symbol} @ {sl_price:.4f} (ID: {sl_order.get('id')})")
+            log.info(f"[LIVE] Stop loss order placed for {symbol} @ {sl_price:.4f} (ID: {sl_order.get('id')})")
+        else:
+            log.warning(f"[LIVE] FAILED to place SL order for {symbol} - position has NO exchange-side stop loss!")
+            send_push_notification("SL ORDER FAILED",
+                f"No stop loss on exchange for {symbol}! Monitor manually.", priority=1)
+
         return {
             'id': order['id'],
             'entry': filled_entry,
@@ -2071,54 +2339,55 @@ def enter_short(ex, ex_name, symbol, entry_price, risk_amount, pump_high, recent
             'leverage': leverage,
             'contract_size': contract_size,
             'sl_order_id': sl_order.get('id') if sl_order else None,
+            'entry_ts': time.time(),
             'exits_taken': []
         }
+    except ccxt.InsufficientFunds as e:
+        log.error(f"[LIVE] Insufficient funds for {symbol}: {e}")
+        send_push_notification("Insufficient Funds", f"Cannot open {symbol}: {e}", priority=1)
+        return None
+    except ccxt.InvalidOrder as e:
+        log.error(f"[LIVE] Invalid order for {symbol}: {e}")
+        return None
     except Exception as e:
-        print(f"[{datetime.now()}] Error entering short {symbol}: {e}")
+        log.error(f"[LIVE] Error entering short {symbol}: {e}")
+        send_push_notification("Entry Error", f"Failed to enter {symbol}: {e}", priority=1)
         return None
 
-def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, config):
-    """Close a trade and calculate P&L"""
+def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, config, safety_state=None):
+    """Close a trade and calculate P&L.  Updates safety_state in-place when provided."""
     trade_data = trade.get('trade', trade)
     paper_mode = config['paper_mode']
     compound_pct = config['compound_pct']
     leverage_default = config['leverage_default']
     ex_name = trade.get('ex', 'unknown')
     sym = trade.get('sym', 'unknown')
-    
+
     if paper_mode:
         entry = trade_data.get('entry', current_price)
         amount = trade_data.get('amount', 0)
         leverage = trade_data.get('leverage', leverage_default)
         contract_size = trade_data.get('contract_size', 1)
-        
-        # Apply realistic exit simulation (slippage, spread)
+
         simulated_exit, _ = simulate_realistic_exit(current_price, config)
-        
-        # Calculate P&L with realistic exit price
-        # For shorts: profit = (entry - exit) * size * contract_size
+
         gross_profit = amount * contract_size * (entry - simulated_exit)
-        
-        # Calculate exit fee on notional value (NOT leveraged)
+
         exit_notional = simulated_exit * amount * contract_size
         exit_fee_cost = exit_notional * config.get('paper_fee_pct', 0.0005)
-        
-        # Total fees = entry fee + exit fee
+
         entry_fee = trade_data.get('entry_fee', 0)
         total_fees = entry_fee + exit_fee_cost
-        
-        # Funding payments accumulated during the trade
-        # Negative = we paid, Positive = we received
+
         funding_payments = trade_data.get('funding_payments', 0)
-        
-        # Net profit = gross profit - fees + funding (funding already has correct sign)
+
         net_profit = gross_profit - total_fees + funding_payments
-        
-        print(f"[{datetime.now()}] [PAPER] Closing {sym} - {reason}")
-        print(f"  Market: ${current_price:.4f} -> Fill: ${simulated_exit:.4f}")
-        print(f"  Gross P&L: ${gross_profit:.2f} | Fees: ${total_fees:.2f} | Funding: ${funding_payments:.2f}")
-        print(f"  Net P&L: ${net_profit:.2f}")
-        
+
+        log.info(f"[PAPER] Closing {sym} - {reason}")
+        log.info(f"  Market: ${current_price:.4f} -> Fill: ${simulated_exit:.4f}")
+        log.info(f"  Gross P&L: ${gross_profit:.2f} | Fees: ${total_fees:.2f} | Funding: ${funding_payments:.2f}")
+        log.info(f"  Net P&L: ${net_profit:.2f}")
+
         save_closed_trade(ex_name, sym, entry, simulated_exit, net_profit, reason)
         save_signal(ex_name, sym, 'exit_signal', simulated_exit,
                    f"PAPER exit: {reason}, Net P&L ${net_profit:.2f} (fees ${total_fees:.2f})")
@@ -2137,8 +2406,7 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
                 'max_drawdown_pct': trade_data.get('max_drawdown_pct')
             }
             log_trade_features(sym, ex_name, 'exit', trade_data.get('features', {}), outcome)
-            
-            # Log to trade journal with lessons learned
+
             if LEARNING_AVAILABLE:
                 try:
                     features = trade_data.get('features', {})
@@ -2152,32 +2420,45 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
                         duration_minutes=duration_min,
                         lessons=lessons
                     )
-                    print(f"  Lessons: {'; '.join(lessons[:2])}")
+                    log.info(f"  Lessons: {'; '.join(lessons[:2])}")
                 except Exception as e:
-                    print(f"[{datetime.now()}] Journal logging error: {e}")
-        
+                    log.error(f"Journal logging error: {e}")
+
         current_balance += net_profit * compound_pct
         daily_loss += min(net_profit, 0)
+
+        if safety_state is not None:
+            update_safety_after_trade(safety_state, net_profit, current_balance)
+            if net_profit <= 0:
+                set_symbol_cooldown(sym, safety_state)
+
         return net_profit, current_balance, daily_loss
 
     try:
         amount = trade_data.get('amount', 0)
-        order = ex.create_market_buy_order(sym, amount, params={'reduce_only': True})
+        rounded = round_order_amount(ex, sym, amount)
+        if rounded and rounded > 0:
+            amount = rounded
+        order = retry_api_call(
+            ex.create_market_buy_order, sym, amount,
+            params={'reduceOnly': True}
+        )
         entry = trade_data.get('entry', current_price)
         leverage = trade_data.get('leverage', leverage_default)
         contract_size = trade_data.get('contract_size', 1)
-        profit = amount * contract_size * (entry - current_price)
-        print(f"[{datetime.now()}] [LIVE] Closed {sym} - {reason}: P&L ${profit:.2f}")
+        filled_exit = order.get('average') or order.get('price') or current_price
+        profit = amount * contract_size * (entry - filled_exit)
+        log.info(f"[LIVE] Closed {sym} - {reason}: P&L ${profit:.2f}")
         cancel_exchange_order(ex, sym, trade_data.get('sl_order_id'))
-        save_closed_trade(ex_name, sym, entry, current_price, profit, reason)
-        save_signal(ex_name, sym, 'exit_signal', current_price,
+        save_closed_trade(ex_name, sym, entry, filled_exit, profit, reason)
+        save_signal(ex_name, sym, 'exit_signal', filled_exit,
                    f"LIVE exit: {reason}, P&L ${profit:.2f}")
 
         if config.get('enable_trade_logging', True):
             duration_min = (time.time() - trade_data.get('entry_ts', time.time())) / 60
             outcome = {
                 'trade_id': trade_data.get('id'),
-                'exit_price': current_price,
+                'exit_price': filled_exit,
                 'net_profit': profit,
                 'gross_profit': profit,
                 'fees': trade_data.get('total_fees', 0),
@@ -2187,8 +2468,7 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
                 'max_drawdown_pct': trade_data.get('max_drawdown_pct')
             }
             log_trade_features(sym, ex_name, 'exit', trade_data.get('features', {}), outcome)
-            
-            # Log to trade journal with lessons learned
+
             if LEARNING_AVAILABLE:
                 try:
                     features = trade_data.get('features', {})
@@ -2196,20 +2476,27 @@ def close_trade(ex, trade, reason, current_price, current_balance, daily_loss, c
                     journal = TradeJournal()
                     journal.log_exit(
                         trade_id=trade_data.get('id'),
-                        exit_price=current_price,
+                        exit_price=filled_exit,
                         profit=profit,
                         reason=reason,
                         duration_minutes=duration_min,
                         lessons=lessons
                     )
-                    print(f"  Lessons: {'; '.join(lessons[:2])}")
+                    log.info(f"  Lessons: {'; '.join(lessons[:2])}")
                 except Exception as e:
-                    print(f"[{datetime.now()}] Journal logging error: {e}")
+                    log.error(f"Journal logging error: {e}")
         current_balance += profit * compound_pct
         daily_loss += min(profit, 0)
+
+        if safety_state is not None:
+            update_safety_after_trade(safety_state, profit, current_balance)
+            if profit <= 0:
+                set_symbol_cooldown(sym, safety_state)
+
         return profit, current_balance, daily_loss
     except Exception as e:
-        print(f"[{datetime.now()}] Error closing trade: {e}")
+        log.error(f"Error closing trade {sym}: {e}")
+        send_push_notification("Close Error", f"Failed to close {sym}: {e}", priority=1)
         return 0, current_balance, daily_loss
 
 def close_partial_trade(ex, trade, pct_to_close, reason, current_price, current_balance, daily_loss, config):
@@ -2248,8 +2535,8 @@ def close_partial_trade(ex, trade, pct_to_close, reason, current_price, current_
         # Net profit for closed portion
         net_profit = gross_profit - exit_fee_cost + partial_funding
         
-        print(f"[{datetime.now()}] [PAPER] Partial close {sym} ({pct_to_close*100:.0f}%) - {reason}")
-        print(f"  Closed: {amount_to_close:.4f} @ ${simulated_exit:.4f} | Net P&L: ${net_profit:.2f}")
+        log.info(f"[PAPER] Partial close {sym} ({pct_to_close*100:.0f}%) - {reason}")
+        log.info(f"  Closed: {amount_to_close:.4f} @ ${simulated_exit:.4f} | Net P&L: ${net_profit:.2f}")
         
         save_signal(ex_name, sym, 'partial_exit', simulated_exit,
                    f"Partial {pct_to_close*100:.0f}% exit: {reason}, P&L ${net_profit:.2f}")
@@ -2282,13 +2569,19 @@ def close_partial_trade(ex, trade, pct_to_close, reason, current_price, current_
     try:
         total_amount = trade_data.get('amount', 0)
         amount_to_close = total_amount * pct_to_close
-        order = ex.create_market_buy_order(sym, amount_to_close, params={'reduce_only': True})
+        rounded = round_order_amount(ex, sym, amount_to_close)
+        if rounded and rounded > 0:
+            amount_to_close = rounded
+        order = retry_api_call(
+            ex.create_market_buy_order, sym, amount_to_close,
+            params={'reduceOnly': True}
+        )
         entry = trade_data.get('entry', current_price)
         leverage = trade_data.get('leverage', leverage_default)
         contract_size = trade_data.get('contract_size', 1)
         profit = amount_to_close * contract_size * (entry - current_price)
         
-        print(f"[{datetime.now()}] [LIVE] Partial close {sym} ({pct_to_close*100:.0f}%) - {reason}: P&L ${profit:.2f}")
+        log.info(f"[LIVE] Partial close {sym} ({pct_to_close*100:.0f}%) - {reason}: P&L ${profit:.2f}")
         save_signal(ex_name, sym, 'partial_exit', current_price,
                    f"Partial {pct_to_close*100:.0f}% exit: {reason}, P&L ${profit:.2f}")
 
@@ -2318,10 +2611,10 @@ def close_partial_trade(ex, trade, pct_to_close, reason, current_price, current_
             trade_data['sl_order_id'] = sl_order.get('id') if sl_order else None
         return profit, current_balance, daily_loss, trade_data, trade_data['amount'] > 0
     except Exception as e:
-        print(f"[{datetime.now()}] Error partial close: {e}")
+        log.error(f"Error partial close: {e}")
         return 0, current_balance, daily_loss, trade_data, True
 
-def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config):
+def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config, safety_state=None):
     """Manage open trades: check SL, staged TP, trailing stop, time exit, and funding payments"""
     to_close = []
     base_trailing_stop_pct = config['trailing_stop_pct']
@@ -2391,15 +2684,15 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
                         open_trades[i]['trade']['last_funding_ts'] = time.time()
                         
                         if funding_payment > 0:
-                            print(f"[{datetime.now()}] [PAPER] Funding received: +${funding_payment:.2f} for {trade['sym']} (rate: {funding_rate*100:.4f}%)")
+                            log.info(f"[PAPER] Funding received: +${funding_payment:.2f} for {trade['sym']} (rate: {funding_rate*100:.4f}%)")
                         else:
-                            print(f"[{datetime.now()}] [PAPER] Funding paid: -${abs(funding_payment):.2f} for {trade['sym']} (rate: {funding_rate*100:.4f}%)")
+                            log.info(f"[PAPER] Funding paid: -${abs(funding_payment):.2f} for {trade['sym']} (rate: {funding_rate*100:.4f}%)")
 
             # Check Stop Loss
             sl = trade_data.get('sl', entry * 1.12)
             if current_price >= sl:
                 exit_price = sl if paper_mode else current_price
-                _, current_balance, daily_loss = close_trade(ex, trade, 'SL hit', exit_price, current_balance, daily_loss, config)
+                _, current_balance, daily_loss = close_trade(ex, trade, 'SL hit', exit_price, current_balance, daily_loss, config, safety_state)
                 to_close.append(i)
                 continue
 
@@ -2418,7 +2711,7 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
                             cancel_exchange_order(ex, trade['sym'], trade_data.get('sl_order_id'))
                             sl_order = place_exchange_stop_loss(ex, trade['sym'], trade_data['amount'], tightened_sl)
                             open_trades[i]['trade']['sl_order_id'] = sl_order.get('id') if sl_order else None
-                        print(f"[{datetime.now()}] Time stop tightened for {trade['sym']}: {tightened_sl:.4f}")
+                        log.info(f"Time stop tightened for {trade['sym']}: {tightened_sl:.4f}")
 
             # Early cut if trade stalls and momentum stays bullish
             if config.get('enable_early_cut', False):
@@ -2453,7 +2746,7 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
 
                         if should_cut:
                             exit_price = current_price
-                            _, current_balance, daily_loss = close_trade(ex, trade, 'Early cut', exit_price, current_balance, daily_loss, config)
+                            _, current_balance, daily_loss = close_trade(ex, trade, 'Early cut', exit_price, current_balance, daily_loss, config, safety_state)
                             to_close.append(i)
                             continue
 
@@ -2499,7 +2792,7 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
                                     cancel_exchange_order(ex, trade['sym'], trade_data.get('sl_order_id'))
                                     sl_order = place_exchange_stop_loss(ex, trade['sym'], trade_data['amount'], new_sl)
                                     open_trades[i]['trade']['sl_order_id'] = sl_order.get('id') if sl_order else None
-                                print(f"[{datetime.now()}] Breakeven SL set for {trade['sym']}: {new_sl:.4f}")
+                                log.info(f"Breakeven SL set for {trade['sym']}: {new_sl:.4f}")
                         
                         if not still_open:
                             to_close.append(i)
@@ -2525,13 +2818,13 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
                                 cancel_exchange_order(ex, trade['sym'], trade_data.get('sl_order_id'))
                                 sl_order = place_exchange_stop_loss(ex, trade['sym'], trade_data['amount'], new_sl)
                                 open_trades[i]['trade']['sl_order_id'] = sl_order.get('id') if sl_order else None
-                            print(f"[{datetime.now()}] Trailing stop updated for {trade['sym']}: {new_sl:.4f}")
+                            log.info(f"Trailing stop updated for {trade['sym']}: {new_sl:.4f}")
             else:
                 # Original single TP logic (fallback)
                 fib_levels = calc_fib_levels(pump_high, recent_low, config)
                 for level in fib_levels:
                     if current_price <= level:
-                        _, current_balance, daily_loss = close_trade(ex, trade, f'TP at fib {level:.4f}', current_price, current_balance, daily_loss, config)
+                        _, current_balance, daily_loss = close_trade(ex, trade, f'TP at fib {level:.4f}', current_price, current_balance, daily_loss, config, safety_state)
                         to_close.append(i)
                         break
                 else:
@@ -2552,7 +2845,7 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
                                 cancel_exchange_order(ex, trade['sym'], trade_data.get('sl_order_id'))
                                 sl_order = place_exchange_stop_loss(ex, trade['sym'], trade_data['amount'], new_sl)
                                 open_trades[i]['trade']['sl_order_id'] = sl_order.get('id') if sl_order else None
-                            print(f"[{datetime.now()}] Trailing stop updated for {trade['sym']}: {new_sl:.4f}")
+                            log.info(f"Trailing stop updated for {trade['sym']}: {new_sl:.4f}")
 
             # Time exit (configurable, with funding bias)
             if i not in to_close:
@@ -2576,12 +2869,13 @@ def manage_trades(ex_name, ex, open_trades, current_balance, daily_loss, config)
                         current_price,
                         current_balance,
                         daily_loss,
-                        config
+                        config,
+                        safety_state
                     )
                     to_close.append(i)
 
         except Exception as e:
-            print(f"[{datetime.now()}] Error managing trade {trade.get('sym', 'unknown')}: {e}")
+            log.error(f"Error managing trade {trade.get('sym', 'unknown')}: {e}")
 
     for idx in sorted(to_close, reverse=True):
         del open_trades[idx]
@@ -2593,13 +2887,13 @@ def sync_live_positions(ex_name, ex, open_trades, config):
     if config.get('paper_mode', True):
         return open_trades
     if not hasattr(ex, "fetch_positions") or (hasattr(ex, "has") and not ex.has.get("fetchPositions", True)):
-        print(f"[{datetime.now()}] Exchange does not support fetch_positions: {ex.id}")
+        log.info(f"Exchange does not support fetch_positions: {ex.id}")
         return open_trades
 
     try:
         positions = ex.fetch_positions()
     except Exception as e:
-        print(f"[{datetime.now()}] Error fetching positions from {ex_name}: {e}")
+        log.error(f"Error fetching positions from {ex_name}: {e}")
         return open_trades
 
     positions_by_symbol = {}
@@ -2666,7 +2960,7 @@ def sync_live_positions(ex_name, ex, open_trades, config):
                 trade_data['entry_ts'] = pos.get('timestamp') or time.time()
             open_trades[idx]['trade'] = trade_data
         else:
-            print(f"[{datetime.now()}] Live position missing for {sym} on {ex_name}, removing from tracking")
+            log.info(f"Live position missing for {sym} on {ex_name}, removing from tracking")
             to_remove.append(idx)
 
     for idx in sorted(to_remove, reverse=True):
@@ -2674,7 +2968,7 @@ def sync_live_positions(ex_name, ex, open_trades, config):
 
     # Add positions not tracked in open_trades
     for sym, pos in positions_by_symbol.items():
-        print(f"[{datetime.now()}] Reconciling untracked live position: {sym} on {ex_name}")
+        log.info(f"Reconciling untracked live position: {sym} on {ex_name}")
         entry_price = pos['entry_price']
         mark_price = pos.get('mark_price') or entry_price
 
@@ -2813,18 +3107,19 @@ def process_entry_watchlist(ex_name, ex, tickers, entry_watchlist, open_trades, 
 
         if TCT_AVAILABLE and config.get('enable_tct_filter', True):
             try:
+                tct_analyzer.set_exchange(ex)
                 tct_result = tct_analyzer.analyze_for_short(symbol, current_price, '4h')
                 if not tct_result['approved']:
                     tct_reasons = ', '.join(tct_result.get('reasons', []))
-                    print(f"[{datetime.now()}] TCT REJECTED {symbol}: confidence={tct_result['confidence']}%, {tct_reasons}")
+                    log.info(f"TCT REJECTED {symbol}: confidence={tct_result['confidence']}%, {tct_reasons}")
                     save_signal(ex_name, symbol, 'tct_rejected', current_price,
                                f"TCT filter rejected: {tct_reasons} (confidence: {tct_result['confidence']}%)")
                     continue
                 else:
                     tct_reasons = ', '.join(tct_result.get('reasons', []))
-                    print(f"[{datetime.now()}] TCT APPROVED {symbol}: confidence={tct_result['confidence']}%, {tct_reasons}")
+                    log.info(f"TCT APPROVED {symbol}: confidence={tct_result['confidence']}%, {tct_reasons}")
             except Exception as e:
-                print(f"[{datetime.now()}] TCT analysis error for {symbol}: {e} - proceeding without TCT filter")
+                log.warning(f"TCT analysis error for {symbol}: {e} - proceeding without TCT filter")
 
         risk = current_balance * config['risk_pct_per_trade'] * risk_multiplier
         trade_info = enter_short(
@@ -2924,11 +3219,51 @@ def process_entry_watchlist(ex_name, ex, tickers, entry_watchlist, open_trades, 
                             reasoning=reasoning
                         )
                     except Exception as e:
-                        print(f"[{datetime.now()}] Journal entry logging error: {e}")
+                        log.info(f"Journal entry logging error: {e}")
 
             del entry_watchlist[ex_name][symbol]
 
     return open_trades, current_balance
+
+def validate_live_readiness(exchanges, config):
+    """Run pre-flight checks before live trading. Returns list of issues."""
+    issues = []
+
+    for ex_name, ex in exchanges.items():
+        # Check API connectivity and balance
+        try:
+            bal = fetch_live_balance(ex)
+            if bal is None:
+                issues.append(f"{ex_name}: cannot fetch balance - check API keys")
+            elif bal['free'] < 10:
+                issues.append(f"{ex_name}: very low free balance (${bal['free']:.2f})")
+            else:
+                log.info(f"{ex_name}: balance OK (free=${bal['free']:.2f}, total=${bal['total']:.2f})")
+        except Exception as e:
+            issues.append(f"{ex_name}: API error - {e}")
+
+        # Try to load markets
+        try:
+            if not ex.markets:
+                ex.load_markets()
+            log.info(f"{ex_name}: {len(ex.markets)} markets loaded")
+        except Exception as e:
+            issues.append(f"{ex_name}: cannot load markets - {e}")
+
+    if config.get('enable_auto_tuning', False):
+        issues.append("enable_auto_tuning is ON - strongly recommended OFF for live trading")
+
+    if config.get('max_open_trades', 4) > 5:
+        issues.append(f"max_open_trades={config['max_open_trades']} is high for initial live trading")
+
+    if config.get('leverage_max', 5) > 5:
+        issues.append(f"leverage_max={config['leverage_max']} is high - consider reducing for live")
+
+    if not ALERTS_ENABLED and not TELEGRAM_DISCORD_AVAILABLE:
+        issues.append("No notification channel configured (Pushover/Telegram/Discord) - you will not receive alerts")
+
+    return issues
+
 
 def main():
     """Main trading loop"""
@@ -2939,116 +3274,184 @@ def main():
             dbp.init_tables()
             dbp.migrate_json_to_db()
         except Exception as e:
-            print(f"[{datetime.now()}] DB initialization error (continuing with JSON): {e}")
-    
-    print("=" * 60)
-    print(f"[{datetime.now()}] Crypto Pump Fade Trading Bot Starting...")
-    print(f"Mode: {'PAPER' if config['paper_mode'] else 'LIVE'}")
-    print(f"Starting Capital: ${config['starting_capital']:,.2f}")
-    print(f"Risk per Trade: {config['risk_pct_per_trade'] * 100}%")
-    print(f"Leverage: {config['leverage_default']}x")
-    print(f"Pump Range: {config['min_pump_pct']}% - {config.get('max_pump_pct', 200)}%")
-    print(f"RSI Threshold: >= {config['rsi_overbought']}")
-    print(f"Stop Loss: {'Swing High + ' + str(config.get('sl_swing_buffer_pct', 0.02)*100) + '%' if config.get('use_swing_high_sl', True) else str(config['sl_pct_above_entry'] * 100) + '% fixed'}")
-    print(f"Exits: {'Staged (50%/30%/20% at fib levels)' if config.get('use_staged_exits', True) else 'Single TP'}")
-    print(f"Compound Rate: {config['compound_pct'] * 100}%")
-    print("=" * 60)
+            log.error(f"DB initialization error (continuing with JSON): {e}")
+
+    is_live = not config['paper_mode']
+    mode_str = "LIVE" if is_live else "PAPER"
+
+    log.info("=" * 60)
+    log.info(f"Crypto Pump Fade Trading Bot Starting...")
+    log.info(f"Mode: {mode_str}")
+    log.info(f"Starting Capital: ${config['starting_capital']:,.2f}")
+    log.info(f"Risk per Trade: {config['risk_pct_per_trade'] * 100}%")
+    log.info(f"Leverage: {config['leverage_default']}x")
+    log.info(f"Pump Range: {config['min_pump_pct']}% - {config.get('max_pump_pct', 200)}%")
+    log.info(f"RSI Threshold: >= {config['rsi_overbought']}")
+    log.info(f"Stop Loss: {'Swing High + ' + str(config.get('sl_swing_buffer_pct', 0.02)*100) + '%' if config.get('use_swing_high_sl', True) else str(config['sl_pct_above_entry'] * 100) + '% fixed'}")
+    log.info(f"Exits: {'Staged (50%/30%/20% at fib levels)' if config.get('use_staged_exits', True) else 'Single TP'}")
+    log.info(f"Compound Rate: {config['compound_pct'] * 100}%")
+    if is_live:
+        log.info(f"Kill switch: {config.get('max_drawdown_kill_pct', 15)}% max drawdown, {config.get('max_consecutive_losses', 6)} consecutive losses")
+    log.info("=" * 60)
 
     exchanges = init_exchanges()
+    if not exchanges:
+        log.error("No exchanges configured. Exiting.")
+        return
+
+    # Pre-live validation
+    if is_live:
+        log.info("Running pre-live validation checks...")
+        issues = validate_live_readiness(exchanges, config)
+        if issues:
+            for issue in issues:
+                log.warning(f"  PRE-LIVE ISSUE: {issue}")
+            send_push_notification("Pre-live warnings",
+                "\n".join(f"- {i}" for i in issues), priority=0)
+        else:
+            log.info("  All pre-live checks passed!")
+
     symbols = load_symbols(exchanges)
     prev_data, open_trades, current_balance = load_state(config)
-    daily_loss = 0.0
+    safety_state = load_safety_state()
+    daily_loss = load_daily_loss()
     btc_prev = {'price': None, 'ts': time.time()}
     last_daily_reset = datetime.now().date()
     entry_watchlist = {}
     last_position_sync = 0
     last_learning_cycle = 0
-    LEARNING_CYCLE_INTERVAL_SEC = 4 * 3600  # Run learning analysis every 4 hours
+    LEARNING_CYCLE_INTERVAL_SEC = 4 * 3600
 
-    if not config.get('paper_mode', True):
+    if safety_state.get('peak_balance', 0) < current_balance:
+        safety_state['peak_balance'] = current_balance
+        save_safety_state(safety_state)
+
+    # Check kill switch on startup
+    halted, halt_reason = check_kill_switch(safety_state, current_balance, config)
+    if halted:
+        log.warning(f"KILL SWITCH ACTIVE: {halt_reason}")
+        log.warning("Reset kill_switch in safety_state.json to resume trading")
+        send_push_notification("Kill Switch Active", halt_reason, priority=2)
+
+    if is_live:
         for ex_name, ex in exchanges.items():
             open_trades = sync_live_positions(ex_name, ex, open_trades, config)
 
-    print(f"[{datetime.now()}] Current Balance: ${current_balance:,.2f}")
-    print(f"[{datetime.now()}] Open Trades: {len(open_trades)}")
-    print(f"[{datetime.now()}] Entering main loop (polling every {config['poll_interval_sec']}s)...")
-    print("=" * 60)
+    log.info(f"Current Balance: ${current_balance:,.2f}")
+    log.info(f"Open Trades: {len(open_trades)}")
+    log.info(f"Entering main loop (polling every {config['poll_interval_sec']}s)...")
+    log.info("=" * 60)
     send_push_notification(
         "Bot started",
-        f"Mode: {'PAPER' if config['paper_mode'] else 'LIVE'} | Balance: ${current_balance:,.2f} | Open trades: {len(open_trades)}"
+        f"Mode: {mode_str} | Balance: ${current_balance:,.2f} | Open trades: {len(open_trades)}"
     )
 
     while True:
         try:
             global ohlcv_calls_this_cycle
-            ohlcv_calls_this_cycle = 0  # Reset OHLCV rate limit counter each cycle
+            ohlcv_calls_this_cycle = 0
             global ohlcv_max_calls_per_cycle
-            
-            # Reload config each iteration to pick up changes from dashboard
+
             config = load_config()
+            is_live = not config.get('paper_mode', True)
             ohlcv_max_calls_per_cycle = int(config.get('ohlcv_max_calls_per_cycle', ohlcv_max_calls_per_cycle))
-            
+
+            # Reload safety state (may have been updated via dashboard)
+            safety_state = load_safety_state()
+
+            # Kill switch check
+            halted, halt_reason = check_kill_switch(safety_state, current_balance, config)
+            if halted:
+                save_safety_state(safety_state)
+                for ex_name, ex in exchanges.items():
+                    open_trades, current_balance, daily_loss = manage_trades(
+                        ex_name, ex, open_trades, current_balance, daily_loss, config, safety_state
+                    )
+                save_state(prev_data, open_trades, current_balance)
+                save_daily_loss(daily_loss)
+                save_safety_state(safety_state)
+                log.warning(f"KILL SWITCH: {halt_reason} | Still managing {len(open_trades)} open trades")
+                time.sleep(config['poll_interval_sec'])
+                continue
+
             current_date = datetime.now().date()
             if current_date != last_daily_reset:
                 daily_loss = 0.0
                 last_daily_reset = current_date
-                print(f"[{datetime.now()}] Daily loss reset for new day")
+                save_daily_loss(daily_loss)
+                log.info("Daily loss reset for new day")
 
-            # Periodic reconciliation of live positions
-            if not config.get('paper_mode', True) and (time.time() - last_position_sync >= POSITION_SYNC_INTERVAL_SEC):
+            if is_live and (time.time() - last_position_sync >= POSITION_SYNC_INTERVAL_SEC):
                 for ex_name, ex in exchanges.items():
                     open_trades = sync_live_positions(ex_name, ex, open_trades, config)
                 last_position_sync = time.time()
 
             skip_new_entries = False
+            btc_exchange = next(iter(exchanges.values()), None)
             try:
-                btc_ticker = exchanges['gate'].fetch_ticker('BTC/USDT:USDT')
-                btc_price = btc_ticker['last']
-                
-                if btc_prev['price'] is None:
-                    btc_prev['price'] = btc_price
-                    
-                btc_pct = ((btc_price - btc_prev['price']) / btc_prev['price']) * 100 if btc_prev['price'] else 0
-                
-                if btc_pct <= config['pause_on_btc_dump_pct']:
-                    print(f"[{datetime.now()}] PAUSE: BTC dumped {btc_pct:.1f}% - waiting 1h")
-                    send_push_notification("Trading paused", f"BTC dumped {btc_pct:.1f}% - pausing 1h", priority=1)
-                    time.sleep(3600)
-                    btc_prev['price'] = None
-                    continue
+                if btc_exchange:
+                    btc_ticker = retry_api_call(btc_exchange.fetch_ticker, 'BTC/USDT:USDT')
+                    btc_price = btc_ticker['last']
 
-                btc_vol_max = config.get('btc_volatility_max_pct', 0)
-                if btc_vol_max and abs(btc_pct) >= btc_vol_max:
-                    skip_new_entries = True
-                    
-                if current_balance > 0 and abs(daily_loss / current_balance) >= config['daily_loss_limit_pct']:
-                    print(f"[{datetime.now()}] PAUSE: Daily loss limit hit (${daily_loss:.2f}) - waiting 1h")
-                    send_push_notification("Trading paused", f"Daily loss limit hit (${daily_loss:.2f}) - pausing 1h", priority=1)
-                    time.sleep(3600)
-                    continue
-                    
-                btc_prev['price'] = btc_price
-                btc_prev['ts'] = time.time()
-                
+                    if btc_prev['price'] is None:
+                        btc_prev['price'] = btc_price
+
+                    btc_pct = ((btc_price - btc_prev['price']) / btc_prev['price']) * 100 if btc_prev['price'] else 0
+
+                    if btc_pct <= config['pause_on_btc_dump_pct']:
+                        log.warning(f"PAUSE: BTC dumped {btc_pct:.1f}% - managing trades then waiting")
+                        send_push_notification("Trading paused", f"BTC dumped {btc_pct:.1f}% - pausing new entries", priority=1)
+                        # Manage existing trades before pausing (don't block for 1h)
+                        for ex_name, ex in exchanges.items():
+                            open_trades, current_balance, daily_loss = manage_trades(
+                                ex_name, ex, open_trades, current_balance, daily_loss, config, safety_state
+                            )
+                        save_state(prev_data, open_trades, current_balance)
+                        save_daily_loss(daily_loss)
+                        save_safety_state(safety_state)
+                        time.sleep(min(config['poll_interval_sec'] * 2, 600))
+                        btc_prev['price'] = None
+                        continue
+
+                    btc_vol_max = config.get('btc_volatility_max_pct', 0)
+                    if btc_vol_max and abs(btc_pct) >= btc_vol_max:
+                        skip_new_entries = True
+
+                    if current_balance > 0 and abs(daily_loss / current_balance) >= config['daily_loss_limit_pct']:
+                        log.warning(f"PAUSE: Daily loss limit hit (${daily_loss:.2f})")
+                        send_push_notification("Trading paused", f"Daily loss limit hit (${daily_loss:.2f})", priority=1)
+                        for ex_name, ex in exchanges.items():
+                            open_trades, current_balance, daily_loss = manage_trades(
+                                ex_name, ex, open_trades, current_balance, daily_loss, config, safety_state
+                            )
+                        save_state(prev_data, open_trades, current_balance)
+                        save_daily_loss(daily_loss)
+                        save_safety_state(safety_state)
+                        time.sleep(min(config['poll_interval_sec'] * 2, 600))
+                        continue
+
+                    btc_prev['price'] = btc_price
+                    btc_prev['ts'] = time.time()
+
             except Exception as e:
-                print(f"[{datetime.now()}] Error fetching BTC price: {e}")
+                log.error(f"Error fetching BTC price: {e}")
 
             for ex_name, ex in exchanges.items():
-                # Manage open trades first to free slots
                 open_trades, current_balance, daily_loss = manage_trades(
-                    ex_name, ex, open_trades, current_balance, daily_loss, config
+                    ex_name, ex, open_trades, current_balance, daily_loss, config, safety_state
                 )
 
                 tickers = None
                 try:
-                    tickers = ex.fetch_tickers()
+                    tickers = retry_api_call(ex.fetch_tickers)
                 except Exception as e:
-                    print(f"[{datetime.now()}] Error fetching tickers from {ex_name}: {e}")
+                    log.error(f"Error fetching tickers from {ex_name}: {e}")
 
-                # Process any watchlist entries for this exchange
+                # Check cooldowns before allowing entries
+                effective_skip = skip_new_entries
                 open_trades, current_balance = process_entry_watchlist(
                     ex_name, ex, tickers, entry_watchlist, open_trades, current_balance, config,
-                    allow_entries=not skip_new_entries
+                    allow_entries=not effective_skip
                 )
 
                 if not tickers:
@@ -3070,7 +3473,10 @@ def main():
 
                     if skip_new_entries:
                         continue
-                        
+
+                    if is_symbol_on_cooldown(symbol, safety_state, config):
+                        continue
+
                     volume = ticker.get('quoteVolume', 0) or 0
                     if volume < config['min_volume_usdt']:
                         # Log pumps with significant % change that fail volume filter
@@ -3160,7 +3566,7 @@ def main():
                     if change_source is None:
                         # Only log occasionally to avoid spam (every 100th symbol)
                         if hash(symbol) % 100 == 0:
-                            print(f"[{datetime.now()}] No 24h change data for {ex_name} {symbol}")
+                            log.info(f"No 24h change data for {ex_name} {symbol}")
                         continue
                     
                     if config.get('enable_funding_filter', False):
@@ -3184,7 +3590,7 @@ def main():
                     
                     # Filter out mega-pumps (tend to have multiple legs)
                     if pct_change > max_pump:
-                        print(f"[{datetime.now()}] MEGA-PUMP SKIP: {ex_name} {symbol} +{pct_change:.1f}% > {max_pump}% max")
+                        log.info(f"MEGA-PUMP SKIP: {ex_name} {symbol} +{pct_change:.1f}% > {max_pump}% max")
                         save_signal(ex_name, symbol, 'pump_rejected', current_price,
                                    f"Mega-pump {pct_change:.1f}% exceeds {max_pump}% max - skipping",
                                    change_pct=pct_change)
@@ -3192,8 +3598,8 @@ def main():
                     
                     if pct_change >= min_pump:
                         window_label = f"{pump_window_hours}h" if pump_window_hours else change_source
-                        print(f"[{datetime.now()}] PUMP DETECTED! {ex_name} {symbol}")
-                        print(f"  Change: +{pct_change:.1f}% ({window_label}) | Volume: ${volume:,.0f} | Funding: {funding*100:.4f}%")
+                        log.info(f"PUMP DETECTED! {ex_name} {symbol}")
+                        log.info(f"  Change: +{pct_change:.1f}% ({window_label}) | Volume: ${volume:,.0f} | Funding: {funding*100:.4f}%")
                         
                         save_signal(ex_name, symbol, 'pump_detected', current_price,
                                    f"Pump +{pct_change:.1f}% ({window_label}) detected, validating...",
@@ -3206,7 +3612,7 @@ def main():
                         )
                         
                         if not pump_valid:
-                            print(f"  REJECTED: {rejection_reason}")
+                            log.info(f"  REJECTED: {rejection_reason}")
                             save_signal(ex_name, symbol, 'pump_rejected', current_price,
                                        f"Pump rejected: {rejection_reason}",
                                        change_pct=pct_change)
@@ -3218,7 +3624,7 @@ def main():
                                                   {'reason': rejection_reason})
                             continue
                         
-                        print(f"  VALIDATED: Pump passed all filters")
+                        log.info(f"  VALIDATED: Pump passed all filters")
 
                         df = get_ohlcv(ex, symbol)
                         if df is not None:
@@ -3226,14 +3632,14 @@ def main():
                             if not rsi_peak_ok:
                                 peak_val = rsi_peak_details.get('rsi_peak', 0)
                                 threshold = rsi_peak_details.get('threshold', config.get('rsi_overbought', 70))
-                                print(f"  RSI peak {peak_val:.1f} < {threshold}, skipping")
+                                log.info(f"  RSI peak {peak_val:.1f} < {threshold}, skipping")
                                 save_signal(ex_name, symbol, 'pump_rejected', current_price,
                                            f"RSI peak {peak_val:.1f} < {threshold} threshold",
                                            change_pct=pct_change, rsi=peak_val)
                                 continue
 
                             peak_val = rsi_peak_details.get('rsi_peak', 0)
-                            print(f"  RSI peak {peak_val:.1f} >= {config['rsi_overbought']}, adding to fade watchlist...")
+                            log.info(f"  RSI peak {peak_val:.1f} >= {config['rsi_overbought']}, adding to fade watchlist...")
                             if not is_symbol_open(open_trades, ex_name, symbol):
                                 entry_watchlist.setdefault(ex_name, {})
                                 watch = entry_watchlist[ex_name].get(symbol)
@@ -3261,53 +3667,65 @@ def main():
                                     watch['last_price'] = current_price
 
             save_state(prev_data, open_trades, current_balance)
-            
-            mode_str = "PAPER" if config['paper_mode'] else "LIVE"
-            print(f"[{datetime.now()}] [{mode_str}] Cycle complete | Balance: ${current_balance:,.2f} | Open: {len(open_trades)} | Daily P&L: ${-daily_loss:.2f}")
-            
-            # Periodic learning cycle
+            save_daily_loss(daily_loss)
+
+            if current_balance > safety_state.get('peak_balance', 0):
+                safety_state['peak_balance'] = current_balance
+            save_safety_state(safety_state)
+
+            cycle_mode = "PAPER" if config.get('paper_mode', True) else "LIVE"
+            log.info(f"[{cycle_mode}] Cycle complete | Balance: ${current_balance:,.2f} | Open: {len(open_trades)} | Daily P&L: ${-daily_loss:.2f}")
+
+            # Periodic learning cycle (disable auto-tuning in live mode for safety)
             if LEARNING_AVAILABLE and config.get('enable_adaptive_learning', True):
                 if time.time() - last_learning_cycle >= LEARNING_CYCLE_INTERVAL_SEC:
                     try:
-                        print(f"[{datetime.now()}] Running learning analysis...")
+                        log.info("Running learning analysis...")
                         learner = AdaptiveLearner()
                         analysis = learner.analyze_and_suggest()
-                        
+
                         if analysis.get("status") == "analyzed":
                             perf = analysis.get("performance", {})
                             suggestions = analysis.get("suggestions", [])
-                            
-                            print(f"  Performance (7d): {perf.get('trades', 0)} trades, {perf.get('win_rate', 0):.1f}% win rate, ${perf.get('total_profit', 0):.2f} profit")
-                            
+
+                            log.info(f"  Performance (7d): {perf.get('trades', 0)} trades, {perf.get('win_rate', 0):.1f}% win rate, ${perf.get('total_profit', 0):.2f} profit")
+
                             if suggestions:
-                                print(f"  Suggestions: {len(suggestions)} parameter adjustments recommended")
-                                
-                                # Auto-apply if enabled and win rate is below 40%
-                                if config.get('enable_auto_tuning', False) and perf.get('win_rate', 50) < 40:
+                                log.info(f"  Suggestions: {len(suggestions)} parameter adjustments recommended")
+
+                                allow_auto = config.get('enable_auto_tuning', False)
+                                if is_live:
+                                    allow_auto = False
+                                    log.info("  Auto-tuning disabled in LIVE mode for safety")
+
+                                if allow_auto and perf.get('win_rate', 50) < 40:
                                     apply_result = learner.apply_suggestions(suggestions)
-                                    print(f"  Auto-applied {apply_result.get('applied', 0)} changes (low win rate trigger)")
+                                    log.info(f"  Auto-applied {apply_result.get('applied', 0)} changes (low win rate trigger)")
                                     send_push_notification(
                                         "Learning adjustments applied",
                                         f"Win rate {perf.get('win_rate', 0):.1f}% - applied {apply_result.get('applied', 0)} parameter changes",
                                         priority=0
                                     )
                         elif analysis.get("status") == "insufficient_data":
-                            print(f"  Learning: Need {analysis.get('required', 10)} trades, have {analysis.get('trades', 0)}")
-                        
+                            log.info(f"  Learning: Need {analysis.get('required', 10)} trades, have {analysis.get('trades', 0)}")
+
                         last_learning_cycle = time.time()
                     except Exception as e:
-                        print(f"[{datetime.now()}] Learning cycle error: {e}")
-            
+                        log.error(f"Learning cycle error: {e}")
+
             time.sleep(config['poll_interval_sec'])
 
         except KeyboardInterrupt:
-            print(f"\n[{datetime.now()}] Shutting down gracefully...")
+            log.info("Shutting down gracefully...")
             save_state(prev_data, open_trades, current_balance)
+            save_daily_loss(daily_loss)
+            save_safety_state(safety_state)
             break
         except Exception as e:
-            print(f"[{datetime.now()}] Main loop error: {e}")
+            log.error(f"Main loop error: {e}")
             send_push_notification("Bot error", f"Main loop error: {e}", priority=1)
             save_state(prev_data, open_trades, current_balance)
+            save_daily_loss(daily_loss)
             time.sleep(60)
 
 if __name__ == "__main__":
